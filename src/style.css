@@ -48,3 +48,12 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* 隐藏滚动条但保持可滚动 */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

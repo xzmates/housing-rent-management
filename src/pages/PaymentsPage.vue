@@ -3,65 +3,47 @@
     <div class="mb-8">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">缴费记录</h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-2">管理租金、水电费、押金等缴费记录</p>
+          <h1 class="text-xl font-bold text-gray-900 dark:text-white">缴费记录</h1>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">共 {{ payments.length }} 条记录</p>
         </div>
-        <button @click="showAddModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        <button @click="showAddModal = true" class="flex items-center gap-1.5 px-5 py-3 bg-blue-600 text-white rounded-xl font-medium shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 active:scale-95 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
           </svg>
-          添加缴费记录
+          添加缴费
         </button>
       </div>
     </div>
 
-    <!-- 筛选器 -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">房屋筛选</label>
-          <select v-model="filters.houseId" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <option value="">全部房屋</option>
-            <option v-for="house in availableHouses" :key="house._id" :value="house._id">
-              {{ house.code }} - {{ house.address }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">缴费类型</label>
-          <select v-model="filters.paymentType" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <option value="">全部</option>
-            <option value="rent">租金</option>
-            <option value="utility">水电费</option>
-            <option value="deposit">押金</option>
-            <option value="other">其他</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">缴费状态</label>
-          <select v-model="filters.status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <option value="">全部</option>
-            <option value="paid">已缴</option>
-            <option value="pending">待缴</option>
-            <option value="overdue">逾期</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">时间范围</label>
-          <div class="flex space-x-2">
-            <input v-model="filters.startDate" type="date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <input v-model="filters.endDate" type="date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          </div>
-        </div>
-        <div class="flex items-end">
-          <button @click="loadPayments" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-            筛选
-          </button>
-          <button @click="resetFilters" class="w-full ml-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">
-            重置
-          </button>
-        </div>
+    <!-- App风格筛选器 -->
+    <div class="flex items-center gap-2 overflow-x-auto mb-4 pb-1 scrollbar-hide">
+      <select v-model="filters.houseId" @change="loadPayments" class="shrink-0 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+        <option value="">全部房屋</option>
+        <option v-for="house in availableHouses" :key="house._id" :value="house._id">{{ house.code }}</option>
+      </select>
+      <button @click="filters.paymentType = ''; loadPayments()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="!filters.paymentType ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        全部
+      </button>
+      <button @click="filters.paymentType = 'rent'; loadPayments()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="filters.paymentType === 'rent' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        租金
+      </button>
+      <button @click="filters.paymentType = 'utility'; loadPayments()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="filters.paymentType === 'utility' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        水电
+      </button>
+      <button @click="filters.paymentType = 'deposit'; loadPayments()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="filters.paymentType === 'deposit' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        押金
+      </button>
+      <button @click="filters.status = filters.status === 'paid' ? '' : 'paid'; loadPayments()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="filters.status === 'paid' ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        已缴
+      </button>
+      <div class="flex items-center gap-1 shrink-0">
+        <input v-model="filters.startDate" type="date" class="w-24 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" @change="loadPayments">
+        <span class="text-gray-400">~</span>
+        <input v-model="filters.endDate" type="date" class="w-24 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" @change="loadPayments">
       </div>
+      <button @click="resetFilters" class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+        清空
+      </button>
     </div>
 
     <!-- 统计卡片 -->

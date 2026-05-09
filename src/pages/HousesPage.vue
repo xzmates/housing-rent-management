@@ -3,49 +3,38 @@
     <div class="mb-8">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">房屋管理</h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-2">管理您的房屋信息，添加、查看和筛选房屋</p>
+          <h1 class="text-xl font-bold text-gray-900 dark:text-white">房屋管理</h1>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">共 {{ houses.length }} 套房</p>
         </div>
-        <button @click="showAddModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        <button @click="showAddModal = true" class="flex items-center gap-1.5 px-5 py-3 bg-blue-600 text-white rounded-xl font-medium shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 active:scale-95 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
           </svg>
           添加房屋
         </button>
       </div>
     </div>
 
-    <!-- 筛选器 -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">房屋状态</label>
-          <select v-model="filters.status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <option value="">全部</option>
-            <option value="available">可租</option>
-            <option value="rented">已租</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">租金范围（元）</label>
-          <div class="flex space-x-2">
-            <input v-model="filters.minRent" type="number" placeholder="最低" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <input v-model="filters.maxRent" type="number" placeholder="最高" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">房屋编号</label>
-          <input v-model="filters.code" type="text" placeholder="搜索编号" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-        </div>
-        <div class="flex items-end">
-          <button @click="loadHouses" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-            筛选
-          </button>
-          <button @click="resetFilters" class="w-full ml-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">
-            重置
-          </button>
-        </div>
+    <!-- App风格筛选器 -->
+    <div class="flex items-center gap-2 overflow-x-auto mb-4 pb-1 scrollbar-hide">
+      <button @click="filters.status = ''; loadHouses()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="!filters.status ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        全部
+      </button>
+      <button @click="filters.status = 'available'; loadHouses()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="filters.status === 'available' ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        可租
+      </button>
+      <button @click="filters.status = 'rented'; loadHouses()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="filters.status === 'rented' ? 'bg-blue-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
+        已租
+      </button>
+      <div class="flex items-center gap-1 shrink-0">
+        <input v-model="filters.minRent" type="number" placeholder="¥最低" class="w-16 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400" @input="loadHouses">
+        <span class="text-gray-400">—</span>
+        <input v-model="filters.maxRent" type="number" placeholder="¥最高" class="w-16 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400" @input="loadHouses">
       </div>
+      <input v-model="filters.code" type="text" placeholder="搜编号" class="w-20 shrink-0 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400" @input="loadHouses">
+      <button @click="resetFilters" class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+        清空
+      </button>
     </div>
 
     <!-- 房屋列表 -->
