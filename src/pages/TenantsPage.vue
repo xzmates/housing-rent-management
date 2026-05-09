@@ -110,50 +110,35 @@
         </div>
 
         <!-- 移动端卡片列表 -->
-        <div class="md:hidden space-y-4 p-4">
-          <div v-for="tenant in tenants" :key="tenant._id" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
-            <div class="flex justify-between items-start">
-              <div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ tenant.name }}</h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">身份证: {{ tenant.idCard || '未填写' }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">手机: {{ tenant.phone || '未填写' }}</p>
+        <div class="md:hidden space-y-2">
+          <div v-for="tenant in tenants" :key="tenant._id" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-3.5 py-3">
+            <!-- 第一行：姓名 + 状态 -->
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-gray-900 dark:text-white">{{ tenant.name }}</span>
+                <span :class="['w-2 h-2 rounded-full', tenant.status === 'active' ? 'bg-green-500' : 'bg-gray-400']"></span>
               </div>
-              <span :class="[
-                'px-2 py-1 text-xs font-medium rounded-full',
-                tenant.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
-              ]">
-                {{ tenant.status === 'active' ? '入住中' : '已退租' }}
-              </span>
-              <div v-if="tenant.status === 'moved_out' && (tenant as any).moveOutDate" class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate((tenant as any).moveOutDate) }} 退租</div>
-            </div>
-            <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <p class="text-gray-500 dark:text-gray-400">房屋</p>
-                <p class="text-gray-900 dark:text-white font-medium">{{ getHouseLabel(tenant.houseId) }}</p>
-              </div>
-              <div>
-                <p class="text-gray-500 dark:text-gray-400">租金</p>
-                <p class="text-gray-900 dark:text-white font-medium">¥{{ tenant.rent || 0 }}/月</p>
-              </div>
-              <div>
-                <p class="text-gray-500 dark:text-gray-400">支付方式</p>
-                <p class="text-gray-900 dark:text-white">{{ getPaymentCycleLabel(tenant.paymentCycle) }}</p>
-              </div>
-              <div>
-                <p class="text-gray-500 dark:text-gray-400">入住日期</p>
-                <p class="text-gray-900 dark:text-white">{{ formatDate(tenant.moveInDate) }}</p>
-              </div>
-              <div v-if="tenant.deposit">
-                <p class="text-gray-500 dark:text-gray-400">押金</p>
-                <p class="text-gray-900 dark:text-white font-medium">¥{{ tenant.deposit }}</p>
+              <div class="flex items-center gap-2">
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium" :class="tenant.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'">
+                  {{ tenant.status === 'active' ? '在住' : '已退' }}
+                </span>
+                <div v-if="tenant.status === 'moved_out' && (tenant as any).moveOutDate" class="text-[10px] text-gray-400">退{{ formatDate((tenant as any).moveOutDate) }}</div>
               </div>
             </div>
-            <div class="mt-4 flex justify-end space-x-2">
-              <button @click="viewContract(tenant)" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition">合同</button>
-              <button v-if="tenant.status === 'active'" @click="editTenant(tenant)" class="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition">编辑</button>
-              <button v-if="tenant.status === 'active'" @click="handleMoveOut(tenant)" class="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition">退租</button>
-              <button @click="deleteTenant(tenant._id)" class="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition">删除</button>
+            <!-- 第二行：关键信息 -->
+            <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
+              <span>{{ tenant.phone || '—' }}</span>
+              <span class="text-gray-300 dark:text-gray-600">|</span>
+              <span>{{ tenant.idCard ? tenant.idCard.slice(-4) : '—' }}</span>
+              <span class="text-gray-300 dark:text-gray-600">|</span>
+              <span>{{ getHouseCode(tenant.houseId) }}</span>
+            </div>
+            <!-- 第三行：操作 -->
+            <div class="flex items-center gap-2">
+              <button @click="viewContract(tenant)" class="px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">合同</button>
+              <button v-if="tenant.status === 'active'" @click="editTenant(tenant)" class="px-2.5 py-1 text-xs font-medium bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">编辑</button>
+              <button v-if="tenant.status === 'active'" @click="handleMoveOut(tenant)" class="px-2.5 py-1 text-xs font-medium bg-orange-50 dark:bg-orange-900/30 text-orange-500 dark:text-orange-400 rounded-lg">退租</button>
+              <button @click="deleteTenant(tenant._id)" class="px-2.5 py-1 text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 rounded-lg">删除</button>
             </div>
           </div>
         </div>
@@ -296,7 +281,7 @@
             <div class="text-sm space-y-2">
               <div class="flex justify-between text-blue-700 dark:text-blue-300">
                 <span>月租金</span>
-                <span>¥{{ Number(tenantForm.rent).toFixed(2) }}</span>
+                <span>¥{{ Number(tenantForm.rent).toFixed(1) }}</span>
               </div>
               <div class="flex justify-between text-blue-700 dark:text-blue-300">
                 <span>支付方式</span>
@@ -304,27 +289,27 @@
               </div>
               <div v-if="tenantForm.paymentCycle === 'quarter'" class="flex justify-between font-medium text-blue-800 dark:text-blue-200 pt-1 border-t border-blue-200 dark:border-blue-700">
                 <span>本次应缴租金（季付，3个月）</span>
-                <span>¥{{ (Number(tenantForm.rent) * 3).toFixed(2) }}</span>
+                <span>¥{{ (Number(tenantForm.rent) * 3).toFixed(1) }}</span>
               </div>
               <div v-if="tenantForm.paymentCycle === 'half_year'" class="flex justify-between font-medium text-blue-800 dark:text-blue-200 pt-1 border-t border-blue-200 dark:border-blue-700">
                 <span>本次应缴租金（半年付，6个月）</span>
-                <span>¥{{ (Number(tenantForm.rent) * 6).toFixed(2) }}</span>
+                <span>¥{{ (Number(tenantForm.rent) * 6).toFixed(1) }}</span>
               </div>
               <div v-if="tenantForm.paymentCycle === 'year'" class="flex justify-between font-medium text-blue-800 dark:text-blue-200 pt-1 border-t border-blue-200 dark:border-blue-700">
                 <span>本次应缴租金（年付，12个月）</span>
-                <span>¥{{ (Number(tenantForm.rent) * 12).toFixed(2) }}</span>
+                <span>¥{{ (Number(tenantForm.rent) * 12).toFixed(1) }}</span>
               </div>
               <div v-if="tenantForm.paymentCycle === 'month'" class="flex justify-between font-medium text-blue-800 dark:text-blue-200 pt-1 border-t border-blue-200 dark:border-blue-700">
                 <span>本次应缴租金（月付，1个月）</span>
-                <span>¥{{ Number(tenantForm.rent).toFixed(2) }}</span>
+                <span>¥{{ Number(tenantForm.rent).toFixed(1) }}</span>
               </div>
               <div class="flex justify-between font-medium text-green-700 dark:text-green-300 pt-1 border-t border-blue-200 dark:border-blue-700">
                 <span>押金</span>
-                <span>¥{{ Number(tenantForm.deposit).toFixed(2) }}</span>
+                <span>¥{{ Number(tenantForm.deposit).toFixed(1) }}</span>
               </div>
               <div class="flex justify-between font-bold text-blue-800 dark:text-blue-200 pt-2 border-t-2 border-blue-300 dark:border-blue-600 text-base">
                 <span>合计缴费</span>
-                <span>¥{{ (Number(tenantForm.rent) * (tenantForm.paymentCycle === 'quarter' ? 3 : tenantForm.paymentCycle === 'half_year' ? 6 : tenantForm.paymentCycle === 'year' ? 12 : 1) + Number(tenantForm.deposit)).toFixed(2) }}</span>
+                <span>¥{{ (Number(tenantForm.rent) * (tenantForm.paymentCycle === 'quarter' ? 3 : tenantForm.paymentCycle === 'half_year' ? 6 : tenantForm.paymentCycle === 'year' ? 12 : 1) + Number(tenantForm.deposit)).toFixed(1) }}</span>
               </div>
             </div>
           </div>
@@ -404,15 +389,15 @@
                 <p class="font-medium text-green-800 dark:text-green-200 mb-1">📥 已预缴</p>
                 <div class="flex justify-between text-green-700 dark:text-green-300">
                   <span>预缴房租</span>
-                  <span>¥{{ settlementInfo.prepaidRent?.toFixed(2) }}</span>
+                  <span>¥{{ settlementInfo.prepaidRent?.toFixed(1) }}</span>
                 </div>
                 <div class="flex justify-between text-green-700 dark:text-green-300">
                   <span>押金</span>
-                  <span>¥{{ settlementInfo.depositAmount?.toFixed(2) }}</span>
+                  <span>¥{{ settlementInfo.depositAmount?.toFixed(1) }}</span>
                 </div>
                 <div class="flex justify-between font-medium text-green-800 dark:text-green-200 pt-1 border-t border-green-300 dark:border-green-700">
                   <span>小计</span>
-                  <span>¥{{ ((settlementInfo.prepaidRent || 0) + (settlementInfo.depositAmount || 0))?.toFixed(2) }}</span>
+                  <span>¥{{ ((settlementInfo.prepaidRent || 0) + (settlementInfo.depositAmount || 0))?.toFixed(1) }}</span>
                 </div>
               </div>
 
@@ -421,19 +406,19 @@
                 <p class="font-medium text-orange-800 dark:text-orange-200 mb-1">📤 应缴费</p>
                 <div class="flex justify-between text-orange-700 dark:text-orange-300">
                   <span>应缴房租 <span class="text-xs">({{ settlementInfo.owedRentNote }})</span></span>
-                  <span>¥{{ settlementInfo.owedRent?.toFixed(2) }}</span>
+                  <span>¥{{ settlementInfo.owedRent?.toFixed(1) }}</span>
                 </div>
                 <div v-if="settlementInfo.pendingUtility > 0" class="flex justify-between text-orange-700 dark:text-orange-300">
                   <span>水电费</span>
-                  <span>¥{{ settlementInfo.pendingUtility?.toFixed(2) }}</span>
+                  <span>¥{{ settlementInfo.pendingUtility?.toFixed(1) }}</span>
                 </div>
                 <div v-if="settlementInfo.otherPending > 0" class="flex justify-between text-orange-700 dark:text-orange-300">
                   <span>其他费用</span>
-                  <span>¥{{ settlementInfo.otherPending?.toFixed(2) }}</span>
+                  <span>¥{{ settlementInfo.otherPending?.toFixed(1) }}</span>
                 </div>
                 <div class="flex justify-between font-medium text-orange-800 dark:text-orange-200 pt-1 border-t border-orange-300 dark:border-orange-700">
                   <span>小计</span>
-                  <span>¥{{ ((settlementInfo.owedRent || 0) + (settlementInfo.pendingUtility || 0) + (settlementInfo.otherPending || 0))?.toFixed(2) }}</span>
+                  <span>¥{{ ((settlementInfo.owedRent || 0) + (settlementInfo.pendingUtility || 0) + (settlementInfo.otherPending || 0))?.toFixed(1) }}</span>
                 </div>
               </div>
 
@@ -441,11 +426,11 @@
               <div class="rounded p-2 font-bold text-base" :class="settlementInfo.refundAmount > 0 ? 'bg-green-200/80 dark:bg-green-800/40' : 'bg-red-200/80 dark:bg-red-800/40'">
                 <div class="flex justify-between items-center" v-if="settlementInfo.refundAmount > 0">
                   <span class="text-green-800 dark:text-green-200">✅ 最终退费</span>
-                  <span class="text-green-800 dark:text-green-200 text-lg">¥{{ settlementInfo.refundAmount?.toFixed(2) }}</span>
+                  <span class="text-green-800 dark:text-green-200 text-lg">¥{{ settlementInfo.refundAmount?.toFixed(1) }}</span>
                 </div>
                 <div class="flex justify-between items-center" v-if="settlementInfo.extraDue > 0">
                   <span class="text-red-800 dark:text-red-200">⚠️ 还需缴纳</span>
-                  <span class="text-red-800 dark:text-red-200 text-lg">¥{{ settlementInfo.extraDue?.toFixed(2) }}</span>
+                  <span class="text-red-800 dark:text-red-200 text-lg">¥{{ settlementInfo.extraDue?.toFixed(1) }}</span>
                 </div>
               </div>
             </div>
@@ -486,32 +471,32 @@
             <div class="text-sm space-y-2">
               <div class="flex justify-between text-green-700 dark:text-green-300">
                 <span>预缴房租</span>
-                <span>¥{{ settlementInfo?.prepaidRent?.toFixed(2) }}</span>
+                <span>¥{{ settlementInfo?.prepaidRent?.toFixed(1) }}</span>
               </div>
               <div class="flex justify-between text-green-700 dark:text-green-300">
                 <span>押金</span>
-                <span>¥{{ settlementInfo?.depositAmount?.toFixed(2) }}</span>
+                <span>¥{{ settlementInfo?.depositAmount?.toFixed(1) }}</span>
               </div>
               <div class="flex justify-between text-orange-700 dark:text-orange-300 pt-1 border-t border-blue-200 dark:border-blue-700">
                 <span>应缴房租 <span class="text-xs">({{ settlementInfo?.owedRentNote }})</span></span>
-                <span>¥{{ settlementInfo?.owedRent?.toFixed(2) }}</span>
+                <span>¥{{ settlementInfo?.owedRent?.toFixed(1) }}</span>
               </div>
               <div v-if="settlementInfo?.pendingUtility > 0" class="flex justify-between text-orange-700 dark:text-orange-300">
                 <span>水电费</span>
-                <span>¥{{ settlementInfo?.pendingUtility?.toFixed(2) }}</span>
+                <span>¥{{ settlementInfo?.pendingUtility?.toFixed(1) }}</span>
               </div>
               <div v-if="settlementInfo?.otherPending > 0" class="flex justify-between text-orange-700 dark:text-orange-300">
                 <span>其他费用</span>
-                <span>¥{{ settlementInfo?.otherPending?.toFixed(2) }}</span>
+                <span>¥{{ settlementInfo?.otherPending?.toFixed(1) }}</span>
               </div>
               <div class="pt-2 border-t-2 border-blue-300 dark:border-blue-600">
                 <div v-if="settlementInfo?.refundAmount > 0" class="flex justify-between font-bold text-green-700 dark:text-green-300 text-base">
                   <span>✅ 退费金额</span>
-                  <span>¥{{ settlementInfo?.refundAmount?.toFixed(2) }}</span>
+                  <span>¥{{ settlementInfo?.refundAmount?.toFixed(1) }}</span>
                 </div>
                 <div v-if="settlementInfo?.extraDue > 0" class="flex justify-between font-bold text-red-700 dark:text-red-300 text-base">
                   <span>⚠️ 还需缴纳</span>
-                  <span>¥{{ settlementInfo?.extraDue?.toFixed(2) }}</span>
+                  <span>¥{{ settlementInfo?.extraDue?.toFixed(1) }}</span>
                 </div>
               </div>
             </div>
@@ -608,6 +593,11 @@ const paymentCycleLabels: Record<string, string> = {
 
 const getPaymentCycleLabel = (cycle: string) => {
   return paymentCycleLabels[cycle] || cycle
+}
+
+const getHouseCode = (houseId: string) => {
+  const house = availableHouses.value.find(h => h._id === houseId)
+  return house?.code || '—'
 }
 
 const getHouseLabel = (houseId: string) => {
@@ -831,7 +821,7 @@ const finalizeMoveOut = async () => {
         tenantId,
         paymentType: 'rent',
         amount: s.owedRent,
-        description: `退租结算 - 应收租金（${s.owedRentNote}，预缴已抵扣¥${Math.min(s.prepaidRent, s.owedRent).toFixed(2)}）`,
+        description: `退租结算 - 应收租金（${s.owedRentNote}，预缴已抵扣¥${Math.min(s.prepaidRent, s.owedRent).toFixed(1)}）`,
         paymentDate: moveOutDateObj,
         period: `退租结算`,
         status: 'paid'
@@ -846,7 +836,7 @@ const finalizeMoveOut = async () => {
         tenantId,
         paymentType: 'deposit',
         amount: refundAmount,
-        description: `退租结算 - 退还押金（押金¥${s.depositAmount.toFixed(2)}，扣除水电费¥${s.pendingUtility.toFixed(2)}）`,
+        description: `退租结算 - 退还押金（押金¥${s.depositAmount.toFixed(1)}，扣除水电费¥${s.pendingUtility.toFixed(1)}）`,
         paymentDate: moveOutDateObj,
         period: `退租结算`,
         status: 'paid'

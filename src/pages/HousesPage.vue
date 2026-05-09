@@ -124,67 +124,29 @@
         </div>
 
         <!-- 移动端卡片列表 -->
-        <div class="md:hidden space-y-4">
-          <div v-for="house in houses" :key="house._id" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
-            <div class="flex justify-between items-start">
-              <div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ house.code }} - {{ house.address }}</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">编号: {{ house.code }}</p>
+        <div class="md:hidden space-y-2">
+          <div v-for="house in houses" :key="house._id" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-3.5 py-3">
+            <!-- 第一行：编号 + 状态 -->
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-sm font-bold text-gray-900 dark:text-white truncate">{{ house.code }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ house.address }}</span>
               </div>
-              <span :class="[
-                'px-3 py-1 text-xs font-medium rounded-full',
-                house.status === 'available' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-              ]">
+              <span class="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" :class="house.status === 'available' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'">
                 {{ house.status === 'available' ? '可租' : '已租' }}
               </span>
             </div>
-
-            <div class="mt-4">
-              <div class="flex justify-between items-center">
-                <div>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">月租金</p>
-                  <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">¥{{ house.rent || 0 }}</p>
-                </div>
+            <!-- 第二行：租金 + 租客速览 -->
+            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <div class="flex items-center gap-3">
+                <span class="font-medium text-gray-900 dark:text-white">¥{{ house.rent || 0 }}<span class="font-normal text-gray-400">/月</span></span>
+                <span v-if="house.status === 'rented' && house.tenantInfo">{{ house.tenantInfo.name }}</span>
               </div>
-            </div>
-
-            <!-- 租客信息（移动端） -->
-            <div v-if="house.status === 'rented' && house.tenantInfo" class="mt-4">
-              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                <p class="text-sm font-medium text-blue-700 dark:text-blue-300">租客信息</p>
-                <p class="text-sm text-gray-900 dark:text-white mt-1">{{ house.tenantInfo.name }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">入住: {{ formatDate(house.tenantInfo.moveInDate) }}</p>
+              <div class="flex items-center gap-1.5">
+                <button v-if="house.status === 'rented' && house.tenantInfo" @click="viewContract(house)" class="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs">合同</button>
+                <button @click="editHouse(house)" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-xs">编辑</button>
+                <button @click="deleteHouse(house._id)" class="px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 rounded-lg text-xs">删除</button>
               </div>
-            </div>
-
-            <!-- 下次收租信息（移动端） -->
-            <div v-if="house.status === 'rented' && house.nextRentDue" class="mt-4">
-              <div :class="[
-                'rounded-lg p-3',
-                house.nextRentDue.daysUntilDue <= 3 ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' :
-                house.nextRentDue.daysUntilDue <= 7 ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800' :
-                'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-              ]">
-                <p class="text-sm font-medium text-gray-900 dark:text-white">下次收租</p>
-                <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">¥{{ house.nextRentDue.amount }}</p>
-                <p :class="[
-                  'text-xs mt-1',
-                  house.nextRentDue.daysUntilDue <= 3 ? 'text-red-600 dark:text-red-400 font-medium' :
-                  house.nextRentDue.daysUntilDue <= 7 ? 'text-yellow-600 dark:text-yellow-400' :
-                  'text-green-600 dark:text-green-400'
-                ]">
-                  {{ formatDate(house.nextRentDue.date) }}
-                  <span v-if="house.nextRentDue.daysUntilDue >= 0">({{ house.nextRentDue.daysUntilDue }}天后)</span>
-                  <span v-else class="text-red-600 dark:text-red-400">(已逾期{{ -house.nextRentDue.daysUntilDue }}天)</span>
-                </p>
-              </div>
-            </div>
-
-            <div class="mt-4 flex justify-end space-x-3">
-              <button v-if="house.status === 'rented' && house.tenantInfo" @click="viewContract(house)" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm">合同</button>
-              <button @click="editHouse(house)" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">编辑</button>
-              <button @click="deleteHouse(house._id)" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm">删除</button>
             </div>
           </div>
         </div>

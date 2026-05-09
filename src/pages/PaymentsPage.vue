@@ -91,73 +91,136 @@
       </div>
     </div>
 
-    <!-- 缴费记录列表 -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-      <div v-if="loading" class="p-8 text-center">
-        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">加载中...</p>
-      </div>
+    <!-- 加载 / 空状态 -->
+    <div v-if="loading" class="py-12 text-center">
+      <span class="loading loading-dots loading-md text-blue-600"></span>
+    </div>
 
-      <div v-else-if="payments.length === 0" class="p-8 text-center">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">暂无缴费记录</h3>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">开始添加您的第一条缴费记录吧！</p>
-        <div class="mt-6">
-          <button @click="showAddModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-            添加缴费记录
-          </button>
-        </div>
-      </div>
+    <div v-else-if="payments.length === 0" class="py-12 text-center">
+      <svg class="mx-auto h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p class="mt-2 text-sm text-gray-500">暂无缴费记录</p>
+    </div>
 
-      <div v-else class="overflow-x-auto">
+    <!-- 桌面端表格 (md+) -->
+    <template v-else>
+      <div class="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead class="bg-gray-50 dark:bg-gray-900">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">缴费信息</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">房屋/租客</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">金额</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">缴费日期</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">状态</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">操作</th>
+              <th class="w-[30%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">缴费信息</th>
+              <th class="w-[22%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">房屋/租客</th>
+              <th class="w-[13%] px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">金额</th>
+              <th class="w-[17%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">日期</th>
+              <th class="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400">状态</th>
+              <th class="w-[8%] px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">操作</th>
             </tr>
           </thead>
-          <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            <tr v-for="payment in payments" :key="payment._id">
-              <td class="px-6 py-4">
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            <tr v-for="payment in payments" :key="payment._id" class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <td class="px-4 py-3">
                 <div class="text-sm font-medium text-gray-900 dark:text-white">{{ getPaymentTypeText(payment.paymentType) }}</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ payment.description || '无描述' }}</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">周期: {{ payment.period || '一次性' }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px]">{{ (payment.description || '—') }}</div>
               </td>
-              <td class="px-6 py-4">
-                <div class="text-sm text-gray-900 dark:text-white">{{ getHouseAddress(payment.houseId) }}</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">{{ getTenantName(payment.tenantId) }}</div>
+              <td class="px-4 py-3">
+                <div class="text-sm text-gray-900 dark:text-white truncate max-w-[140px]">{{ getHouseAddress(payment.houseId) }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ getTenantName(payment.tenantId) }}</div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-lg font-bold text-gray-900 dark:text-white">¥{{ payment.amount }}</div>
+              <td class="px-4 py-3 text-right whitespace-nowrap">
+                <div class="text-base font-bold text-gray-900 dark:text-white">¥{{ formatAmount(payment.amount) }}</div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">
+              <td class="px-4 py-3 whitespace-nowrap">
                 <div class="text-sm text-gray-900 dark:text-white">{{ formatDate(payment.paymentDate) }}</div>
-                <div v-if="payment.description?.includes('退租结算')" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">退租结算</div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span :class="[
-                  'px-2 py-1 text-xs font-medium rounded-full',
-                  payment.status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                  payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                ]">
+              <td class="px-4 py-3 text-center whitespace-nowrap">
+                <span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium"
+                  :class="payment.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                  payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'">
                   {{ payment.status === 'paid' ? '已缴' : payment.status === 'pending' ? '待缴' : '逾期' }}
                 </span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <button @click="markAsPaid(payment._id)" v-if="payment.status !== 'paid'" class="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 mr-4">标记已缴</button>
-                <button @click="deletePayment(payment._id)" class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300">删除</button>
+              <td class="px-4 py-3 text-right whitespace-nowrap">
+                <button v-if="payment.status !== 'paid'" @click="markAsPaid(payment._id)" class="text-green-600 hover:text-green-800 dark:text-green-400 text-xs font-medium mr-2">已缴</button>
+                <button @click="deletePayment(payment._id)" class="text-red-500 hover:text-red-700 dark:text-red-400 text-xs font-medium">删除</button>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- 移动端卡片列表 (小于 md) -->
+      <div class="md:hidden space-y-2">
+        <div v-for="payment in payments" :key="payment._id" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-3.5 py-3">
+          <!-- 卡片行：类型 + 金额 + 状态 -->
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-gray-900 dark:text-white">{{ getPaymentTypeText(payment.paymentType) }}</span>
+              <span v-if="payment.description?.includes('退租结算')" class="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">退租</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-gray-900 dark:text-white">¥{{ formatAmount(payment.amount) }}</span>
+              <span class="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                :class="payment.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'">
+                {{ payment.status === 'paid' ? '已缴' : payment.status === 'pending' ? '待缴' : '逾期' }}
+              </span>
+            </div>
+          </div>
+          <!-- 卡片行：房屋编号 + 日期 + 详情按钮 -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span class="font-medium text-gray-700 dark:text-gray-300">{{ getHouseCode(payment.houseId) }}</span>
+              <span class="text-gray-300 dark:text-gray-600">|</span>
+              <span>{{ formatDate(payment.paymentDate) }}</span>
+            </div>
+            <button @click="showDetail(payment)" class="text-xs text-blue-600 dark:text-blue-400 font-medium">详情 ›</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- 缴费详情弹窗 -->
+    <div v-if="showDetailModal && detailPayment" class="fixed inset-0 bg-gray-600/50 z-50" @click.self="showDetailModal = false">
+      <div class="absolute bottom-0 md:relative md:top-20 mx-auto p-5 border w-full md:max-w-sm rounded-t-2xl md:rounded-2xl shadow-xl bg-white dark:bg-gray-800">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ getPaymentTypeText(detailPayment.paymentType) }}</h3>
+          <button @click="showDetailModal = false" class="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-gray-500 dark:text-gray-400">金额</span>
+            <span class="font-bold text-gray-900 dark:text-white">¥{{ formatAmount(detailPayment.amount) }}</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-gray-500 dark:text-gray-400">房屋</span>
+            <span class="text-gray-900 dark:text-white">{{ getHouseAddress(detailPayment.houseId) }}</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-gray-500 dark:text-gray-400">租客</span>
+            <span class="text-gray-900 dark:text-white">{{ getTenantName(detailPayment.tenantId) }}</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-gray-500 dark:text-gray-400">日期</span>
+            <span class="text-gray-900 dark:text-white">{{ formatDate(detailPayment.paymentDate) }}</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-gray-500 dark:text-gray-400">周期</span>
+            <span class="text-gray-900 dark:text-white">{{ detailPayment.period || '一次性' }}</span>
+          </div>
+          <div class="py-2">
+            <span class="text-gray-500 dark:text-gray-400 block mb-1">描述</span>
+            <span class="text-gray-900 dark:text-white">{{ detailPayment.description || '无' }}</span>
+          </div>
+        </div>
+        <div class="mt-4 flex gap-3">
+          <button v-if="detailPayment.status !== 'paid'" @click="markAsPaid(detailPayment._id); showDetailModal = false" class="flex-1 py-2.5 rounded-xl bg-green-500 text-white text-sm font-medium">标记已缴</button>
+          <button @click="deletePayment(detailPayment._id); showDetailModal = false" class="flex-1 py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-medium">删除</button>
+        </div>
       </div>
     </div>
 
@@ -236,15 +299,15 @@
                 <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
                   <div class="flex justify-between text-sm text-blue-700 dark:text-blue-300">
                     <span>用电: {{ computedElectricityUsage }} 度 × ¥{{ elecPrice }}/度</span>
-                    <span>¥{{ computedElectricityCost.toFixed(2) }}</span>
+                    <span>¥{{ computedElectricityCost.toFixed(1) }}</span>
                   </div>
                   <div class="flex justify-between text-sm text-blue-700 dark:text-blue-300">
                     <span>用水: {{ computedWaterUsage }} 吨 × ¥{{ waterPrice }}/吨</span>
-                    <span>¥{{ computedWaterCost.toFixed(2) }}</span>
+                    <span>¥{{ computedWaterCost.toFixed(1) }}</span>
                   </div>
                   <div class="flex justify-between font-bold text-blue-800 dark:text-blue-200 mt-1 pt-1 border-t border-blue-200 dark:border-blue-700">
                     <span>合计</span>
-                    <span>¥{{ computedTotalCost.toFixed(2) }}</span>
+                    <span>¥{{ computedTotalCost.toFixed(1) }}</span>
                   </div>
                 </div>
               </div>
@@ -329,6 +392,8 @@ interface Tenant {
 const loading = ref(false)
 const saving = ref(false)
 const showAddModal = ref(false)
+const showDetailModal = ref(false)
+const detailPayment = ref<any>(null)
 
 const payments = ref<Payment[]>([])
 const availableHouses = ref<House[]>([])
@@ -520,6 +585,11 @@ const savePayment = async () => {
   }
 }
 
+const showDetail = (payment: any) => {
+  detailPayment.value = payment
+  showDetailModal.value = true
+}
+
 const markAsPaid = async (id: string) => {
   try {
     await dbService.updatePayment(id, { status: 'paid' })
@@ -578,6 +648,11 @@ const getPaymentTypeText = (type: string) => {
   return types[type] || type
 }
 
+const getHouseCode = (houseId: string) => {
+  const house = availableHouses.value.find(h => h._id === houseId)
+  return house?.code || '—'
+}
+
 const getHouseAddress = (houseId: string) => {
   const house = availableHouses.value.find(h => h._id === houseId)
   return house ? `${house.code} - ${house.address}` : '未知房屋'
@@ -586,6 +661,11 @@ const getHouseAddress = (houseId: string) => {
 const getTenantName = (tenantId: string) => {
   const tenant = availableTenants.value.find(t => t._id === tenantId)
   return tenant ? tenant.name : '未知租客'
+}
+
+const formatAmount = (val: number) => {
+  const n = Number(val)
+  return Number.isInteger(n) ? n.toFixed(1) : n.toFixed(1)
 }
 
 const formatDate = (date: Date | string) => {

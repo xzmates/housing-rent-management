@@ -89,7 +89,7 @@
           <!-- 正常到期提醒 -->
           <template v-if="!house.overdueItems.length && house.upcomingItem">
             <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-              {{ formatDate(house.upcomingItem.dueDate) }} 需交租 ¥{{ house.upcomingItem.amount?.toFixed(2) }}
+              {{ formatDate(house.upcomingItem.dueDate) }} 需交租 ¥{{ house.upcomingItem.amount?.toFixed(1) }}
               <span class="text-yellow-500">（{{ house.upcomingItem.daysUntilDue }}天后）</span>
             </p>
           </template>
@@ -103,16 +103,16 @@
             <div class="mt-2 bg-red-100/60 dark:bg-red-900/20 rounded-lg p-2.5">
               <div class="flex justify-between items-center text-sm" v-for="(item, idx) in house.overdueItems" :key="idx">
                 <span class="text-red-700 dark:text-red-300">{{ formatDate(item.dueDate) }}</span>
-                <span class="font-bold text-red-700 dark:text-red-300">¥{{ item.amount?.toFixed(2) }}</span>
+                <span class="font-bold text-red-700 dark:text-red-300">¥{{ item.amount?.toFixed(1) }}</span>
               </div>
               <div v-if="house.upcomingItem" class="flex justify-between items-center text-sm mt-1.5 pt-1.5 border-t border-red-200 dark:border-red-700">
                 <span class="text-red-500 dark:text-red-400 text-xs">{{ formatDate(house.upcomingItem.dueDate) }} 再到期</span>
-                <span class="text-red-500 dark:text-red-400 text-xs font-medium">+¥{{ house.upcomingItem.amount?.toFixed(2) }}</span>
+                <span class="text-red-500 dark:text-red-400 text-xs font-medium">+¥{{ house.upcomingItem.amount?.toFixed(1) }}</span>
               </div>
             </div>
             <div class="flex justify-between items-center mt-2">
               <span class="text-sm font-bold text-red-700 dark:text-red-300">共欠 {{ house.overdueItems.length }} 期</span>
-              <span class="text-base font-bold text-red-700 dark:text-red-300">¥{{ house.totalOverdue?.toFixed(2) }}</span>
+              <span class="text-base font-bold text-red-700 dark:text-red-300">¥{{ house.totalOverdue?.toFixed(1) }}</span>
             </div>
           </template>
         </div>
