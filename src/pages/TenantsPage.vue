@@ -131,7 +131,7 @@
               <span class="text-gray-300 dark:text-gray-600">|</span>
               <span>{{ tenant.idCard ? tenant.idCard.slice(-4) : '—' }}</span>
               <span class="text-gray-300 dark:text-gray-600">|</span>
-              <span>{{ getHouseCode(tenant.houseId) }}</span>
+              <span>{{ getHouseLabel(tenant.houseId) }}</span>
             </div>
             <!-- 第三行：操作 -->
             <div class="flex items-center gap-2">

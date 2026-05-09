@@ -65,8 +65,8 @@
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">待缴费用</p>
-            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">¥{{ stats.pendingTotal }}</p>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">近3天到期</p>
+            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">¥{{ stats.upcomingTotal }}</p>
           </div>
           <div class="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
             <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +172,7 @@
           <!-- 卡片行：房屋编号 + 日期 + 详情按钮 -->
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span class="font-medium text-gray-700 dark:text-gray-300">{{ getHouseCode(payment.houseId) }}</span>
+              <span class="font-medium text-gray-700 dark:text-gray-300">{{ getHouseAddress(payment.houseId) }}</span>
               <span class="text-gray-300 dark:text-gray-600">|</span>
               <span>{{ formatDate(payment.paymentDate) }}</span>
             </div>
@@ -408,7 +408,7 @@ const filters = ref({
 
 const stats = ref({
   monthlyTotal: 0,
-  pendingTotal: 0,
+  upcomingTotal: 0,
   overdueTotal: 0
 })
 
@@ -471,7 +471,7 @@ const loadPayments = async () => {
   try {
     const result = await dbService.getPayments(filters.value)
     payments.value = result.data
-    calculateStats()
+    await calculateStats()
   } catch (error) {
     console.error('加载缴费记录失败:', error)
   } finally {
@@ -479,27 +479,50 @@ const loadPayments = async () => {
   }
 }
 
-const calculateStats = () => {
+const calculateStats = async () => {
   const now = new Date()
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
 
   stats.value.monthlyTotal = payments.value
-    .filter(p => {
+    .filter((p: any) => {
       const date = new Date(p.paymentDate)
       return date.getMonth() === currentMonth &&
              date.getFullYear() === currentYear &&
              p.status === 'paid'
     })
-    .reduce((sum, p) => sum + (p.amount || 0), 0)
+    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
 
-  stats.value.pendingTotal = payments.value
-    .filter(p => p.status === 'pending')
-    .reduce((sum, p) => sum + (p.amount || 0), 0)
+  // 先统计数据库中标记为 pending/overdue 的记录
+  const dbPending = payments.value
+    .filter((p: any) => p.status === 'pending')
+    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
 
-  stats.value.overdueTotal = payments.value
-    .filter(p => p.status === 'overdue')
-    .reduce((sum, p) => sum + (p.amount || 0), 0)
+  let overdueTotal = payments.value
+    .filter((p: any) => p.status === 'overdue')
+    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+
+  let upcomingTotal = dbPending
+
+  // 加上动态计算的数据（来自仪表盘收费提醒）
+  try {
+    const houses = await dbService.getUpcomingRentHouses(3)
+    for (const house of houses) {
+      // 逾期部分计入逾期费用
+      if (house.totalOverdue > 0) {
+        overdueTotal += house.totalOverdue
+      }
+      // 未来3天内到期（未逾期）的部分计入近3天到期
+      if (house.upcomingItem && house.upcomingItem.daysUntilDue >= 0) {
+        upcomingTotal += house.upcomingItem.amount
+      }
+    }
+  } catch (error) {
+    console.warn('获取动态逾期数据失败:', error)
+  }
+
+  stats.value.upcomingTotal = upcomingTotal
+  stats.value.overdueTotal = overdueTotal
 }
 
 const loadHouses = async () => {
