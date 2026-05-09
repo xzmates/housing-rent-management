@@ -14,7 +14,7 @@ import ContractPage from "./pages/ContractPage.vue";
 
 // 定义路由
 const routes = [
-  { path: "/", component: HomePage },
+  { path: "/", redirect: "/dashboard" },
   { path: "/dashboard", component: DashboardPage },
   { path: "/houses", component: HousesPage },
   { path: "/tenants", component: TenantsPage },
