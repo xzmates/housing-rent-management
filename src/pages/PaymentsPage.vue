@@ -19,7 +19,7 @@
     <div class="flex items-center gap-2 overflow-x-auto mb-4 pb-1 scrollbar-hide">
       <select v-model="filters.houseId" @change="loadPayments" class="shrink-0 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
         <option value="">全部房屋</option>
-        <option v-for="house in availableHouses" :key="house._id" :value="house._id">{{ house.code }}</option>
+        <option v-for="house in availableHouses" :key="house._id" :value="house._id">{{ house.code }}-{{ house.address }}</option>
       </select>
       <button @click="filters.paymentType = ''; loadPayments()" class="shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-colors" :class="!filters.paymentType ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'">
         全部

@@ -28,7 +28,7 @@
       </button>
       <select v-model="filters.houseId" @change="loadTenants" class="shrink-0 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
         <option value="">全部房屋</option>
-        <option v-for="house in availableHouses" :key="house._id" :value="house._id">{{ house.code }}</option>
+        <option v-for="house in availableHouses" :key="house._id" :value="house._id">{{ house.code }}-{{ house.address }}</option>
       </select>
       <input v-model="filters.name" type="text" placeholder="搜姓名" class="w-20 shrink-0 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400" @input="loadTenants">
       <button @click="resetFilters" class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
@@ -693,7 +693,8 @@ const editTenant = (tenant: Tenant) => {
     moveInElectricity: tenantAny.moveInElectricity || 0,
     moveInWater: tenantAny.moveInWater || 0
   }
-  // 编辑时也要允许选择当前房屋
+  // 重置可租列表为基础状态（仅可租房源），再把当前房屋加进去（编辑时允许保留原房）
+  availableHousesForRent.value = availableHouses.value.filter((h: House) => h.status === 'available')
   if (tenant.houseId) {
     const currentHouse = availableHouses.value.find(h => h._id === tenant.houseId)
     if (currentHouse && !availableHousesForRent.value.find(h => h._id === tenant.houseId)) {
