@@ -342,108 +342,69 @@
     </div>
 
     <!-- 退租确认模态框 -->
-    <div v-if="showMoveOutModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-lg bg-white dark:bg-gray-800">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white">办理退租</h3>
-          <button @click="showMoveOutModal = false" class="text-gray-400 hover:text-gray-500">
-            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <div v-if="showMoveOutModal" class="fixed inset-0 bg-gray-600/50 z-50 flex items-end md:items-center justify-center" @click.self="showMoveOutModal = false">
+      <div class="w-full md:max-w-md bg-white dark:bg-gray-800 rounded-t-2xl md:rounded-2xl shadow-xl max-h-[92vh] flex flex-col">
+        <!-- 固定头部 -->
+        <div class="flex justify-between items-center p-5 pb-0 shrink-0">
+          <h3 class="text-lg font-bold text-gray-900 dark:text-white">办理退租</h3>
+          <button @click="showMoveOutModal = false" class="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
-        <div class="space-y-4">
-          <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-            <p class="text-yellow-700 dark:text-yellow-300 font-medium">确认退租</p>
-            <p class="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
-              租客 <strong>{{ moveOutTenant?.name }}</strong> 将从房屋 <strong>{{ getHouseLabel(moveOutTenant?.houseId ?? '') }}</strong> 退租。
+        <!-- 可滚动内容区域 -->
+        <div class="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+          <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+            <p class="text-sm text-yellow-700 dark:text-yellow-300 font-medium">
+              租客 <strong>{{ moveOutTenant?.name }}</strong> 将从 {{ getHouseLabel(moveOutTenant?.houseId ?? '') }} 退租
             </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">退租日期</label>
-            <input v-model="moveOutDate" type="date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">退租日期</label>
+            <input v-model="moveOutDate" type="date" class="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">退租电表读数</label>
-              <input v-model="moveOutElectricity" type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="退租时电表读数">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">退租电表读数</label>
+              <input v-model="moveOutElectricity" type="number" step="0.01" class="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="退租时电表读数">
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">退租水表读数</label>
-              <input v-model="moveOutWater" type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="退租时水表读数">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">退租水表读数</label>
+              <input v-model="moveOutWater" type="number" step="0.01" class="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="退租时水表读数">
             </div>
           </div>
 
           <!-- 结算信息 -->
-          <div v-if="settlementInfo" class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p class="text-blue-700 dark:text-blue-300 font-medium mb-2">💡 费用结算预览</p>
-            <div class="text-sm space-y-2">
-              <!-- 入住天数 -->
-              <p class="text-blue-600 dark:text-blue-400">入住天数: {{ settlementInfo.daysUsed }} 天</p>
-
-              <!-- 收入：已预缴部分 -->
-              <div class="bg-green-100/60 dark:bg-green-900/20 rounded p-2">
+          <div v-if="settlementInfo" class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-3 text-sm">
+            <p class="font-medium text-blue-700 dark:text-blue-300 mb-2">💡 费用结算预览</p>
+            <div class="space-y-1.5 text-blue-600 dark:text-blue-400">
+              <p>入住天数: {{ settlementInfo.daysUsed }} 天</p>
+              <div class="bg-green-100/60 dark:bg-green-900/20 rounded-lg p-2">
                 <p class="font-medium text-green-800 dark:text-green-200 mb-1">📥 已预缴</p>
-                <div class="flex justify-between text-green-700 dark:text-green-300">
-                  <span>预缴房租</span>
-                  <span>¥{{ settlementInfo.prepaidRent?.toFixed(1) }}</span>
-                </div>
-                <div class="flex justify-between text-green-700 dark:text-green-300">
-                  <span>押金</span>
-                  <span>¥{{ settlementInfo.depositAmount?.toFixed(1) }}</span>
-                </div>
-                <div class="flex justify-between font-medium text-green-800 dark:text-green-200 pt-1 border-t border-green-300 dark:border-green-700">
-                  <span>小计</span>
-                  <span>¥{{ ((settlementInfo.prepaidRent || 0) + (settlementInfo.depositAmount || 0))?.toFixed(1) }}</span>
-                </div>
+                <div class="flex justify-between"><span>预缴房租</span><span>¥{{ settlementInfo.prepaidRent?.toFixed(1) }}</span></div>
+                <div class="flex justify-between"><span>押金</span><span>¥{{ settlementInfo.depositAmount?.toFixed(1) }}</span></div>
+                <div class="flex justify-between font-medium pt-1 border-t border-green-300"><span>小计</span><span>¥{{ ((settlementInfo.prepaidRent||0)+(settlementInfo.depositAmount||0)).toFixed(1) }}</span></div>
               </div>
-
-              <!-- 支出：应缴费部分 -->
-              <div class="bg-orange-100/60 dark:bg-orange-900/20 rounded p-2">
+              <div class="bg-orange-100/60 dark:bg-orange-900/20 rounded-lg p-2">
                 <p class="font-medium text-orange-800 dark:text-orange-200 mb-1">📤 应缴费</p>
-                <div class="flex justify-between text-orange-700 dark:text-orange-300">
-                  <span>应缴房租 <span class="text-xs">({{ settlementInfo.owedRentNote }})</span></span>
-                  <span>¥{{ settlementInfo.owedRent?.toFixed(1) }}</span>
-                </div>
-                <div v-if="settlementInfo.pendingUtility > 0" class="flex justify-between text-orange-700 dark:text-orange-300">
-                  <span>水电费</span>
-                  <span>¥{{ settlementInfo.pendingUtility?.toFixed(1) }}</span>
-                </div>
-                <div v-if="settlementInfo.otherPending > 0" class="flex justify-between text-orange-700 dark:text-orange-300">
-                  <span>其他费用</span>
-                  <span>¥{{ settlementInfo.otherPending?.toFixed(1) }}</span>
-                </div>
-                <div class="flex justify-between font-medium text-orange-800 dark:text-orange-200 pt-1 border-t border-orange-300 dark:border-orange-700">
-                  <span>小计</span>
-                  <span>¥{{ ((settlementInfo.owedRent || 0) + (settlementInfo.pendingUtility || 0) + (settlementInfo.otherPending || 0))?.toFixed(1) }}</span>
-                </div>
+                <div class="flex justify-between"><span>房租 ({{ settlementInfo.owedRentNote }})</span><span>¥{{ settlementInfo.owedRent?.toFixed(1) }}</span></div>
+                <div v-if="settlementInfo.pendingUtility > 0" class="flex justify-between"><span>水电费</span><span>¥{{ settlementInfo.pendingUtility?.toFixed(1) }}</span></div>
+                <div class="flex justify-between font-medium pt-1 border-t border-orange-300"><span>小计</span><span>¥{{ ((settlementInfo.owedRent||0)+(settlementInfo.pendingUtility||0)+(settlementInfo.otherPending||0)).toFixed(1) }}</span></div>
               </div>
-
-              <!-- 最终结果 -->
-              <div class="rounded p-2 font-bold text-base" :class="settlementInfo.refundAmount > 0 ? 'bg-green-200/80 dark:bg-green-800/40' : 'bg-red-200/80 dark:bg-red-800/40'">
-                <div class="flex justify-between items-center" v-if="settlementInfo.refundAmount > 0">
-                  <span class="text-green-800 dark:text-green-200">✅ 最终退费</span>
-                  <span class="text-green-800 dark:text-green-200 text-lg">¥{{ settlementInfo.refundAmount?.toFixed(1) }}</span>
-                </div>
-                <div class="flex justify-between items-center" v-if="settlementInfo.extraDue > 0">
-                  <span class="text-red-800 dark:text-red-200">⚠️ 还需缴纳</span>
-                  <span class="text-red-800 dark:text-red-200 text-lg">¥{{ settlementInfo.extraDue?.toFixed(1) }}</span>
-                </div>
+              <div class="rounded-lg p-2 font-bold" :class="settlementInfo.refundAmount > 0 ? 'bg-green-200/80 dark:bg-green-800/40' : 'bg-red-200/80 dark:bg-red-800/40'">
+                <div v-if="settlementInfo.refundAmount > 0" class="flex justify-between"><span class="text-green-800 dark:text-green-200">✅ 最终退费</span><span class="text-green-800 dark:text-green-200">¥{{ settlementInfo.refundAmount?.toFixed(1) }}</span></div>
+                <div v-if="settlementInfo.extraDue > 0" class="flex justify-between"><span class="text-red-800 dark:text-red-200">⚠️ 还需缴纳</span><span class="text-red-800 dark:text-red-200">¥{{ settlementInfo.extraDue?.toFixed(1) }}</span></div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="mt-6 flex justify-end space-x-3">
-          <button @click="showMoveOutModal = false" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-            取消
-          </button>
-          <button @click="confirmMoveOut" :disabled="movingOut || !settlementInfo" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50">
-            {{ movingOut ? '处理中...' : '确认退租' }}
-          </button>
+        <!-- 固定底部按钮 -->
+        <div class="shrink-0 px-5 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+          <button @click="showMoveOutModal = false" class="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-400 active:bg-gray-50 dark:active:bg-gray-700">取消</button>
+          <button @click="confirmMoveOut" :disabled="movingOut || !settlementInfo" class="flex-1 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-medium disabled:opacity-50 active:bg-orange-600">{{ movingOut ? '处理中...' : '确认退租' }}</button>
         </div>
       </div>
     </div>

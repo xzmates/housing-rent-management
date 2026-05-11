@@ -251,11 +251,12 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">所属房屋</label>
               <select v-model="paymentForm.houseId" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option value="">请选择房屋</option>
-                <option v-for="house in availableHouses" :key="house._id" :value="house._id">
+                <option value="">请选择房屋（仅显示已出租）</option>
+                <option v-for="house in rentedHouses" :key="house._id" :value="house._id">
                   {{ house.code }} - {{ house.address }}
                 </option>
               </select>
+              <p v-if="rentedHouses.length === 0" class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">暂无已出租的房屋</p>
             </div>
 
             <div>
@@ -398,6 +399,7 @@ const detailPayment = ref<any>(null)
 const payments = ref<Payment[]>([])
 const availableHouses = ref<House[]>([])
 const availableTenants = ref<Tenant[]>([])
+const rentedHouses = computed(() => availableHouses.value.filter(h => h.status === 'rented'))
 const filters = ref({
   houseId: '',
   paymentType: '',
@@ -545,10 +547,10 @@ const loadTenants = async () => {
   }
 }
 
-// 当选择房屋时，自动关联该房屋对应的租客
+// 当选择房屋时，自动关联该房屋对应的当前在住租客
 watch(() => paymentForm.value.houseId, async (newHouseId) => {
   if (newHouseId) {
-    const activeTenant = availableTenants.value.find(t => t.houseId === newHouseId)
+    const activeTenant = availableTenants.value.find(t => t.houseId === newHouseId && t.status === 'active')
     if (activeTenant) {
       paymentForm.value.tenantId = activeTenant._id
       await loadLastUtilityReading(activeTenant._id)

@@ -13,11 +13,30 @@
     max-height: 90vh !important;
     overflow-y: auto !important;
     animation: slideUp 0.3s ease-out;
+    /* 确保底部按钮有足够空间 */
+    padding-bottom: max(env(safe-area-inset-bottom, 16px), 70px) !important;
   }
 
   .fixed.inset-0 {
     align-items: flex-end;
     display: flex;
+  }
+
+  /* 柔性布局模态框：固定底部按钮 */
+  .modal-flex {
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 92vh !important;
+  }
+  .modal-flex .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-flex .modal-footer {
+    flex-shrink: 0;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    padding-bottom: env(safe-area-inset-bottom, 8px);
   }
 
   @keyframes slideUp {
