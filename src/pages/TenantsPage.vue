@@ -556,11 +556,6 @@ const getPaymentCycleLabel = (cycle: string) => {
   return paymentCycleLabels[cycle] || cycle
 }
 
-const getHouseCode = (houseId: string) => {
-  const house = availableHouses.value.find(h => h._id === houseId)
-  return house?.code || '—'
-}
-
 const getHouseLabel = (houseId: string) => {
   const house = availableHouses.value.find(h => h._id === houseId)
   return house ? `${house.code} - ${house.address}` : '未知房屋'

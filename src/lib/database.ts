@@ -395,27 +395,9 @@ class DatabaseService {
         status: paymentData.status || 'paid',
       });
 
-      // 如果是已缴租金，同步更新租客的最后缴费日期
+      // 如果是已缴租金，更新租金覆盖期限（预付制核心逻辑）
       if ((paymentData.status === 'paid' || !paymentData.status) && paymentData.paymentType === 'rent' && paymentData.tenantId) {
-        try {
-          const paymentDate = paymentData.paymentDate ? new Date(paymentData.paymentDate) : new Date();
-          // 获取租客当前 lastPaymentDate
-          const tenantDocs = await this.db.collection(COLLECTIONS.TENANTS).get();
-          const tenant = (tenantDocs.data as any[]).find((t: any) => t._id === paymentData.tenantId);
-          if (tenant) {
-            const currentLastPayment = tenant.lastPaymentDate ? new Date(tenant.lastPaymentDate) : null;
-            // 只有新日期比旧日期晚才更新
-            if (!currentLastPayment || paymentDate > currentLastPayment) {
-              await this.db.collection(COLLECTIONS.TENANTS).doc(paymentData.tenantId).update({
-                lastPaymentDate: paymentDate,
-                updatedAt: new Date()
-              });
-              console.log(`已同步租客 ${paymentData.tenantId} 的 lastPaymentDate 为 ${paymentDate.toISOString()}`);
-            }
-          }
-        } catch (syncError) {
-          console.warn('同步租客 lastPaymentDate 失败（不影响支付记录保存）:', syncError);
-        }
+        await this.updateRentCoverage(paymentData.tenantId, paymentData.amount);
       }
 
       return {
@@ -475,28 +457,16 @@ class DatabaseService {
       updatedAt: new Date(),
     });
 
-    // 如果标记为已缴且是租金支付，同步租客 lastPaymentDate
+    // 如果标记为已缴且是租金支付，更新租金覆盖期限
     if (paymentData.status === 'paid') {
       try {
-        // 先查询原支付记录获取 tenantId 和 paymentType
         const paymentDocs = await this.db.collection(COLLECTIONS.PAYMENTS).get();
         const payment = (paymentDocs.data as any[]).find((p: any) => p._id === id);
         if (payment && payment.paymentType === 'rent' && payment.tenantId) {
-          const paymentDate = payment.paymentDate ? new Date(payment.paymentDate) : new Date();
-          const tenantDocs = await this.db.collection(COLLECTIONS.TENANTS).get();
-          const tenant = (tenantDocs.data as any[]).find((t: any) => t._id === payment.tenantId);
-          if (tenant) {
-            const currentLastPayment = tenant.lastPaymentDate ? new Date(tenant.lastPaymentDate) : null;
-            if (!currentLastPayment || paymentDate > currentLastPayment) {
-              await this.db.collection(COLLECTIONS.TENANTS).doc(payment.tenantId).update({
-                lastPaymentDate: paymentDate,
-                updatedAt: new Date()
-              });
-            }
-          }
+          await this.updateRentCoverage(payment.tenantId, payment.amount);
         }
       } catch (syncError) {
-        console.warn('标记已缴时同步租客 lastPaymentDate 失败:', syncError);
+        console.warn('标记已缴时更新租金覆盖期限失败:', syncError);
       }
     }
 
@@ -505,7 +475,83 @@ class DatabaseService {
 
   async deletePayment(id: string) {
     await this.ensureInitialized();
-    return this.db.collection(COLLECTIONS.PAYMENTS).doc(id).remove();
+
+    // 获取待删除支付记录的信息（需要在删除前获取）
+    let deletedPayment: any = null;
+    try {
+      const paymentDocs = await this.db.collection(COLLECTIONS.PAYMENTS).get();
+      deletedPayment = (paymentDocs.data as any[]).find((p: any) => p._id === id);
+    } catch {
+      // 获取失败不影响删除操作
+    }
+
+    const result = await this.db.collection(COLLECTIONS.PAYMENTS).doc(id).remove();
+
+    // 如果是已缴租金，删除后重新计算 rentCoveredUntil
+    if (deletedPayment && deletedPayment.paymentType === 'rent' && deletedPayment.status === 'paid' && deletedPayment.tenantId) {
+      await this.recalculateRentCoverage(deletedPayment.tenantId);
+    }
+
+    return result;
+  }
+
+  /**
+   * 重新计算租客的租金覆盖期限（删除支付记录后调用）
+   * 从零开始回放所有剩余已缴租金记录
+   */
+  private async recalculateRentCoverage(tenantId: string) {
+    try {
+      const tenantDocs = await this.db.collection(COLLECTIONS.TENANTS).get();
+      const tenant = (tenantDocs.data as any[]).find((t: any) => t._id === tenantId);
+      if (!tenant) return;
+
+      const monthlyRent = tenant.rent || 0;
+      if (monthlyRent <= 0) return;
+
+      // 获取所有剩余的已缴租金记录（按缴费日期升序）
+      const allPayments = await this.db.collection(COLLECTIONS.PAYMENTS)
+        .where({
+          tenantId: tenantId,
+          paymentType: 'rent',
+          status: 'paid'
+        })
+        .orderBy('paymentDate', 'asc')
+        .get();
+
+      const remainingPayments = (allPayments.data || []) as any[];
+      const moveInDate = new Date(tenant.moveInDate);
+
+      // 重新计算覆盖期限及押金溢出
+      let currentCoveredUntil: Date | null = null;
+      let totalDepositOverflow = 0;
+      for (const payment of remainingPayments) {
+        const { newCoveredUntil, depositIncrease } = this.calcRentCoverage(
+          currentCoveredUntil,
+          moveInDate,
+          payment.amount,
+          monthlyRent
+        );
+        currentCoveredUntil = newCoveredUntil;
+        totalDepositOverflow += depositIncrease;
+      }
+
+      // 更新租客的 rentCoveredUntil 和押金
+      // 押金 = 基础押金（不含租金溢出） + 重算后的租金溢出
+      const baseDeposit = (tenant.deposit || 0) - (tenant.rentDepositOverflow || 0);
+      const updateData: any = {
+        rentCoveredUntil: currentCoveredUntil,
+        deposit: baseDeposit + totalDepositOverflow,
+        rentDepositOverflow: totalDepositOverflow,
+        updatedAt: new Date(),
+      };
+
+      await this.db.collection(COLLECTIONS.TENANTS).doc(tenantId).update(updateData);
+      console.log(
+        `已重新计算租客 ${tenantId} 的租金覆盖至 ${currentCoveredUntil ? currentCoveredUntil.toISOString().slice(0, 10) : '无'}`
+      );
+    } catch (error) {
+      console.warn('重新计算租金覆盖期限失败:', error);
+    }
   }
 
   /**
@@ -655,6 +701,110 @@ class DatabaseService {
   }
 
   /**
+   * 计算租金覆盖期限（预付制核心逻辑）
+   * 给定当前已覆盖日期、支付金额、月租金，计算新的覆盖到期日和押金增加额
+   */
+  private calcRentCoverage(
+    currentCoveredUntil: Date | null,
+    moveInDate: Date,
+    paymentAmount: number,
+    monthlyRent: number
+  ): { newCoveredUntil: Date; monthsCovered: number; depositIncrease: number } {
+    const halfThreshold = monthlyRent / 2;
+    const fullMonths = Math.floor(paymentAmount / monthlyRent);
+    const remaining = paymentAmount - fullMonths * monthlyRent;
+
+    // 覆盖起始日 = 当前已覆盖日期的次日（如无则从入住日开始）
+    const baseDate = currentCoveredUntil
+      ? new Date(currentCoveredUntil)
+      : new Date(moveInDate);
+    const coverageStart = new Date(baseDate);
+    coverageStart.setDate(baseDate.getDate() + 1);
+    // 如果当前没有覆盖（currentCoveredUntil == null），coverageStart = moveInDate
+    // 上面的逻辑出错：如果 currentCoveredUntil 是 null, baseDate = moveInDate, coverageStart = moveInDate + 1 day
+    // 这不对，应该 coverageStart = moveInDate（第一次付款覆盖从入住日开始）
+    // 修正：
+    let actualCoverageStart: Date;
+    if (currentCoveredUntil) {
+      actualCoverageStart = new Date(currentCoveredUntil);
+      actualCoverageStart.setDate(actualCoverageStart.getDate() + 1);
+    } else {
+      actualCoverageStart = new Date(moveInDate);
+    }
+
+    // 计算结束日期
+    const endDate = new Date(actualCoverageStart);
+    endDate.setMonth(endDate.getMonth() + fullMonths);
+
+    let hasHalfMonth = false;
+    let depositIncrease = 0;
+
+    if (remaining >= halfThreshold) {
+      endDate.setDate(endDate.getDate() + 15);
+      hasHalfMonth = true;
+      depositIncrease = remaining - halfThreshold;
+    } else if (remaining > 0) {
+      depositIncrease = remaining;
+    }
+
+    // endDate 是覆盖期最后一天的次日，减一天得到包含的最后一天
+    const coveredUntil = new Date(endDate);
+    coveredUntil.setDate(coveredUntil.getDate() - 1);
+
+    const monthsCovered = fullMonths + (hasHalfMonth ? 0.5 : 0);
+
+    return { newCoveredUntil: coveredUntil, monthsCovered, depositIncrease };
+  }
+
+  /**
+   * 更新租金覆盖期限
+   */
+  private async updateRentCoverage(
+    tenantId: string,
+    paymentAmount: number
+  ): Promise<void> {
+    try {
+      // 获取租客信息
+      const tenantDocs = await this.db.collection(COLLECTIONS.TENANTS).get();
+      const tenant = (tenantDocs.data as any[]).find((t: any) => t._id === tenantId);
+      if (!tenant) return;
+
+      const monthlyRent = tenant.rent || 0;
+      if (monthlyRent <= 0 || paymentAmount <= 0) return;
+
+      const currentCoveredUntil = tenant.rentCoveredUntil
+        ? new Date(tenant.rentCoveredUntil)
+        : null;
+      const moveInDate = new Date(tenant.moveInDate);
+
+      const { newCoveredUntil, depositIncrease } = this.calcRentCoverage(
+        currentCoveredUntil,
+        moveInDate,
+        paymentAmount,
+        monthlyRent
+      );
+
+      // 更新租客的 rentCoveredUntil 和押金
+      const updateData: any = {
+        rentCoveredUntil: newCoveredUntil,
+        updatedAt: new Date(),
+      };
+      if (depositIncrease > 0) {
+        updateData.deposit = (tenant.deposit || 0) + depositIncrease;
+        updateData.rentDepositOverflow = (tenant.rentDepositOverflow || 0) + depositIncrease;
+      }
+
+      await this.db.collection(COLLECTIONS.TENANTS).doc(tenantId).update(updateData);
+      console.log(
+        `已更新租客 ${tenantId} 租金覆盖至 ${newCoveredUntil.toISOString().slice(0, 10)}` +
+          (depositIncrease > 0 ? `，押金增加 ¥${depositIncrease}` : ''),
+      );
+    } catch (error) {
+      console.warn('更新租金覆盖期限失败（不影响支付记录保存）:', error);
+    }
+  }
+
+  /**
    * 更新房屋状态
    */
   async updateHouseStatus(houseId: string, status: string) {
@@ -685,52 +835,61 @@ class DatabaseService {
    * 从租客和房屋数据计算下次收租日期和金额（无需再次查询数据库）
    */
   private async calcNextRentDue(tenant: any, house: any) {
-    // 获取租客的最近一次租金支付记录
-    let lastPaymentDate: Date;
-    try {
-      const paymentsResult = await this.db.collection(COLLECTIONS.PAYMENTS)
-        .where({
-          tenantId: tenant._id,
-          paymentType: 'rent'
-        })
-        .orderBy('paymentDate', 'desc')
-        .limit(1)
-        .get();
+    // 使用预付制的租金覆盖日期（rentCoveredUntil）作为基准
+    // 已覆盖到 X 日 → 下次缴费日 = X 日的次日
+    let rentCoveredUntil: Date;
+    if (tenant.rentCoveredUntil) {
+      rentCoveredUntil = new Date(tenant.rentCoveredUntil);
+    } else {
+      // 兼容旧数据：如果没有 rentCoveredUntil，从 lastPaymentDate 或 moveInDate + 周期推算
+      console.warn(`租客 ${tenant._id} 没有 rentCoveredUntil，使用兼容模式`);
+      try {
+        const paymentsResult = await this.db.collection(COLLECTIONS.PAYMENTS)
+          .where({
+            tenantId: tenant._id,
+            paymentType: 'rent'
+          })
+          .orderBy('paymentDate', 'desc')
+          .limit(1)
+          .get();
 
-      if (paymentsResult.data && paymentsResult.data.length > 0) {
-        lastPaymentDate = new Date(paymentsResult.data[0].paymentDate);
-      } else if (tenant.lastPaymentDate) {
-        lastPaymentDate = new Date(tenant.lastPaymentDate);
-      } else {
-        lastPaymentDate = new Date(tenant.moveInDate);
+        if (paymentsResult.data && paymentsResult.data.length > 0) {
+          const baseDate = new Date(paymentsResult.data[0].paymentDate);
+          const cycle = tenant.paymentCycle || 'month';
+          const cycleMonths: Record<string, number> = { month: 1, quarter: 3, half_year: 6, year: 12 };
+          const monthsToAdd = cycleMonths[cycle] || 1;
+          rentCoveredUntil = new Date(baseDate);
+          rentCoveredUntil.setMonth(rentCoveredUntil.getMonth() + monthsToAdd);
+          rentCoveredUntil.setDate(rentCoveredUntil.getDate() - 1);
+        } else if (tenant.lastPaymentDate) {
+          rentCoveredUntil = new Date(tenant.lastPaymentDate);
+        } else {
+          rentCoveredUntil = new Date(tenant.moveInDate);
+        }
+      } catch (error) {
+        console.warn(`查询租客 ${tenant._id} 的支付记录失败，使用默认日期:`, error);
+        rentCoveredUntil = tenant.rentCoveredUntil
+          ? new Date(tenant.rentCoveredUntil)
+          : (tenant.lastPaymentDate ? new Date(tenant.lastPaymentDate) : new Date(tenant.moveInDate));
       }
-    } catch (error) {
-      console.warn(`查询租客 ${tenant._id} 的支付记录失败，使用默认日期:`, error);
-      lastPaymentDate = tenant.lastPaymentDate
-        ? new Date(tenant.lastPaymentDate)
-        : new Date(tenant.moveInDate);
     }
 
-    // 根据缴费周期计算下次收租日期
+    // 下次缴费日 = 已覆盖日期的次日
+    const nextDueDate = new Date(rentCoveredUntil);
+    nextDueDate.setDate(nextDueDate.getDate() + 1);
+
+    // 计算租金金额（使用租客存储的租金）
     const cycle = tenant.paymentCycle || 'month';
     const cycleMonths: Record<string, number> = {
       month: 1, quarter: 3, half_year: 6, year: 12
     };
     const monthsToAdd = cycleMonths[cycle] || 1;
-    const nextDueDate = new Date(lastPaymentDate);
-    nextDueDate.setMonth(nextDueDate.getMonth() + monthsToAdd);
-
-    // 如果日期不存在（如31号在2月不存在），则调整为最后一天
-    if (nextDueDate.getDate() !== lastPaymentDate.getDate()) {
-      nextDueDate.setDate(0);
-    }
-
-    // 计算租金金额（使用租客存储的租金）
     const monthlyRent = tenant.rent || house.rent || 0;
     const rentAmount = monthlyRent * monthsToAdd;
 
     return {
-      lastPaymentDate,
+      rentCoveredUntil,
+      lastPaymentDate: tenant.lastPaymentDate || tenant.moveInDate,
       nextDueDate,
       amount: rentAmount,
       monthlyRent,
@@ -739,22 +898,6 @@ class DatabaseService {
       paymentMonths: monthsToAdd,
       cycleMonths: monthsToAdd
     };
-  }
-
-  /**
-   * 生成从基准日期起的 N 个周期的收租日列表
-   */
-  private generateDueSchedule(lastPaymentDate: Date, cycleMonths: number, count: number): Date[] {
-    const dates: Date[] = [];
-    for (let i = 1; i <= count; i++) {
-      const d = new Date(lastPaymentDate);
-      d.setMonth(d.getMonth() + i * cycleMonths);
-      if (d.getDate() !== lastPaymentDate.getDate()) {
-        d.setDate(0);
-      }
-      dates.push(d);
-    }
-    return dates;
   }
 
   /**
@@ -811,16 +954,24 @@ class DatabaseService {
 
         const rentInfo = await this.calcNextRentDue(tenant, house);
 
-        // 获取最近一次缴费日期作为基准
-        const baseDate = rentInfo.lastPaymentDate;
+        // 使用预付制的租金覆盖日期作为基准
+        const coveredUntil = rentInfo.rentCoveredUntil;
         const cycleM = rentInfo.cycleMonths;
 
-        // 计算从 baseDate 到 targetDate 之间需要多少个周期
-        const msPerCycle = cycleM * 30 * 24 * 60 * 60 * 1000; // 近似
-        const maxPeriods = Math.ceil((targetDate.getTime() - baseDate.getTime()) / msPerCycle) + 2;
+        // 下次缴费日 = 覆盖日期次日
+        const firstDueDate = new Date(coveredUntil);
+        firstDueDate.setDate(firstDueDate.getDate() + 1);
 
-        // 生成所有到期日
-        const allDueDates = this.generateDueSchedule(baseDate, cycleM, maxPeriods);
+        // 生成从首次到期日起的 N 个周期的收租日列表
+        const allDueDates: Date[] = [firstDueDate];
+        for (let i = 1; i <= 12; i++) {
+          const d = new Date(firstDueDate);
+          d.setMonth(d.getMonth() + i * cycleM);
+          if (d.getDate() !== firstDueDate.getDate()) {
+            d.setDate(0);
+          }
+          allDueDates.push(d);
+        }
 
         // 分离逾期和即将到来的
         const overdueItems: { dueDate: Date; amount: number; daysOverdue: number }[] = [];
@@ -858,8 +1009,8 @@ class DatabaseService {
             tenantId: tenant._id,
             tenantName: tenant.name,
             monthlyRent: rentInfo.monthlyRent,
-            // 上次缴费信息
-            lastPaymentDate: rentInfo.lastPaymentDate,
+            // 预付制覆盖信息
+            rentCoveredUntil: rentInfo.rentCoveredUntil,
             cycleLabel: cycleLabels[tenant.paymentCycle] || '月付',
             cycleAmount: rentInfo.amount,
             // 逾期明细

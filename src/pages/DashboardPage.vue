@@ -89,6 +89,9 @@
           <!-- 正常到期提醒 -->
           <template v-if="!house.overdueItems.length && house.upcomingItem">
             <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+              已覆盖到 <strong>{{ formatCoverageDate(house.rentCoveredUntil) }}</strong>
+            </p>
+            <p class="text-sm text-yellow-700 dark:text-yellow-300">
               {{ formatDate(house.upcomingItem.dueDate) }} 需交租 ¥{{ house.upcomingItem.amount?.toFixed(1) }}
               <span class="text-yellow-500">（{{ house.upcomingItem.daysUntilDue }}天后）</span>
             </p>
@@ -97,8 +100,8 @@
           <!-- 逾期 -->
           <template v-if="house.overdueItems.length > 0">
             <div class="text-sm text-red-700 dark:text-red-300 mt-1 leading-relaxed">
-              <p>上次缴费: {{ formatDate(house.lastPaymentDate) }}（{{ house.cycleLabel }}）</p>
-              <p class="font-medium">已逾期 <span class="text-base">{{ house.overdueItems[0]?.daysOverdue }}天</span></p>
+              <p>已覆盖到 <strong>{{ formatCoverageDate(house.rentCoveredUntil) }}</strong>（<span class="text-base font-medium">已逾期 {{ house.overdueItems[0]?.daysOverdue }}天</span>）</p>
+              <p class="text-xs text-red-500/70">下次缴费: {{ formatDate(house.nextDueDate) }} · {{ house.cycleLabel }}</p>
             </div>
             <div class="mt-2 bg-red-100/60 dark:bg-red-900/20 rounded-lg p-2.5">
               <div class="flex justify-between items-center text-sm" v-for="(item, idx) in house.overdueItems" :key="idx">
@@ -197,6 +200,12 @@ const getRelativeTime = (date: Date): string => {
 const formatDate = (date: Date | string) => {
   if (!date) return '未设置'
   return new Date(date).toLocaleDateString('zh-CN')
+}
+
+const formatCoverageDate = (date: Date | string | undefined | null) => {
+  if (!date) return '—'
+  const d = new Date(date)
+  return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`
 }
 
 const loadUpcomingRentHouses = async () => {

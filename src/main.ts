@@ -3,7 +3,6 @@ import { createRouter, createWebHashHistory } from "vue-router";
 import App from "./App.vue";
 
 // 导入页面组件
-import HomePage from "./pages/HomePage.vue";
 import DashboardPage from "./pages/DashboardPage.vue";
 import HousesPage from "./pages/HousesPage.vue";
 import TenantsPage from "./pages/TenantsPage.vue";

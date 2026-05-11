@@ -319,6 +319,32 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">金额（元）</label>
                 <input v-model="paymentForm.amount" type="number" step="0.01" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
               </div>
+              <!-- 租金覆盖预览（预付制） -->
+              <div v-if="paymentForm.paymentType === 'rent' && coveragePreview" class="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p class="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">📅 租金覆盖预览（预付制）</p>
+                <div class="text-sm space-y-1 text-blue-600 dark:text-blue-400">
+                  <div v-if="coveragePreview.currentCoveredUntil" class="flex justify-between">
+                    <span>当前已覆盖到</span>
+                    <span class="font-medium">{{ formatCoverageDate(coveragePreview.currentCoveredUntil) }}</span>
+                  </div>
+                  <div v-else class="flex justify-between">
+                    <span>当前覆盖起始</span>
+                    <span class="font-medium">{{ formatCoverageDate(selectedTenantInfo?.moveInDate) }}（入住日）</span>
+                  </div>
+                  <div class="flex justify-between font-medium">
+                    <span>本次覆盖 {{ coveragePreview.monthsCovered >= 1 ? Math.floor(coveragePreview.monthsCovered) + '个月' : '' }}{{ coveragePreview.hasHalfMonth ? ' + 半个月' : '' }}</span>
+                    <span>¥{{ Number(paymentForm.amount).toFixed(1) }}</span>
+                  </div>
+                  <div class="flex justify-between pt-1 border-t border-blue-200 dark:border-blue-700">
+                    <span class="font-bold text-blue-800 dark:text-blue-200">将覆盖到</span>
+                    <span class="font-bold text-blue-800 dark:text-blue-200">{{ formatCoverageDate(coveragePreview.newCoveredUntil) }}</span>
+                  </div>
+                  <div v-if="coveragePreview.depositIncrease > 0" class="flex justify-between text-orange-600 dark:text-orange-400">
+                    <span>溢出 ¥{{ coveragePreview.depositIncrease.toFixed(1) }} → 转入押金</span>
+                    <span>+¥{{ coveragePreview.depositIncrease.toFixed(1) }}</span>
+                  </div>
+                </div>
+              </div>
             </template>
 
             <div>
@@ -328,21 +354,17 @@
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">缴费周期</label>
-              <input v-model="paymentForm.period" type="text" placeholder="如：2024-05" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+              <div v-if="selectedTenantInfo" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 text-sm">
+                {{ getPaymentCycleLabel((selectedTenantInfo as any).paymentCycle) }}（{{ paymentForm.period }}）
+              </div>
+              <div v-else class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 text-sm">
+                请先选择房屋/租客
+              </div>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">描述</label>
               <textarea v-model="paymentForm.description" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">缴费状态</label>
-              <select v-model="paymentForm.status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option value="paid">已缴</option>
-                <option value="pending">待缴</option>
-                <option value="overdue">逾期</option>
-              </select>
             </div>
           </div>
 
@@ -381,6 +403,8 @@ interface House {
   _id: string
   code: string
   address: string
+  status?: string
+  rent?: number
 }
 
 interface Tenant {
@@ -388,6 +412,10 @@ interface Tenant {
   name: string
   houseId: string
   status?: string
+  rent?: number
+  rentCoveredUntil?: Date
+  moveInDate?: Date
+  deposit?: number
 }
 
 const loading = ref(false)
@@ -447,6 +475,59 @@ const computedWaterUsage = computed(() => {
 const computedElectricityCost = computed(() => computedElectricityUsage.value * elecPrice)
 const computedWaterCost = computed(() => computedWaterUsage.value * waterPrice)
 const computedTotalCost = computed(() => computedElectricityCost.value + computedWaterCost.value)
+
+// 租金覆盖预览（预付制）
+const selectedTenantInfo = computed(() => {
+  if (!paymentForm.value.tenantId) return null
+  return availableTenants.value.find(t => t._id === paymentForm.value.tenantId) || null
+})
+
+const coveragePreview = computed(() => {
+  if (paymentForm.value.paymentType !== 'rent') return null
+  const tenant = selectedTenantInfo.value
+  if (!tenant || !paymentForm.value.amount || !tenant.rent) return null
+
+  const monthlyRent = tenant.rent
+  const amount = Number(paymentForm.value.amount)
+  const moveInDate = tenant.moveInDate ? new Date(tenant.moveInDate) : new Date()
+  const halfThreshold = monthlyRent / 2
+  const fullMonths = Math.floor(amount / monthlyRent)
+  const remaining = amount - fullMonths * monthlyRent
+
+  const currentCoveredUntil = (tenant as any).rentCoveredUntil ? new Date((tenant as any).rentCoveredUntil) : null
+
+  let coverageStart: Date
+  if (currentCoveredUntil) {
+    coverageStart = new Date(currentCoveredUntil)
+    coverageStart.setDate(coverageStart.getDate() + 1)
+  } else {
+    coverageStart = new Date(moveInDate)
+  }
+
+  const endDate = new Date(coverageStart)
+  endDate.setMonth(endDate.getMonth() + fullMonths)
+
+  let depositIncrease = 0
+  let hasHalfMonth = false
+  if (remaining >= halfThreshold) {
+    endDate.setDate(endDate.getDate() + 15)
+    hasHalfMonth = true
+    depositIncrease = remaining - halfThreshold
+  } else if (remaining > 0) {
+    depositIncrease = remaining
+  }
+
+  const newCoveredUntil = new Date(endDate)
+  newCoveredUntil.setDate(newCoveredUntil.getDate() - 1)
+
+  return {
+    currentCoveredUntil,
+    newCoveredUntil,
+    monthsCovered: fullMonths + (hasHalfMonth ? 0.5 : 0),
+    depositIncrease,
+    hasHalfMonth
+  }
+})
 
 // 当房屋/租客变化且类型为水电费时，加载上次水电读数
 const loadLastUtilityReading = async (tenantId: string) => {
@@ -553,12 +634,17 @@ watch(() => paymentForm.value.houseId, async (newHouseId) => {
     const activeTenant = availableTenants.value.find(t => t.houseId === newHouseId && t.status === 'active')
     if (activeTenant) {
       paymentForm.value.tenantId = activeTenant._id
+      // 自动填充缴费周期为该租客合同的支付方式
+      const cycle = (activeTenant as any).paymentCycle || 'month'
+      paymentForm.value.period = getPaymentCycleLabel(cycle)
       await loadLastUtilityReading(activeTenant._id)
     } else {
       paymentForm.value.tenantId = ''
+      paymentForm.value.period = ''
     }
   } else {
     paymentForm.value.tenantId = ''
+    paymentForm.value.period = ''
     lastUtilityReading.value = null
   }
 })
@@ -673,9 +759,14 @@ const getPaymentTypeText = (type: string) => {
   return types[type] || type
 }
 
-const getHouseCode = (houseId: string) => {
-  const house = availableHouses.value.find(h => h._id === houseId)
-  return house?.code || '—'
+const getPaymentCycleLabel = (cycle: string) => {
+  const labels: Record<string, string> = {
+    month: '月付',
+    quarter: '季付',
+    half_year: '半年付',
+    year: '年付'
+  }
+  return labels[cycle] || cycle || '—'
 }
 
 const getHouseAddress = (houseId: string) => {
@@ -696,6 +787,12 @@ const formatAmount = (val: number) => {
 const formatDate = (date: Date | string) => {
   if (!date) return '未设置'
   return new Date(date).toLocaleDateString('zh-CN')
+}
+
+const formatCoverageDate = (date: Date | string | undefined | null) => {
+  if (!date) return '—'
+  const d = new Date(date)
+  return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}（${d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}）`
 }
 
 onMounted(() => {
