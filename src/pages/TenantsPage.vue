@@ -343,7 +343,7 @@
 
     <!-- 退租确认模态框 -->
     <div v-if="showMoveOutModal" class="fixed inset-0 bg-gray-600/50 z-50 flex items-end md:items-center justify-center" @click.self="showMoveOutModal = false">
-      <div class="w-full md:max-w-md bg-white dark:bg-gray-800 rounded-t-2xl md:rounded-2xl shadow-xl max-h-[92vh] flex flex-col">
+      <div class="w-full md:max-w-md bg-white dark:bg-gray-800 rounded-t-2xl md:rounded-2xl shadow-xl md:max-h-[90vh] max-h-[80vh] flex flex-col">
         <!-- 固定头部 -->
         <div class="flex justify-between items-center p-5 pb-0 shrink-0">
           <h3 class="text-lg font-bold text-gray-900 dark:text-white">办理退租</h3>
@@ -368,11 +368,13 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">退租电表读数</label>
-              <input v-model="moveOutElectricity" type="number" step="0.01" class="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="退租时电表读数">
+              <input v-model="moveOutElectricity" type="number" step="0.01" class="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white" :placeholder="'上次缴费读数 ' + (settlementInfo?.baselineElec ?? '—')">
+              <p v-if="settlementInfo?.baselineElec" class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">上次缴费/入住电表读数: {{ settlementInfo.baselineElec }}</p>
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">退租水表读数</label>
-              <input v-model="moveOutWater" type="number" step="0.01" class="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="退租时水表读数">
+              <input v-model="moveOutWater" type="number" step="0.01" class="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white" :placeholder="'上次缴费读数 ' + (settlementInfo?.baselineWater ?? '—')">
+              <p v-if="settlementInfo?.baselineWater" class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">上次缴费/入住水表读数: {{ settlementInfo.baselineWater }}</p>
             </div>
           </div>
 
@@ -684,6 +686,9 @@ const handleMoveOut = async (tenant: Tenant) => {
   try {
     const result = await dbService.calculateMoveOutSettlement(tenant._id, new Date(moveOutDate.value))
     settlementInfo.value = result
+    // 默认填入基准读数（上次已缴费读数或入住读数），方便房东参考
+    moveOutElectricity.value = result.baselineElec ?? 0
+    moveOutWater.value = result.baselineWater ?? 0
   } catch (error) {
     console.error('计算结算信息失败:', error)
   }
@@ -694,11 +699,11 @@ const handleMoveOut = async (tenant: Tenant) => {
 // 监听水电表读数变化，实时更新结算中的水电费
 watch([moveOutElectricity, moveOutWater], async () => {
   if (!moveOutTenant.value || !settlementInfo.value) return
-  const tenantAny = moveOutTenant.value as any
-  const moveInElec = tenantAny.moveInElectricity || 0
-  const moveInWater = tenantAny.moveInWater || 0
-  const elecUsed = Math.max(0, Number(moveOutElectricity.value) - moveInElec)
-  const waterUsed = Math.max(0, Number(moveOutWater.value) - moveInWater)
+  // 使用已缴费的基准读数（未缴过则用入住读数）
+  const baselineElec = settlementInfo.value.baselineElec ?? ((moveOutTenant.value as any).moveInElectricity || 0)
+  const baselineWater = settlementInfo.value.baselineWater ?? ((moveOutTenant.value as any).moveInWater || 0)
+  const elecUsed = Math.max(0, Number(moveOutElectricity.value) - baselineElec)
+  const waterUsed = Math.max(0, Number(moveOutWater.value) - baselineWater)
   // 使用系统设置中的单价计算，暂时获取不到则使用默认值
   const elecPrice = 0.8
   const waterPrice = 3.5
@@ -740,11 +745,11 @@ const finalizeMoveOut = async () => {
 
     // 1. 如果有水电表读数，创建水电费记录，并同步在缴费记录中生成
     if (Number(moveOutElectricity.value) > 0 || Number(moveOutWater.value) > 0) {
-      const tenantAny = moveOutTenant.value as any
-      const moveInElec = tenantAny.moveInElectricity || 0
-      const moveInWater = tenantAny.moveInWater || 0
-      const elecUsed = Math.max(0, Number(moveOutElectricity.value) - moveInElec)
-      const waterUsed = Math.max(0, Number(moveOutWater.value) - moveInWater)
+      // 使用已缴费的基准读数（同 watch 逻辑保持一致）
+      const baselineElec = s.baselineElec ?? ((moveOutTenant.value as any).moveInElectricity || 0)
+      const baselineWater = s.baselineWater ?? ((moveOutTenant.value as any).moveInWater || 0)
+      const elecUsed = Math.max(0, Number(moveOutElectricity.value) - baselineElec)
+      const waterUsed = Math.max(0, Number(moveOutWater.value) - baselineWater)
       if (elecUsed > 0 || waterUsed > 0) {
         await dbService.addUtilityRecord({
           houseId,

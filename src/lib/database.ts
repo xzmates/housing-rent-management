@@ -442,11 +442,19 @@ class DatabaseService {
       result = await collection.orderBy('paymentDate', 'desc').get();
     }
 
+    // 按缴费日期降序+创建时间降序排列（确保同一天内的记录按录入时间排序）
+    const sortedData = (result.data || []).sort((a: any, b: any) => {
+      const dateA = new Date(a.paymentDate).getTime()
+      const dateB = new Date(b.paymentDate).getTime()
+      if (dateA !== dateB) return dateB - dateA
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    })
+
     // 确保返回标准格式的数据
     return {
-      data: result.data || [],
+      data: sortedData,
       requestId: result.requestId,
-      total: result.data?.length || 0
+      total: sortedData.length
     };
   }
 
@@ -1105,27 +1113,52 @@ class DatabaseService {
     // 押金
     const depositAmount = tenant.deposit || 0;
 
-    // ---- 水电费结算 ----
-    const utilityResult = await this.db.collection(COLLECTIONS.UTILITY_RECORDS)
+    // ---- 水电费结算（基于上次已缴费的读数为基准） ----
+    const allUtilityRecords = await this.db.collection(COLLECTIONS.UTILITY_RECORDS)
       .where({ tenantId: tenantId })
-      .orderBy('calculationDate', 'desc')
-      .limit(1)
+      .orderBy('calculationDate', 'asc')
       .get();
 
-    let pendingUtility = 0;
-    if (utilityResult.data.length > 0) {
-      const lastUtility = utilityResult.data[0] as any;
-      const utilityPaymentResult = await this.db.collection(COLLECTIONS.PAYMENTS)
-        .where({
-          tenantId: tenantId,
-          paymentType: 'utility',
-          description: { $regex: lastUtility._id }
-        })
-        .get();
+    const records = (allUtilityRecords.data || []) as any[];
 
-      if (utilityPaymentResult.data.length === 0) {
-        pendingUtility = lastUtility.totalCost || 0;
+    // 获取所有已缴水电费记录
+    const utilityPaymentsResult = await this.db.collection(COLLECTIONS.PAYMENTS)
+      .where({
+        tenantId: tenantId,
+        paymentType: 'utility',
+        status: 'paid'
+      })
+      .get();
+
+    const totalPaidUtility = (utilityPaymentsResult.data || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+    // 基准读数：默认为入住读数
+    let baselineElec = tenant.moveInElectricity || 0;
+    let baselineWater = tenant.moveInWater || 0;
+    let cumulativeCost = 0;
+
+    // 遍历所有水电记录，找出已覆盖到哪一次读数为基准
+    for (const record of records) {
+      cumulativeCost += record.totalCost || 0;
+      if (totalPaidUtility >= cumulativeCost) {
+        // 本次及之前的记录已全部缴清，更新基准读数
+        baselineElec = record.electricityReading || baselineElec;
+        baselineWater = record.waterReading || baselineWater;
       }
+    }
+
+    // 计算待缴水电费 = (最新读数 - 基准读数) × 单价
+    let pendingUtility = 0;
+    const latestRecord = records.length > 0 ? records[records.length - 1] : null;
+    if (latestRecord && totalPaidUtility < cumulativeCost) {
+      const elecUsed = Math.max(0, (latestRecord.electricityReading || 0) - baselineElec);
+      const waterUsed = Math.max(0, (latestRecord.waterReading || 0) - baselineWater);
+      // 使用系统设置中的单价或默认值
+      const settingsResult = await this.getSystemSettings();
+      const settings = settingsResult.data[0];
+      const elecPrice = settings?.electricityPrice || 0.8;
+      const waterPrice = settings?.waterPrice || 3.5;
+      pendingUtility = Math.max(0, elecUsed * elecPrice + waterUsed * waterPrice);
     }
 
     // 检查其他未结清款项
@@ -1174,6 +1207,8 @@ class DatabaseService {
       depositAmount,
       // 费用
       pendingUtility,
+      baselineElec,
+      baselineWater,
       otherPending,
       totalPending,
       // 结算
