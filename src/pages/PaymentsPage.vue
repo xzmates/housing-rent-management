@@ -47,47 +47,39 @@
     </div>
 
     <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">本月总收入</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">¥{{ stats.monthlyTotal }}</p>
-          </div>
-          <div class="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-            <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-xs text-gray-500 dark:text-gray-400">租金收入</p>
+          <div class="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
         </div>
+        <p class="text-lg font-bold text-gray-900 dark:text-white">¥{{ stats.rentTotal }}</p>
       </div>
-
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">近3天到期</p>
-            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">¥{{ stats.upcomingTotal }}</p>
-          </div>
-          <div class="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-            <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-xs text-gray-500 dark:text-gray-400">在管押金</p>
+          <div class="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
         </div>
+        <p class="text-lg font-bold text-gray-900 dark:text-white">¥{{ stats.depositTotal }}</p>
       </div>
-
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">逾期费用</p>
-            <p class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">¥{{ stats.overdueTotal }}</p>
-          </div>
-          <div class="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
-            <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.284 16.5c-.77.833.192 2.5 1.732 2.5z" />
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-xs text-gray-500 dark:text-gray-400">水电费</p>
+          <div class="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
         </div>
+        <p class="text-lg font-bold text-gray-900 dark:text-white">¥{{ stats.utilityTotal }}</p>
       </div>
     </div>
 
@@ -432,14 +424,14 @@ const filters = ref({
   houseId: '',
   paymentType: '',
   status: '',
-  startDate: '',
+  startDate: new Date().getFullYear() + '-01-01',
   endDate: ''
 })
 
 const stats = ref({
-  monthlyTotal: 0,
-  upcomingTotal: 0,
-  overdueTotal: 0
+  rentTotal: 0,
+  depositTotal: 0,
+  utilityTotal: 0
 })
 
 const paymentForm = ref({
@@ -563,49 +555,39 @@ const loadPayments = async () => {
 }
 
 const calculateStats = async () => {
-  const now = new Date()
-  const currentMonth = now.getMonth()
-  const currentYear = now.getFullYear()
+  // 根据筛选时间段统计已缴费用，按类型分组
+  const paid = payments.value.filter((p: any) => p.status === 'paid')
 
-  stats.value.monthlyTotal = payments.value
-    .filter((p: any) => {
-      const date = new Date(p.paymentDate)
-      return date.getMonth() === currentMonth &&
-             date.getFullYear() === currentYear &&
-             p.status === 'paid'
+  // 如果设置了日期筛选，按筛选范围统计
+  let filtered = paid
+  if (filters.value.startDate || filters.value.endDate) {
+    filtered = paid.filter((p: any) => {
+      const d = new Date(p.paymentDate)
+      if (filters.value.startDate && d < new Date(filters.value.startDate)) return false
+      if (filters.value.endDate) {
+        const end = new Date(filters.value.endDate)
+        end.setDate(end.getDate() + 1)
+        if (d >= end) return false
+      }
+      return true
     })
-    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
-
-  // 先统计数据库中标记为 pending/overdue 的记录
-  const dbPending = payments.value
-    .filter((p: any) => p.status === 'pending')
-    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
-
-  let overdueTotal = payments.value
-    .filter((p: any) => p.status === 'overdue')
-    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
-
-  let upcomingTotal = dbPending
-
-  // 加上动态计算的数据（来自仪表盘收费提醒）
-  try {
-    const houses = await dbService.getUpcomingRentHouses(3)
-    for (const house of houses) {
-      // 逾期部分计入逾期费用
-      if (house.totalOverdue > 0) {
-        overdueTotal += house.totalOverdue
-      }
-      // 未来3天内到期（未逾期）的部分计入近3天到期
-      if (house.upcomingItem && house.upcomingItem.daysUntilDue >= 0) {
-        upcomingTotal += house.upcomingItem.amount
-      }
-    }
-  } catch (error) {
-    console.warn('获取动态逾期数据失败:', error)
   }
 
-  stats.value.upcomingTotal = upcomingTotal
-  stats.value.overdueTotal = overdueTotal
+  stats.value.rentTotal = filtered
+    .filter((p: any) => p.paymentType === 'rent')
+    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+
+  // 在管押金 = 所有活跃租客的押金总和（已退租的自然归零）
+  try {
+    const activeTenants = await dbService.getTenants({ status: 'active' })
+    stats.value.depositTotal = activeTenants.data.reduce((sum: number, t: any) => sum + (t.deposit || 0), 0)
+  } catch {
+    stats.value.depositTotal = 0
+  }
+
+  stats.value.utilityTotal = filtered
+    .filter((p: any) => p.paymentType === 'utility')
+    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
 }
 
 const loadHouses = async () => {

@@ -518,7 +518,7 @@ class DatabaseService {
         .orderBy('paymentDate', 'asc')
         .get();
 
-      const remainingPayments = (allPayments.data || []) as any[];
+      const remainingPayments = (allPayments.data || []).filter((p: any) => p.amount > 0) as any[];
       const moveInDate = new Date(tenant.moveInDate);
 
       // 重新计算覆盖期限及押金溢出
@@ -979,7 +979,7 @@ class DatabaseService {
 
         for (const dueDate of allDueDates) {
           const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          if (dueDate <= today) {
+          if (dueDate < today) {
             // 已逾期
             overdueItems.push({
               dueDate,

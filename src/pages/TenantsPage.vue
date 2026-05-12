@@ -771,29 +771,45 @@ const finalizeMoveOut = async () => {
       }
     }
 
-    // 2. 记录应收租金（退租结算时计算的应缴房租）
-    if (s.owedRent > 0) {
+    // 2. 记录退租结算：退款为负数，补缴为正数
+    if (s.refundAmount > 0) {
+      // 水电费超出押金的部分从预付租金退款中扣除
+      const depositShortfall = Math.max(0, s.pendingUtility - s.depositAmount)
+      const rentRefund = Math.max(0, s.prepaidRent - s.owedRent - depositShortfall)
+      if (rentRefund > 0) {
+        await dbService.addPayment({
+          houseId,
+          tenantId,
+          paymentType: 'rent',
+          amount: -rentRefund,
+          description: `退租结算 - 退还预付租金（已预付¥${s.prepaidRent.toFixed(1)}，实住应缴¥${s.owedRent.toFixed(1)}）`,
+          paymentDate: moveOutDateObj,
+          period: `退租结算`,
+          status: 'paid'
+        })
+      }
+      const depositRefund = Math.max(0, s.depositAmount - s.pendingUtility)
+      if (depositRefund > 0) {
+        await dbService.addPayment({
+          houseId,
+          tenantId,
+          paymentType: 'deposit',
+          amount: -depositRefund,
+          description: `退租结算 - 退还押金（押金¥${s.depositAmount.toFixed(1)}，扣除水电费¥${s.pendingUtility.toFixed(1)}）`,
+          paymentDate: moveOutDateObj,
+          period: `退租结算`,
+          status: 'paid'
+        })
+      }
+    }
+    if (s.extraDue > 0) {
+      // 还需补缴：记录应收租金
       await dbService.addPayment({
         houseId,
         tenantId,
         paymentType: 'rent',
-        amount: s.owedRent,
-        description: `退租结算 - 应收租金（${s.owedRentNote}，预缴已抵扣¥${Math.min(s.prepaidRent, s.owedRent).toFixed(1)}）`,
-        paymentDate: moveOutDateObj,
-        period: `退租结算`,
-        status: 'paid'
-      })
-    }
-
-    // 3. 记录押金退还（如有剩余）
-    if (s.depositAmount > 0 && s.pendingUtility < s.depositAmount) {
-      const refundAmount = s.depositAmount - s.pendingUtility
-      await dbService.addPayment({
-        houseId,
-        tenantId,
-        paymentType: 'deposit',
-        amount: refundAmount,
-        description: `退租结算 - 退还押金（押金¥${s.depositAmount.toFixed(1)}，扣除水电费¥${s.pendingUtility.toFixed(1)}）`,
+        amount: s.extraDue,
+        description: `退租结算 - 补缴租金（${s.owedRentNote}，预缴已抵扣¥${Math.min(s.prepaidRent, s.owedRent).toFixed(1)}）`,
         paymentDate: moveOutDateObj,
         period: `退租结算`,
         status: 'paid'

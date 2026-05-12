@@ -81,7 +81,7 @@
           <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-2">
               <span :class="house.overdueItems.length > 0 ? 'w-2 h-2 rounded-full bg-red-500' : 'w-2 h-2 rounded-full bg-yellow-500'"></span>
-              <span class="font-medium text-sm text-gray-900 dark:text-white">{{ house.houseCode }}</span>
+              <span class="font-medium text-sm text-gray-900 dark:text-white">{{ house.houseCode }}<span class="font-normal text-gray-500 dark:text-gray-400"> - {{ house.houseAddress }}</span></span>
             </div>
             <span class="text-xs text-gray-500 dark:text-gray-400">{{ house.tenantName }} · ¥{{ house.monthlyRent }}/月</span>
           </div>
@@ -93,7 +93,8 @@
             </p>
             <p class="text-sm text-yellow-700 dark:text-yellow-300">
               {{ formatDate(house.upcomingItem.dueDate) }} 需交租 ¥{{ house.upcomingItem.amount?.toFixed(1) }}
-              <span class="text-yellow-500">（{{ house.upcomingItem.daysUntilDue }}天后）</span>
+              <span class="text-yellow-500" v-if="house.upcomingItem.daysUntilDue > 0">（{{ house.upcomingItem.daysUntilDue }}天后）</span>
+              <span class="text-yellow-500" v-else-if="house.upcomingItem.daysUntilDue === 0">（今天）</span>
             </p>
           </template>
 
