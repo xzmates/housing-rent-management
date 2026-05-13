@@ -442,8 +442,23 @@ class DatabaseService {
       result = await collection.orderBy('paymentDate', 'desc').get();
     }
 
-    // 按缴费日期降序+创建时间降序排列（确保同一天内的记录按录入时间排序）
-    const sortedData = (result.data || []).sort((a: any, b: any) => {
+    let data = result.data || [];
+
+    // 日期筛选（在前端过滤，CloudBase NoSQL 对日期比较支持有限）
+    if (filters) {
+      if (filters.startDate) {
+        const start = new Date(filters.startDate);
+        data = data.filter((d: any) => new Date(d.paymentDate) >= start);
+      }
+      if (filters.endDate) {
+        const end = new Date(filters.endDate);
+        end.setDate(end.getDate() + 1);
+        data = data.filter((d: any) => new Date(d.paymentDate) < end);
+      }
+    }
+
+    // 按缴费日期降序+创建时间降序排列
+    const sortedData = data.sort((a: any, b: any) => {
       const dateA = new Date(a.paymentDate).getTime()
       const dateB = new Date(b.paymentDate).getTime()
       if (dateA !== dateB) return dateB - dateA

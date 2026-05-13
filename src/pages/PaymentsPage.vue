@@ -269,13 +269,13 @@
                   <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">上次电表读数</label>
                     <div class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white text-sm">
-                      {{ lastUtilityReading?.electricity ?? '—' }}
+                      {{ baselineElecReading }}
                     </div>
                   </div>
                   <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">上次水表读数</label>
                     <div class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white text-sm">
-                      {{ lastUtilityReading?.water ?? '—' }}
+                      {{ baselineWaterReading }}
                     </div>
                   </div>
                 </div>
@@ -452,16 +452,27 @@ const elecPrice = 0.8
 const waterPrice = 3.5
 const lastUtilityReading = ref<{ electricity: number; water: number } | null>(null)
 
+// 水电费基准读数：上次缴费记录 → 入住读数 → 0
+const baselineElecReading = computed(() => {
+  if (lastUtilityReading.value) return lastUtilityReading.value.electricity
+  const tenant = selectedTenantInfo.value
+  return (tenant as any)?.moveInElectricity || 0
+})
+
+const baselineWaterReading = computed(() => {
+  if (lastUtilityReading.value) return lastUtilityReading.value.water
+  const tenant = selectedTenantInfo.value
+  return (tenant as any)?.moveInWater || 0
+})
+
 const computedElectricityUsage = computed(() => {
   if (paymentForm.value.paymentType !== 'utility') return 0
-  const last = lastUtilityReading.value?.electricity || 0
-  return Math.max(0, Number(paymentForm.value.electricityReading) - last)
+  return Math.max(0, Number(paymentForm.value.electricityReading) - baselineElecReading.value)
 })
 
 const computedWaterUsage = computed(() => {
   if (paymentForm.value.paymentType !== 'utility') return 0
-  const last = lastUtilityReading.value?.water || 0
-  return Math.max(0, Number(paymentForm.value.waterReading) - last)
+  return Math.max(0, Number(paymentForm.value.waterReading) - baselineWaterReading.value)
 })
 
 const computedElectricityCost = computed(() => computedElectricityUsage.value * elecPrice)
@@ -532,8 +543,20 @@ const loadLastUtilityReading = async (tenantId: string) => {
         electricity: last.electricityReading || 0,
         water: last.waterReading || 0
       }
+      // 默认填入上次读数，方便房东以之为基准填入当前表数
+      paymentForm.value.electricityReading = last.electricityReading || 0
+      paymentForm.value.waterReading = last.waterReading || 0
     } else {
       lastUtilityReading.value = null
+      // 无上次读数则从入住读数开始（通过租客信息中的 moveInElectricity/Water）
+      const tenant = selectedTenantInfo.value
+      if (tenant) {
+        const tenantAny = tenant as any
+        const moveInElec = tenantAny.moveInElectricity || 0
+        const moveInWater = tenantAny.moveInWater || 0
+        if (moveInElec > 0) paymentForm.value.electricityReading = moveInElec
+        if (moveInWater > 0) paymentForm.value.waterReading = moveInWater
+      }
     }
   } catch (error) {
     console.warn('获取上次水电读数失败:', error)
