@@ -102,8 +102,8 @@
                     <div class="font-medium text-gray-900 dark:text-white">¥{{ house.nextRentDue.amount }}</div>
                     <div :class="[
                       'text-xs',
-                      house.nextRentDue.daysUntilDue <= 3 ? 'text-red-600 dark:text-red-400 font-medium' :
-                      house.nextRentDue.daysUntilDue <= 7 ? 'text-yellow-600 dark:text-yellow-400' :
+                      house.nextRentDue.daysUntilDue < 0 ? 'text-red-600 dark:text-red-400 font-medium' :
+                      house.nextRentDue.daysUntilDue <= 10 ? 'text-yellow-600 dark:text-yellow-400' :
                       'text-gray-500 dark:text-gray-400'
                     ]">
                       {{ formatDate(house.nextRentDue.date) }}
@@ -149,7 +149,7 @@
             </div>
             <!-- 第三行：下次收租 + 操作按钮 -->
             <div class="flex items-center justify-between mt-1" v-if="house.status === 'rented' && house.nextRentDue">
-              <div class="text-xs" :class="house.nextRentDue.daysUntilDue <= 3 ? 'text-red-600 dark:text-red-400 font-medium' : house.nextRentDue.daysUntilDue <= 7 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'">
+              <div class="text-xs" :class="house.nextRentDue.daysUntilDue < 0 ? 'text-red-600 dark:text-red-400 font-medium' : house.nextRentDue.daysUntilDue <= 10 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'">
                 <span class="text-gray-400 dark:text-gray-500">下次</span>
                 ¥{{ house.nextRentDue.amount }}
                 <span class="mx-1 text-gray-300 dark:text-gray-600">|</span>
@@ -328,6 +328,17 @@ const loadHouses = async () => {
       return enrichedHouse
     }))
 
+    // 按地址分组 + 编号数字升序排列
+    const addrOrder: Record<string, number> = { '东楼北': 1, '东楼南': 2, '里召': 3 }
+    enrichedHouses.sort((a: any, b: any) => {
+      const addrA = addrOrder[a.address] ?? 99
+      const addrB = addrOrder[b.address] ?? 99
+      if (addrA !== addrB) return addrA - addrB
+      // 同地址内按编号数字比较
+      const numA = parseInt(a.code, 10) || 0
+      const numB = parseInt(b.code, 10) || 0
+      return numA - numB
+    })
     houses.value = enrichedHouses
   } catch (error) {
     console.error('加载房屋失败:', error)

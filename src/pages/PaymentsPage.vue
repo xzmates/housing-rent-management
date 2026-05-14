@@ -127,10 +127,11 @@
               </td>
               <td class="px-4 py-3 text-center whitespace-nowrap">
                 <span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium"
-                  :class="payment.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                  :class="payment.amount < 0 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                  payment.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
                   payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
                   'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'">
-                  {{ payment.status === 'paid' ? '已缴' : payment.status === 'pending' ? '待缴' : '逾期' }}
+                  {{ payment.amount < 0 ? '退款' : payment.status === 'paid' ? '已缴' : payment.status === 'pending' ? '待缴' : '逾期' }}
                 </span>
               </td>
               <td class="px-4 py-3 text-right whitespace-nowrap">
@@ -154,10 +155,11 @@
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold text-gray-900 dark:text-white">¥{{ formatAmount(payment.amount) }}</span>
               <span class="text-xs px-1.5 py-0.5 rounded-full font-medium"
-                :class="payment.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                :class="payment.amount < 0 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                payment.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
                 payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
                 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'">
-                {{ payment.status === 'paid' ? '已缴' : payment.status === 'pending' ? '待缴' : '逾期' }}
+                {{ payment.amount < 0 ? '退款' : payment.status === 'paid' ? '已缴' : payment.status === 'pending' ? '待缴' : '逾期' }}
               </span>
             </div>
           </div>

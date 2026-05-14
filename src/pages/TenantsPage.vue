@@ -567,7 +567,16 @@ const loadTenants = async () => {
   loading.value = true
   try {
     const result = await dbService.getTenants(filters.value)
-    tenants.value = result.data
+    // 在租在前，退租在后；同状态内按房屋地址+编号排序
+    const addrO: Record<string, number> = { '东楼北': 1, '东楼南': 2, '里召': 3 }
+    const hMap = new Map(availableHouses.value.map((h: any) => [h._id, h]))
+    tenants.value = (result.data || []).sort((a: any, b: any) => {
+      if (a.status !== b.status) return a.status === 'active' ? -1 : 1
+      const ha = hMap.get(a.houseId) || {}; const hb = hMap.get(b.houseId) || {}
+      const aa = addrO[ha.address] ?? 99; const ab = addrO[hb.address] ?? 99
+      if (aa !== ab) return aa - ab
+      return (parseInt(ha.code, 10) || 0) - (parseInt(hb.code, 10) || 0)
+    })
   } catch (error) {
     console.error('加载租客失败:', error)
   } finally {
@@ -578,9 +587,26 @@ const loadTenants = async () => {
 const loadHouses = async () => {
   try {
     const allResult = await dbService.getHouses()
-    availableHouses.value = allResult.data
+    // 按地址分组 + 编号数字升序排列
+    const sortedHouses = [...(allResult.data || [])].sort((a: any, b: any) => {
+      const addrO: Record<string, number> = { '东楼北': 1, '东楼南': 2, '里召': 3 }
+      const aa = addrO[a.address] ?? 99; const bb = addrO[b.address] ?? 99
+      if (aa !== bb) return aa - bb
+      return (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0)
+    })
+    availableHouses.value = sortedHouses
+    // 房屋加载完成后，重新排序租客（因为之前排序时房屋数据可能还没加载）
+    const addrO2: Record<string, number> = { '东楼北': 1, '东楼南': 2, '里召': 3 }
+    const hMap2 = new Map(sortedHouses.map((h: any) => [h._id, h]))
+    tenants.value = [...tenants.value].sort((a: any, b: any) => {
+      if (a.status !== b.status) return a.status === 'active' ? -1 : 1
+      const ha = hMap2.get(a.houseId) || {}; const hb = hMap2.get(b.houseId) || {}
+      const aa = addrO2[ha.address] ?? 99; const ab = addrO2[hb.address] ?? 99
+      if (aa !== ab) return aa - ab
+      return (parseInt(ha.code, 10) || 0) - (parseInt(hb.code, 10) || 0)
+    })
     // 可租房源：status为available，或者正在编辑时的当前房屋
-    availableHousesForRent.value = allResult.data.filter(
+    availableHousesForRent.value = sortedHouses.filter(
       (h: House) => h.status === 'available'
     )
   } catch (error) {

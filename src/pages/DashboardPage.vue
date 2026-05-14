@@ -64,7 +64,7 @@
       <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
         <div class="flex items-center justify-between">
           <h2 class="font-bold text-gray-900 dark:text-white">收费提醒</h2>
-          <span class="text-xs text-gray-500 dark:text-gray-400">含逾期及未来3天</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">含逾期及未来10天</span>
         </div>
       </div>
 
@@ -211,7 +211,7 @@ const formatCoverageDate = (date: Date | string | undefined | null) => {
 
 const loadUpcomingRentHouses = async () => {
   try {
-    const houses = await dbService.getUpcomingRentHouses(3)
+    const houses = await dbService.getUpcomingRentHouses(10)
     upcomingRentHouses.value = houses
     const overdueTotal = houses.reduce((sum: number, h: any) => sum + (h.totalOverdue || 0), 0)
     if (overdueTotal > 0) {
