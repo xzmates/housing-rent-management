@@ -1,0 +1,56 @@
+<view class="page-container">
+  <!-- 水电单价设置 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">水电单价设置</text>
+    </view>
+    <text class="stat-label" style="margin-bottom:24rpx;">设置电费和水费的单价，用于水电费自动计算</text>
+
+    <view class="form-group">
+      <text class="form-label">电费单价（元/度）</text>
+      <input class="form-input" model:value="{{form.electricityPrice}}" type="number" />
+    </view>
+    <view class="form-group">
+      <text class="form-label">水费单价（元/吨）</text>
+      <input class="form-input" model:value="{{form.waterPrice}}" type="number" />
+    </view>
+
+    <button class="btn btn-primary btn-block" bindtap="saveSettings">{{saving ? '保存中...' : '保存设置'}}</button>
+  </view>
+
+  <!-- 当前设置 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">当前系统设置</text>
+    </view>
+    <view class="stats-grid">
+      <view class="stat-card" style="background:#EFF6FF;border:2rpx solid #BFDBFE;">
+        <view class="stat-label">电费单价</view>
+        <view class="stat-value blue">¥{{settings.electricityPrice}}/度</view>
+      </view>
+      <view class="stat-card" style="background:#F0FDF4;border:2rpx solid #BBF7D0;">
+        <view class="stat-label">水费单价</view>
+        <view class="stat-value green">¥{{settings.waterPrice}}/吨</view>
+      </view>
+    </view>
+    <text style="font-size:22rpx;color:var(--gray-400);margin-top:12rpx;display:block;">
+      更新时间: {{_formatDate(settings.updatedAt)}}
+    </text>
+  </view>
+
+  <!-- 关于 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">关于</text>
+    </view>
+    <text style="font-size:26rpx;color:var(--gray-500);display:block;margin-bottom:12rpx;">
+      房屋租赁管理系统
+    </text>
+    <text style="font-size:24rpx;color:var(--gray-400);display:block;">
+      基于 CloudBase 云开发的租赁管理解决方案
+    </text>
+    <text style="font-size:24rpx;color:var(--gray-400);display:block;margin-top:8rpx;">
+      环境ID: {{envId}}
+    </text>
+  </view>
+</view>

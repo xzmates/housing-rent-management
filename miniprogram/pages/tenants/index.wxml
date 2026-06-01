@@ -1,0 +1,259 @@
+<view class="page-container">
+  <!-- 头部 -->
+  <view class="flex-row justify-between align-center" style="margin-bottom:20rpx;">
+    <view>
+      <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">租客管理</text>
+      <text class="stat-label">共 {{tenants.length}} 位租客</text>
+    </view>
+    <button class="btn btn-primary btn-small" bindtap="showAddModal">+ 添加</button>
+  </view>
+
+  <!-- 筛选器 -->
+  <scroll-view scroll-x class="filter-bar">
+    <view class="filter-btn {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
+    <view class="filter-btn {{filters.status === 'active' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="active">在住的</view>
+    <view class="filter-btn {{filters.status === 'moved_out' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="moved_out">已退租</view>
+    <picker mode="selector" range="{{houseOptions}}" bindchange="onHouseFilterChange" style="display:inline-block;">
+      <view class="filter-btn {{filters.houseId ? 'active' : ''}}">{{houseFilterLabel}}</view>
+    </picker>
+  </scroll-view>
+
+  <!-- 加载/空状态 -->
+  <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
+  <view wx:elif="{{tenants.length === 0}}" class="empty-state">
+    <text class="empty-text">暂无租客</text>
+    <button class="btn btn-primary btn-small" bindtap="showAddModal">添加租客</button>
+  </view>
+
+  <!-- 租客列表 -->
+  <view wx:else>
+    <view wx:for="{{tenants}}" wx:key="_id" class="list-item">
+      <!-- 第一行 -->
+      <view class="flex-row justify-between align-center" style="margin-bottom:8rpx;">
+        <view class="flex-row align-center">
+          <text class="list-item-title">{{item.name}}</text>
+          <view class="badge {{item.status === 'active' ? 'badge-success' : 'badge-gray'}}" style="margin-left:12rpx;">
+            {{item.status === 'active' ? '在住' : '已退'}}
+          </view>
+          <text wx:if="{{item.moveOutDate}}" style="margin-left:8rpx;font-size:20rpx;color:var(--gray-400);">退{{_formatDate(item.moveOutDate)}}</text>
+        </view>
+      </view>
+      <!-- 第二行 -->
+      <view class="flex-row align-center" style="font-size:24rpx;color:var(--gray-400);margin-bottom:12rpx;">
+        <text>{{item.phone || '—'}}</text>
+        <text style="margin:0 12rpx;color:var(--gray-200);">|</text>
+        <text>{{_getHouseLabel(item.houseId)}}</text>
+      </view>
+      <!-- 操作按钮 -->
+      <view class="flex-row" style="gap:12rpx;">
+        <button class="btn-small" style="background:#EFF6FF;color:var(--primary);border:none;" bindtap="viewContract" data-tenant-id="{{item._id}}">合同</button>
+        <button wx:if="{{item.status === 'active'}}" class="btn-small" style="background:#F3E8FF;color:#7C3AED;border:none;" bindtap="editTenant" data-tenant="{{item}}">编辑</button>
+        <button wx:if="{{item.status === 'active'}}" class="btn-small" style="background:#FFF7ED;color:#EA580C;border:none;" bindtap="handleMoveOut" data-tenant="{{item}}">退租</button>
+        <button class="btn-small" style="background:#FEE2E2;color:var(--danger);border:none;" bindtap="deleteTenant" data-id="{{item._id}}">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ====== 添加/编辑租客模态框 ====== -->
+  <view wx:if="{{showAddModal}}" class="modal-mask" bindtap="closeAddModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
+        <text style="font-size:34rpx;font-weight:600;">{{editingTenant ? '编辑租客' : '添加租客'}}</text>
+        <text bindtap="closeAddModal" style="font-size:40rpx;color:var(--gray-400);">✕</text>
+      </view>
+
+      <scroll-view scroll-y style="max-height:70vh;">
+        <view class="form-group">
+          <text class="form-label">姓名</text>
+          <input class="form-input" value="{{form.name}}" data-field="name" bindinput="onFormInput" placeholder="租客姓名" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">身份证号</text>
+          <input class="form-input" value="{{form.idCard}}" data-field="idCard" bindinput="onFormInput" placeholder="18位身份证号码" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">手机号</text>
+          <input class="form-input" value="{{form.phone}}" data-field="phone" bindinput="onFormInput" placeholder="11位手机号码" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">所属房屋</text>
+          <picker mode="selector" range="{{rentableHouseLabels}}" bindchange="onHouseChange">
+            <view class="form-picker">{{rentableHouseLabels[form.houseIndex] || '请选择房屋'}}</view>
+          </picker>
+        </view>
+        <view class="flex-row" style="gap:20rpx;">
+          <view class="form-group" style="flex:1;">
+            <text class="form-label">月租金（元）</text>
+            <input class="form-input" value="{{form.rent}}" data-field="rent" bindinput="onFormInput" type="number" placeholder="月租金" />
+          </view>
+          <view class="form-group" style="flex:1;">
+            <text class="form-label">押金（元）</text>
+            <input class="form-input" value="{{form.deposit}}" data-field="deposit" bindinput="onFormInput" type="number" placeholder="押金" />
+          </view>
+        </view>
+        <view class="form-group">
+          <text class="form-label">支付方式</text>
+          <picker mode="selector" range="{{['月付','季付','半年付','年付']}}" value="{{form.paymentIndex}}" bindchange="onPaymentChange">
+            <view class="form-picker">{{['月付','季付','半年付','年付'][form.paymentIndex] || '月付'}}</view>
+          </picker>
+        </view>
+        <view class="form-group">
+          <text class="form-label">入住日期</text>
+          <picker mode="date" value="{{form.moveInDate}}" bindchange="onMoveInDateChange">
+            <view class="form-picker">{{form.moveInDate || '选择日期'}}</view>
+          </picker>
+        </view>
+        <view class="form-group">
+          <text class="form-label">入住电表读数</text>
+          <input class="form-input" value="{{form.moveInElectricity}}" data-field="moveInElectricity" bindinput="onFormInput" type="number" placeholder="0" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">入住水表读数</text>
+          <input class="form-input" value="{{form.moveInWater}}" data-field="moveInWater" bindinput="onFormInput" type="number" placeholder="0" />
+        </view>
+
+        <view class="modal-actions">
+          <button class="btn" style="background:var(--gray-100);color:var(--gray-600);" bindtap="closeAddModal">取消</button>
+          <button wx:if="{{editingTenant}}" class="btn btn-primary" bindtap="saveTenant">{{saving ? '保存中...' : '保存'}}</button>
+          <button wx:else class="btn btn-primary" bindtap="showConfirmAdd">下一步</button>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ====== 确认添加租客模态框 ====== -->
+  <view wx:if="{{showConfirmAddModal}}" class="modal-mask" bindtap="closeConfirmAdd">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
+        <text style="font-size:34rpx;font-weight:600;">确认租客信息</text>
+        <text bindtap="closeConfirmAdd" style="font-size:40rpx;color:var(--gray-400);">✕</text>
+      </view>
+
+      <view style="background:#FFFBEB;border-radius:12rpx;padding:24rpx;margin-bottom:20rpx;">
+        <text style="color:#92400E;font-weight:500;">⚠️ 请确认该租客的以下信息</text>
+      </view>
+
+      <view style="background:var(--gray-50);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <view class="flex-row justify-between" style="margin-bottom:12rpx;">
+          <text style="color:var(--gray-400);">姓名</text>
+          <text style="font-weight:500;">{{form.name}}</text>
+        </view>
+        <view class="flex-row justify-between" style="margin-bottom:12rpx;">
+          <text style="color:var(--gray-400);">房屋</text>
+          <text style="font-weight:500;">{{rentableHouseLabels[form.houseIndex]}}</text>
+        </view>
+        <view class="flex-row justify-between">
+          <text style="color:var(--gray-400);">入住日期</text>
+          <text style="font-weight:500;">{{form.moveInDate}}</text>
+        </view>
+      </view>
+
+      <!-- 缴费预览 -->
+      <view style="background:#EFF6FF;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="color:#1D4ED8;font-weight:500;margin-bottom:16rpx;">💰 缴费确认</text>
+        <view class="flex-row justify-between" style="margin-bottom:8rpx;">
+          <text style="color:#1D4ED8;">月租金</text>
+          <text style="color:#1D4ED8;">¥{{form.rent}}</text>
+        </view>
+        <view class="flex-row justify-between" style="margin-bottom:8rpx;">
+          <text style="color:#1D4ED8;">支付方式</text>
+          <text style="color:#1D4ED8;">{{['月付','季付','半年付','年付'][form.paymentIndex]}}</text>
+        </view>
+        <view class="flex-row justify-between" style="font-weight:600;color:#1E3A5F;border-top:2rpx solid #BFDBFE;padding-top:12rpx;margin-top:8rpx;">
+          <text>押金</text>
+          <text>¥{{form.deposit}}</text>
+        </view>
+        <view class="flex-row justify-between" style="font-weight:700;color:#1E3A5F;border-top:2rpx solid #93C5FD;padding-top:12rpx;margin-top:8rpx;">
+          <text>合计缴费</text>
+          <text>¥{{confirmTotal}}</text>
+        </view>
+      </view>
+
+      <view class="modal-actions">
+        <button class="btn" style="background:var(--gray-100);color:var(--gray-600);" bindtap="closeConfirmAdd">取消</button>
+        <button class="btn btn-primary" bindtap="finalizeAddTenant">{{saving ? '保存中...' : '确认保存'}}</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ====== 退租模态框 ====== -->
+  <view wx:if="{{showMoveOutModal}}" class="modal-mask" bindtap="closeMoveOut">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
+        <text style="font-size:34rpx;font-weight:600;">办理退租</text>
+        <text bindtap="closeMoveOut" style="font-size:40rpx;color:var(--gray-400);">✕</text>
+      </view>
+
+      <scroll-view scroll-y style="max-height:70vh;">
+        <view style="background:#FFFBEB;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+          <text style="color:#92400E;">租客 <text style="font-weight:600;">{{moveOutTenantName}}</text> 将从 {{moveOutTenantHouseLabel}} 退租</text>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">退租日期</text>
+          <picker mode="date" value="{{moveOutDate}}" bindchange="onMoveOutDateChange">
+            <view class="form-picker">{{moveOutDate}}</view>
+          </picker>
+        </view>
+        <view class="flex-row" style="gap:20rpx;">
+          <view class="form-group" style="flex:1;">
+            <text class="form-label">退租电表读数</text>
+            <input class="form-input" model:value="{{moveOutElectricity}}" type="number" placeholder="电表" />
+          </view>
+          <view class="form-group" style="flex:1;">
+            <text class="form-label">退租水表读数</text>
+            <input class="form-input" model:value="{{moveOutWater}}" type="number" placeholder="水表" />
+          </view>
+        </view>
+
+        <!-- 结算信息 -->
+        <view wx:if="{{settlementInfo}}" style="background:#EFF6FF;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+          <text style="color:#1D4ED8;font-weight:500;margin-bottom:16rpx;">💡 费用结算预览</text>
+          <text style="color:#1D4ED8;font-size:24rpx;">入住天数: {{settlementInfo.daysUsed}} 天</text>
+          <!-- 已预缴 -->
+          <view style="background:#D1FAE5;border-radius:8rpx;padding:16rpx;margin-top:12rpx;">
+            <text style="color:#065F46;font-weight:500;">📥 已预缴</text>
+            <view class="flex-row justify-between" style="margin-top:8rpx;"><text>预缴房租</text><text>¥{{settlementInfo.prepaidRent.toFixed(1)}}</text></view>
+            <view class="flex-row justify-between"><text>押金</text><text>¥{{settlementInfo.depositAmount.toFixed(1)}}</text></view>
+          </view>
+          <!-- 应缴费 -->
+          <view style="background:#FED7AA;border-radius:8rpx;padding:16rpx;margin-top:12rpx;">
+            <text style="color:#9A3412;font-weight:500;">📤 应缴费</text>
+            <view class="flex-row justify-between" style="margin-top:8rpx;">
+              <text>房租 ({{settlementInfo.owedRentNote}})</text>
+              <text>¥{{settlementInfo.owedRent.toFixed(1)}}</text>
+            </view>
+            <view wx:if="{{settlementInfo.pendingUtility > 0}}" class="flex-row justify-between">
+              <text>水电费</text>
+              <text>¥{{settlementInfo.pendingUtility.toFixed(1)}}</text>
+            </view>
+          </view>
+          <!-- 管理员手动调整 -->
+          <view style="background:#F3E8FF;border-radius:8rpx;padding:16rpx;margin-top:12rpx;">
+            <text style="color:#7C3AED;font-weight:500;">✏️ 手动调整</text>
+            <view class="flex-row justify-between align-center" style="margin-top:8rpx;">
+              <text style="color:#6B21A8;font-size:24rpx;">需退租金（可自定义）</text>
+              <input class="form-input" type="number" value="{{adjustRentRefund}}" bindinput="onAdjustRefundInput" style="width:180rpx;text-align:right;padding:8rpx 12rpx;" placeholder="0" />
+            </view>
+          </view>
+          <!-- 最终结算 -->
+          <view style="border-radius:8rpx;padding:16rpx;margin-top:12rpx;font-weight:700;{{_finalRefundAmount() > 0 ? 'background:#A7F3D0;' : 'background:#FECACA;'}}">
+            <view wx:if="{{_finalRefundAmount() > 0}}" class="flex-row justify-between">
+              <text style="color:#065F46;">✅ 最终退费</text>
+              <text style="color:#065F46;">¥{{_finalRefundAmount().toFixed(1)}}</text>
+            </view>
+            <view wx:elif="{{_finalExtraDue() > 0}}" class="flex-row justify-between">
+              <text style="color:#991B1B;">⚠️ 还需缴纳</text>
+              <text style="color:#991B1B;">¥{{_finalExtraDue().toFixed(1)}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="modal-actions">
+          <button class="btn" style="background:var(--gray-100);color:var(--gray-600);" bindtap="closeMoveOut">取消</button>
+          <button class="btn" style="background:#EA580C;color:#FFFFFF;" bindtap="confirmMoveOut">{{movingOut ? '处理中...' : '确认退租'}}</button>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

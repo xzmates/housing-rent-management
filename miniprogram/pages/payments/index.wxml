@@ -1,0 +1,174 @@
+<view class="page-container">
+  <!-- 头部 -->
+  <view class="flex-row justify-between align-center" style="margin-bottom:20rpx;">
+    <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">缴费记录</text>
+    <button class="btn btn-primary btn-small" bindtap="showAddModal">+ 添加</button>
+  </view>
+
+  <!-- 筛选器 -->
+  <scroll-view scroll-x class="filter-bar">
+    <picker mode="selector" range="{{houseLabels}}" bindchange="onHouseFilterChange" style="display:inline-block;">
+      <view class="filter-btn {{filters.houseId ? 'active' : ''}}">{{houseFilterLabel}}</view>
+    </picker>
+    <view class="filter-btn {{filters.paymentType === '' ? 'active' : ''}}" bindtap="setFilter" data-key="paymentType" data-val="">全部</view>
+    <view class="filter-btn {{filters.paymentType === 'rent' ? 'active' : ''}}" bindtap="setFilter" data-key="paymentType" data-val="rent">租金</view>
+    <view class="filter-btn {{filters.paymentType === 'utility' ? 'active' : ''}}" bindtap="setFilter" data-key="paymentType" data-val="utility">水电</view>
+    <view class="filter-btn {{filters.paymentType === 'deposit' ? 'active' : ''}}" bindtap="setFilter" data-key="paymentType" data-val="deposit">押金</view>
+    <view class="filter-btn {{filters.status === 'paid' ? 'active' : ''}}" bindtap="togglePaidFilter">已缴</view>
+  </scroll-view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-grid" style="margin-bottom:16rpx;">
+    <view class="stat-card">
+      <view class="stat-label">租金收入</view>
+      <view class="stat-value blue">¥{{stats.rentTotal}}</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-label">在管押金</view>
+      <view class="stat-value" style="color:#7C3AED;">¥{{stats.depositTotal}}</view>
+    </view>
+    <view class="stat-card" style="grid-column:span 2;">
+      <view class="stat-label">水电费</view>
+      <view class="stat-value yellow">¥{{stats.utilityTotal}}</view>
+    </view>
+  </view>
+
+  <!-- 列表 -->
+  <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
+  <view wx:elif="{{payments.length === 0}}" class="empty-state"><text class="empty-text">暂无缴费记录</text></view>
+  <view wx:else>
+    <view wx:for="{{payments}}" wx:key="_id" class="list-item" bindtap="showDetail" data-payment="{{item}}">
+      <view class="flex-row justify-between align-center" style="margin-bottom:6rpx;">
+        <view class="flex-row align-center">
+          <text class="list-item-title">{{item.paymentType === 'rent' ? '租金' : item.paymentType === 'utility' ? '水电费' : item.paymentType === 'deposit' ? '押金' : item.paymentType === 'other' ? '其他' : item.paymentType}}</text>
+          <text wx:if="{{item.isSettlement}}" class="badge badge-gray" style="margin-left:8rpx;">退租</text>
+        </view>
+        <view class="flex-row align-center">
+          <text style="font-size:30rpx;font-weight:700;">¥{{item.amount}}</text>
+          <view class="badge {{item.amount < 0 ? 'badge-warning' : item.status === 'paid' ? 'badge-success' : item.status === 'pending' ? 'badge-warning' : 'badge-danger'}}" style="margin-left:12rpx;">
+            {{item.amount < 0 ? '退款' : item.status === 'paid' ? '已缴' : item.status === 'pending' ? '待缴' : '逾期'}}
+          </view>
+        </view>
+      </view>
+      <view class="flex-row align-center" style="font-size:24rpx;color:var(--gray-400);">
+        <text>{{item.houseLabel}}</text>
+        <text style="margin:0 12rpx;color:var(--gray-200);">|</text>
+        <text>{{item.dateStr}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ====== 详情弹窗 ====== -->
+  <view wx:if="{{showDetailModal && detailPayment}}" class="modal-mask" bindtap="closeDetail">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
+        <text style="font-size:34rpx;font-weight:600;">{{_getTypeText(detailPayment.paymentType)}}</text>
+        <text bindtap="closeDetail" style="font-size:40rpx;color:var(--gray-400);">✕</text>
+      </view>
+      <view style="font-size:26rpx;">
+        <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
+          <text style="color:var(--gray-400);">金额</text>
+          <text style="font-weight:700;">¥{{_formatAmount(detailPayment.amount)}}</text>
+        </view>
+        <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
+          <text style="color:var(--gray-400);">房屋</text>
+          <text>{{_getHouseLabel(detailPayment.houseId)}}</text>
+        </view>
+        <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
+          <text style="color:var(--gray-400);">日期</text>
+          <text>{{_formatDate(detailPayment.paymentDate)}}</text>
+        </view>
+        <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
+          <text style="color:var(--gray-400);">周期</text>
+          <text>{{detailPayment.period || '一次性'}}</text>
+        </view>
+        <view style="padding:16rpx 0;">
+          <text style="color:var(--gray-400);display:block;margin-bottom:8rpx;">描述</text>
+          <text>{{detailPayment.description || '无'}}</text>
+        </view>
+      </view>
+      <view class="modal-actions">
+        <button wx:if="{{detailPayment.status !== 'paid'}}" class="btn btn-success" bindtap="markAsPaid">标记已缴</button>
+        <button class="btn" style="background:#FEE2E2;color:var(--danger);" bindtap="deletePayment">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ====== 添加缴费模态框 ====== -->
+  <view wx:if="{{showAddModal}}" class="modal-mask" bindtap="closeAdd">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
+        <text style="font-size:34rpx;font-weight:600;">添加缴费</text>
+        <text bindtap="closeAdd" style="font-size:40rpx;color:var(--gray-400);">✕</text>
+      </view>
+
+      <scroll-view scroll-y style="max-height:70vh;">
+        <view class="form-group">
+          <text class="form-label">缴费类型</text>
+          <picker mode="selector" range="{{['租金','水电费','押金','其他']}}" value="{{form.typeIndex}}" bindchange="onTypeChange">
+            <view class="form-picker">{{['租金','水电费','押金','其他'][form.typeIndex]}}</view>
+          </picker>
+        </view>
+        <view class="form-group">
+          <text class="form-label">所属房屋</text>
+          <picker mode="selector" range="{{rentedHouseLabels}}" bindchange="onHouseChange" wx:if="{{rentedHouseLabels.length > 0}}">
+            <view class="form-picker">{{rentedHouseLabels[form.houseIndex] || '请选择房屋'}}</view>
+          </picker>
+          <text wx:else style="color:var(--warning);font-size:24rpx;">暂无已出租的房屋</text>
+        </view>
+        <view class="form-group">
+          <text class="form-label">租客</text>
+          <view class="form-picker" style="background:var(--gray-100);">{{form.tenantName || '请先选择房屋'}}</view>
+        </view>
+
+        <!-- 水电费模式 -->
+        <view wx:if="{{form.typeIndex === 1}}">
+          <view style="background:#EFF6FF;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+            <text style="color:#1D4ED8;font-weight:500;margin-bottom:12rpx;">水电费计算</text>
+            <view class="flex-row" style="gap:16rpx;">
+              <view class="form-group" style="flex:1;">
+                <text class="form-label">本次电表读数</text>
+                <input class="form-input" value="{{form.electricityReading}}" data-field="electricityReading" bindinput="onFormInput" type="number" placeholder="电表度数" />
+              </view>
+              <view class="form-group" style="flex:1;">
+                <text class="form-label">本次水表读数</text>
+                <input class="form-input" value="{{form.waterReading}}" data-field="waterReading" bindinput="onFormInput" type="number" placeholder="水表度数" />
+              </view>
+            </view>
+            <view style="border-top:2rpx solid #BFDBFE;padding-top:12rpx;margin-top:8rpx;">
+              <view class="flex-row justify-between" style="margin-bottom:4rpx;"><text style="color:#1D4ED8;">用电: {{computedElectricityUsage}} 度</text><text style="color:#1D4ED8;">¥{{computedElectricityCost.toFixed(1)}}</text></view>
+              <view class="flex-row justify-between" style="margin-bottom:4rpx;"><text style="color:#1D4ED8;">用水: {{computedWaterUsage}} 吨</text><text style="color:#1D4ED8;">¥{{computedWaterCost.toFixed(1)}}</text></view>
+              <view class="flex-row justify-between" style="font-weight:700;color:#1E3A5F;border-top:2rpx solid #93C5FD;padding-top:8rpx;">
+                <text>合计</text><text>¥{{computedTotalCost.toFixed(1)}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 非水电费 -->
+        <view wx:else>
+          <view class="form-group">
+            <text class="form-label">金额（元）</text>
+            <input class="form-input" value="{{form.amount}}" data-field="amount" bindinput="onFormInput" type="number" placeholder="请输入金额" />
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">缴费日期</text>
+          <picker mode="date" value="{{form.paymentDate}}" bindchange="onDateChange">
+            <view class="form-picker">{{form.paymentDate}}</view>
+          </picker>
+        </view>
+        <view class="form-group">
+          <text class="form-label">描述</text>
+          <input class="form-input" value="{{form.description}}" data-field="description" bindinput="onFormInput" placeholder="可选" />
+        </view>
+
+        <view class="modal-actions">
+          <button class="btn" style="background:var(--gray-100);color:var(--gray-600);" bindtap="closeAdd">取消</button>
+          <button class="btn btn-primary" bindtap="savePayment">{{saving ? '保存中...' : '保存'}}</button>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

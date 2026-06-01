@@ -1,0 +1,104 @@
+<view class="page-container">
+  <!-- 头部 -->
+  <view class="flex-row justify-between align-center" style="margin-bottom:20rpx;">
+    <view>
+      <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">房屋管理</text>
+      <text class="stat-label">共 {{houses.length}} 套房</text>
+    </view>
+    <button class="btn btn-primary btn-small" bindtap="showAddModal">+ 添加</button>
+  </view>
+
+  <!-- 筛选器 -->
+  <scroll-view scroll-x class="filter-bar">
+    <view class="filter-btn {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
+    <view class="filter-btn {{filters.status === 'available' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="available">可租</view>
+    <view class="filter-btn {{filters.status === 'rented' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="rented">已租</view>
+    <input class="filter-btn" placeholder="搜编号" bindinput="onSearchInput" style="width:120rpx;text-align:center;" />
+  </scroll-view>
+
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{houses.length === 0}}" class="empty-state">
+    <text class="empty-text">暂无房屋</text>
+    <button class="btn btn-primary btn-small" bindtap="showAddModal">添加房屋</button>
+  </view>
+
+  <!-- 房屋列表 -->
+  <view wx:else>
+    <view wx:for="{{houses}}" wx:key="_id" class="list-item">
+      <!-- 第一行 -->
+      <view class="flex-row justify-between align-center" style="margin-bottom:8rpx;">
+        <view class="flex-row align-center" style="flex:1;min-width:0;">
+          <text class="list-item-title" style="margin-right:12rpx;">{{item.code}}</text>
+          <text class="list-item-sub" style="flex:1;">{{item.address}}</text>
+        </view>
+        <view class="badge {{item.status === 'available' ? 'badge-success' : 'badge-info'}}">
+          {{item.status === 'available' ? '可租' : '已租'}}
+        </view>
+      </view>
+      <!-- 第二行 -->
+      <view class="flex-row align-center" style="margin-bottom:12rpx;">
+        <text style="font-size:28rpx;font-weight:600;color:var(--gray-900);">¥{{item.rent}}<text style="font-weight:400;color:var(--gray-400);font-size:22rpx;">/月</text></text>
+        <text wx:if="{{item.tenantInfo}}" style="margin-left:16rpx;font-size:24rpx;color:var(--gray-400);">
+          · {{item.tenantInfo.name}} · 入住 {{_formatDate(item.tenantInfo.moveInDate)}}
+        </text>
+      </view>
+      <!-- 第三行：下次收租 + 操作 -->
+      <view class="flex-row justify-between align-center">
+        <view wx:if="{{item.nextRentDue}}" style="font-size:24rpx;">
+          <text style="color:var(--gray-400);">下次</text>
+          <text style="font-weight:600;"> ¥{{item.nextRentDue.amount}}</text>
+          <text style="color:var(--gray-400);"> | {{_formatDate(item.nextRentDue.date)}}</text>
+          <text wx:if="{{item.nextRentDue.daysUntilDue > 0}}" style="color:var(--warning);">（{{item.nextRentDue.daysUntilDue}}天后）</text>
+          <text wx:elif="{{item.nextRentDue.daysUntilDue === 0}}" style="color:var(--warning);">（今天）</text>
+          <text wx:else style="color:var(--danger);font-weight:500;">（已逾期{{-item.nextRentDue.daysUntilDue}}天）</text>
+        </view>
+        <view class="flex-row" style="gap:8rpx;">
+          <button wx:if="{{item.tenantInfo}}" class="btn-small" style="background:#EFF6FF;color:var(--primary);border:none;font-size:22rpx;" bindtap="viewContract" data-tenant-id="{{item.tenantInfo.id}}">合同</button>
+          <button class="btn-small" style="background:var(--gray-100);color:var(--gray-500);border:none;font-size:22rpx;" bindtap="editHouse" data-house="{{item}}">编辑</button>
+          <button class="btn-small" style="background:#FEE2E2;color:var(--danger);border:none;font-size:22rpx;" bindtap="deleteHouse" data-id="{{item._id}}">删除</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 添加/编辑模态框 -->
+  <view wx:if="{{showModal}}" class="modal-mask" bindtap="closeModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="flex-row justify-between align-center" style="margin-bottom:32rpx;">
+        <text style="font-size:34rpx;font-weight:600;">{{editingHouse ? '编辑房屋' : '添加房屋'}}</text>
+        <text bindtap="closeModal" style="font-size:40rpx;color:var(--gray-400);padding:8rpx;">✕</text>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">房屋编号</text>
+        <input class="form-input" value="{{form.code}}" data-field="code" bindinput="onFormInput" placeholder="如：A101" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">房屋地址</text>
+        <picker mode="selector" range="{{addressOptions}}" value="{{addressIndex}}" bindchange="onAddressChange">
+          <view class="form-picker">{{addressOptions[addressIndex] || '请选择地址'}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <text class="form-label">月租金（元）</text>
+        <input class="form-input" value="{{form.rent}}" data-field="rent" bindinput="onFormInput" type="number" placeholder="请输入租金" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">房屋状态</text>
+        <picker mode="selector" range="{{statusOptions}}" value="{{statusIndex}}" bindchange="onStatusChange">
+          <view class="form-picker">{{statusOptions[statusIndex] || '请选择状态'}}</view>
+        </picker>
+      </view>
+
+      <view class="modal-actions">
+        <button class="btn" style="background:var(--gray-100);color:var(--gray-600);" bindtap="closeModal">取消</button>
+        <button class="btn btn-primary" bindtap="saveHouse">{{saving ? '保存中...' : '保存'}}</button>
+      </view>
+    </view>
+  </view>
+</view>

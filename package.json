@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint src",
     "format": "prettier src --write",
-    "init-db": "tsx scripts/init-db.ts"
+    "init-db": "tsx scripts/init-db.ts",
+    "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "latest",

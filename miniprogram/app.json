@@ -1,0 +1,58 @@
+{
+  "pages": [
+    "pages/dashboard/index",
+    "pages/houses/index",
+    "pages/tenants/index",
+    "pages/payments/index",
+    "pages/utility/index",
+    "pages/settings/index",
+    "pages/contract/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#3B82F6",
+    "navigationBarTitleText": "房屋租赁管理",
+    "navigationBarTextStyle": "white"
+  },
+  "tabBar": {
+    "color": "#9CA3AF",
+    "selectedColor": "#3B82F6",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/dashboard/index",
+        "text": "首页",
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/houses/index",
+        "text": "房屋",
+        "iconPath": "images/tab-house.png",
+        "selectedIconPath": "images/tab-house-active.png"
+      },
+      {
+        "pagePath": "pages/tenants/index",
+        "text": "租客",
+        "iconPath": "images/tab-tenant.png",
+        "selectedIconPath": "images/tab-tenant-active.png"
+      },
+      {
+        "pagePath": "pages/payments/index",
+        "text": "缴费",
+        "iconPath": "images/tab-payment.png",
+        "selectedIconPath": "images/tab-payment-active.png"
+      },
+      {
+        "pagePath": "pages/settings/index",
+        "text": "我的",
+        "iconPath": "images/tab-settings.png",
+        "selectedIconPath": "images/tab-settings-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}
