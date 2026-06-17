@@ -1,0 +1,16 @@
+.input-area {
+  width: 100%;
+  min-height: 300rpx;
+  padding: 20rpx 24rpx;
+  border: 2rpx solid var(--gray-200);
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+  background: #FFFFFF;
+  color: var(--gray-900);
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.input-area:focus {
+  border-color: var(--primary);
+}

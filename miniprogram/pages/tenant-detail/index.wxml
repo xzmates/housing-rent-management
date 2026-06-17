@@ -1,0 +1,97 @@
+<view class="page-container">
+  <view wx:if="{{loading}}" class="loading">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <block wx:elif="{{tenant}}">
+    <!-- 基本信息卡 -->
+    <view class="card">
+      <view class="flex-row justify-between align-center" style="margin-bottom:16rpx;">
+        <text style="font-size:34rpx;font-weight:700;">{{tenant.name}}</text>
+      </view>
+      <view style="font-size:26rpx;color:var(--gray-500);line-height:1.8;">
+        <view wx:if="{{tenant.phone}}" class="flex-row justify-between">
+          <text style="color:var(--gray-400);">手机号</text>
+          <text>{{tenant.phone}}</text>
+        </view>
+        <view wx:if="{{tenant.idCard}}" class="flex-row justify-between">
+          <text style="color:var(--gray-400);">身份证</text>
+          <text>{{tenant.idCard}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 统计 -->
+    <view class="stats-grid" style="margin-top:16rpx;">
+      <view class="stat-card">
+        <view class="stat-label">合同数</view>
+        <view class="stat-value blue">{{leases.length}}</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">总账单</view>
+        <view class="stat-value">{{statistics.totalBills}}</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">已缴</view>
+        <view class="stat-value green">¥{{statistics.totalPaid}}</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">待缴</view>
+        <view class="stat-value red">¥{{statistics.totalUnpaid}}</view>
+      </view>
+    </view>
+
+    <!-- 合同列表 -->
+    <view style="margin-top:24rpx;">
+      <view class="flex-row justify-between align-center" style="margin-bottom:16rpx;">
+        <text style="font-size:30rpx;font-weight:700;">租赁合同</text>
+        <button class="btn btn-primary btn-small" bindtap="goToCreateLease">+ 新合同</button>
+      </view>
+
+      <view wx:if="{{leases.length === 0}}" style="text-align:center;padding:40rpx;color:var(--gray-400);font-size:26rpx;">暂无合同</view>
+
+      <view wx:for="{{leases}}" wx:key="_id" class="list-item" style="border-left-color:{{item.status === 'active' ? 'var(--success)' : 'var(--gray-300)'}};">
+        <view class="flex-row justify-between align-center" style="margin-bottom:10rpx;">
+          <text style="font-size:28rpx;font-weight:700;color:var(--gray-900);">{{item.houseLabel}}</text>
+          <view class="badge {{item.status === 'active' ? 'badge-success' : 'badge-gray'}}">{{item.statusLabel}}</view>
+        </view>
+        <view style="font-size:24rpx;color:var(--gray-500);margin-bottom:8rpx;">
+          <text>¥{{item.rent}}/月 · {{item.cycleLabel}}</text>
+          <text style="margin:0 12rpx;color:var(--gray-300);">|</text>
+          <text>押金 ¥{{item.deposit}}</text>
+        </view>
+        <view style="font-size:22rpx;color:var(--gray-400);">
+          <text>{{item.startDateStr}} 起</text>
+          <text wx:if="{{item.endDateStr}}"> 至 {{item.endDateStr}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 账单列表 -->
+    <view style="margin-top:32rpx;">
+      <view class="flex-row justify-between align-center" style="margin-bottom:16rpx;">
+        <text style="font-size:30rpx;font-weight:700;">账单记录</text>
+        <text style="font-size:22rpx;color:var(--gray-400);">共 {{bills.length}} 条</text>
+      </view>
+
+      <view wx:if="{{bills.length === 0}}" style="text-align:center;padding:40rpx;color:var(--gray-400);font-size:26rpx;">暂无账单</view>
+
+      <view wx:for="{{bills}}" wx:key="_id" class="list-item" style="border-left-color:{{item.status === 'paid' ? 'var(--success)' : item.status === 'partial' ? 'var(--warning)' : 'var(--danger)'}};">
+        <view class="flex-row justify-between align-center" style="margin-bottom:6rpx;">
+          <view class="flex-row align-center" style="gap:8rpx;">
+            <text style="font-size:26rpx;font-weight:600;">{{item.typeText}}</text>
+            <text wx:if="{{item.period}}" style="font-size:20rpx;background:var(--gray-100);padding:2rpx 8rpx;border-radius:6rpx;color:var(--gray-400);">{{item.period}}</text>
+          </view>
+          <view class="flex-row align-center" style="gap:8rpx;">
+            <text style="font-size:26rpx;font-weight:700;">¥{{item.amount}}</text>
+            <view class="badge {{item.status === 'paid' ? 'badge-success' : item.status === 'partial' ? 'badge-warning' : 'badge-danger'}}" style="font-size:20rpx;">{{item.statusText}}</view>
+          </view>
+        </view>
+        <view style="font-size:22rpx;color:var(--gray-400);">
+          <text wx:if="{{item.dueDateStr}}">到期 {{item.dueDateStr}}</text>
+          <text wx:if="{{item.paidAmount > 0}}"> · 已缴 ¥{{item.paidAmount}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

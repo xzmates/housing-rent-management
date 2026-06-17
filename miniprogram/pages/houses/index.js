@@ -1,15 +1,11 @@
-const dbService = require('../../services/database');
+const api = require('../../services/api');
 const V = require('../../utils/validate');
 
 Page({
   data: {
-    loading: false,
-    saving: false,
-    showModal: false,
-    editingHouse: null,
-    houses: [],
+    loading: false, saving: false, showModal: false,
+    editingHouse: null, houses: [],
     filters: { status: '', code: '' },
-
     form: { code: '', address: '', rent: 0, status: 'available' },
     addressOptions: ['东楼北', '东楼南', '里召'],
     addressIndex: -1,
@@ -17,61 +13,59 @@ Page({
     statusIndex: 0
   },
 
-  onLoad() {
-    this.loadHouses();
-  },
-
-  onPullDownRefresh() {
-    this.loadHouses().then(() => wx.stopPullDownRefresh());
-  },
-
-  onShow() {
-    this.loadHouses();
-  },
+  onLoad() { this.loadHouses(); },
+  onPullDownRefresh() { this.loadHouses().then(() => wx.stopPullDownRefresh()); },
+  onShow() { this.loadHouses(); },
 
   async loadHouses() {
     this.setData({ loading: true });
     try {
-      const result = await dbService.getHouses(this.data.filters);
-      const housesData = result.data;
+      const result = await api.getHouses(this.data.filters);
+      const houses = result.data || [];
 
-      const tenantsResult = await dbService.getTenants({ status: 'active' });
-      const activeTenants = tenantsResult.data;
-
-      const tenantMap = new Map();
-      activeTenants.forEach(t => tenantMap.set(t.houseId, t));
-
-      const enrichedHouses = await Promise.all(housesData.map(async (house) => {
-        const enriched = Object.assign({}, house);
-        if (house.status === 'rented') {
-          const tenant = tenantMap.get(house._id);
-          if (tenant) {
-            enriched.tenantInfo = {
-              name: tenant.name,
-              id: tenant._id,
-              moveInDate: new Date(tenant.moveInDate)
-            };
-            try {
-              const rentInfo = await dbService.getNextRentDueDate(tenant._id);
-              const today = new Date();
-              const daysUntilDue = Math.ceil((rentInfo.nextDueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-              enriched.nextRentDue = { date: rentInfo.nextDueDate, amount: rentInfo.amount, daysUntilDue };
-            } catch (e) { /* ignore */ }
-          }
-        }
-        return enriched;
-      }));
-
-      // 按地址分组 + 编号排序
+      // 按地址+编号排序
       const addrOrder = { '东楼北': 1, '东楼南': 2, '里召': 3 };
-      enrichedHouses.sort((a, b) => {
-        const aa = addrOrder[a.address] ?? 99;
-        const bb = addrOrder[b.address] ?? 99;
+      houses.sort((a, b) => {
+        const aa = addrOrder[a.address] ?? 99, bb = addrOrder[b.address] ?? 99;
         if (aa !== bb) return aa - bb;
         return (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0);
       });
 
-      this.setData({ houses: enrichedHouses });
+      // 为已租房屋批量加载租客信息
+      const enriched = await Promise.all(houses.map(async (house) => {
+        const h = { ...house };
+        if (house.status === 'rented') {
+          try {
+            const leaseData = await api.getHouseCurrentLease(house._id);
+            if (leaseData.tenant) {
+              h.tenantInfo = {
+                name: leaseData.tenant.name,
+                id: leaseData.tenant._id,
+                leaseId: leaseData.currentLease._id,
+                moveInDateStr: api.formatDate(leaseData.currentLease.startDate)
+              };
+            }
+            // 计算下次收租日（从最近的 unpaid bill 的 dueDate）
+            const bills = leaseData.recentBills || [];
+            const unpaidBill = bills.find(b => b.status === 'unpaid' && b.type === 'rent');
+            if (unpaidBill) {
+              const dueDate = new Date(unpaidBill.dueDate);
+              const today = new Date();
+              const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              h.nextRentDue = {
+                dateStr: api.formatDate(dueDate),
+                amount: unpaidBill.amount - unpaidBill.paidAmount,
+                daysUntilDue
+              };
+            }
+          } catch (e) {
+            console.warn(`加载房屋 ${house.code} 租客信息失败`, e);
+          }
+        }
+        return h;
+      }));
+
+      this.setData({ houses: enriched });
     } catch (e) {
       console.error('加载房屋失败', e);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -95,39 +89,27 @@ Page({
 
   showAddModal() {
     this.setData({
-      showModal: true,
-      editingHouse: null,
+      showModal: true, editingHouse: null,
       form: { code: '', address: '', rent: 0, status: 'available' },
-      addressIndex: -1,
-      statusIndex: 0
+      addressIndex: -1, statusIndex: 0
     });
   },
 
-  closeModal() {
-    this.setData({ showModal: false, editingHouse: null });
-  },
+  closeModal() { this.setData({ showModal: false, editingHouse: null }); },
 
   onFormInput(e) {
     const field = e.currentTarget.dataset.field;
-    const data = {};
-    data['form.' + field] = e.detail.value;
-    this.setData(data);
+    this.setData({ ['form.' + field]: e.detail.value });
   },
 
   onAddressChange(e) {
     const idx = e.detail.value;
-    this.setData({
-      addressIndex: idx,
-      'form.address': this.data.addressOptions[idx]
-    });
+    this.setData({ addressIndex: idx, 'form.address': this.data.addressOptions[idx] });
   },
 
   onStatusChange(e) {
     const idx = e.detail.value;
-    this.setData({
-      statusIndex: idx,
-      'form.status': idx === 0 ? 'available' : 'rented'
-    });
+    this.setData({ statusIndex: idx, 'form.status': idx === 0 ? 'available' : 'rented' });
   },
 
   editHouse(e) {
@@ -135,16 +117,9 @@ Page({
     const addrIdx = this.data.addressOptions.indexOf(house.address);
     const stIdx = house.status === 'available' ? 0 : 1;
     this.setData({
-      showModal: true,
-      editingHouse: house,
-      form: {
-        code: house.code || '',
-        address: house.address || '',
-        rent: house.rent || 0,
-        status: house.status || 'available'
-      },
-      addressIndex: addrIdx,
-      statusIndex: stIdx
+      showModal: true, editingHouse: house,
+      form: { code: house.code || '', address: house.address || '', rent: house.rent || 0, status: house.status || 'available' },
+      addressIndex: addrIdx, statusIndex: stIdx
     });
   },
 
@@ -160,9 +135,9 @@ Page({
     this.setData({ saving: true });
     try {
       if (this.data.editingHouse) {
-        await dbService.updateHouse(this.data.editingHouse._id, form);
+        await api.updateHouse(this.data.editingHouse._id, form);
       } else {
-        await dbService.addHouse(form);
+        await api.addHouse(form);
       }
       wx.showToast({ title: '保存成功', icon: 'success' });
       this.closeModal();
@@ -183,26 +158,20 @@ Page({
       success: async (res) => {
         if (res.confirm) {
           try {
-            await dbService.deleteHouse(id);
+            await api.deleteHouse(id);
             wx.showToast({ title: '已删除', icon: 'success' });
             this.loadHouses();
           } catch (e) {
-            console.error('删除房屋失败', e);
-            wx.showToast({ title: '删除失败', icon: 'none' });
+            wx.showToast({ title: e.message || '删除失败', icon: 'none' });
           }
         }
       }
     });
   },
 
-  viewContract(e) {
+  viewTenantDetail(e) {
     const tenantId = e.currentTarget.dataset.tenantId;
-    wx.navigateTo({ url: `/pages/contract/index?tenantId=${tenantId}` });
-  },
-
-  _formatDate(date) {
-    if (!date) return '未设置';
-    return new Date(date).toLocaleDateString('zh-CN');
+    wx.navigateTo({ url: `/pages/tenant-detail/index?tenantId=${tenantId}` });
   },
 
   stopPropagation() {}

@@ -9,12 +9,15 @@
   </view>
 
   <!-- 筛选器 -->
-  <scroll-view scroll-x class="filter-bar">
+  <view class="filter-bar">
     <view class="filter-btn {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
     <view class="filter-btn {{filters.status === 'available' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="available">可租</view>
     <view class="filter-btn {{filters.status === 'rented' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="rented">已租</view>
-    <input class="filter-btn" placeholder="搜编号" bindinput="onSearchInput" style="width:120rpx;text-align:center;" />
-  </scroll-view>
+    <view class="filter-btn" style="display:flex;align-items:center;background:var(--gray-50);border-color:var(--gray-100);padding:8rpx 16rpx;gap:4rpx;">
+      <text style="font-size:22rpx;color:var(--gray-400);">🔍</text>
+      <input placeholder="搜编号" bindinput="onSearchInput" style="width:100rpx;font-size:24rpx;" />
+    </view>
+  </view>
 
   <!-- 加载状态 -->
   <view wx:if="{{loading}}" class="loading">
@@ -28,40 +31,47 @@
   </view>
 
   <!-- 房屋列表 -->
-  <view wx:else>
-    <view wx:for="{{houses}}" wx:key="_id" class="list-item">
-      <!-- 第一行 -->
-      <view class="flex-row justify-between align-center" style="margin-bottom:8rpx;">
-        <view class="flex-row align-center" style="flex:1;min-width:0;">
-          <text class="list-item-title" style="margin-right:12rpx;">{{item.code}}</text>
-          <text class="list-item-sub" style="flex:1;">{{item.address}}</text>
+  <view wx:else style="display:flex;flex-direction:column;gap:16rpx;">
+    <view wx:for="{{houses}}" wx:key="_id" class="list-item" style="border-left-color:{{item.status === 'available' ? 'var(--success)' : 'var(--primary)'}};">
+      <!-- 第一行：编号 + 地址 | 状态 -->
+      <view class="flex-row justify-between align-center" style="margin-bottom:10rpx;">
+        <view class="flex-row align-center" style="flex:1;min-width:0;gap:12rpx;">
+          <text style="font-size:30rpx;font-weight:700;color:var(--gray-900);">{{item.code}}</text>
+          <text style="font-size:26rpx;color:var(--gray-500);">{{item.address}}</text>
         </view>
-        <view class="badge {{item.status === 'available' ? 'badge-success' : 'badge-info'}}">
+        <view class="badge {{item.status === 'available' ? 'badge-success' : 'badge-info'}}" style="flex-shrink:0;">
           {{item.status === 'available' ? '可租' : '已租'}}
         </view>
       </view>
-      <!-- 第二行 -->
-      <view class="flex-row align-center" style="margin-bottom:12rpx;">
-        <text style="font-size:28rpx;font-weight:600;color:var(--gray-900);">¥{{item.rent}}<text style="font-weight:400;color:var(--gray-400);font-size:22rpx;">/月</text></text>
-        <text wx:if="{{item.tenantInfo}}" style="margin-left:16rpx;font-size:24rpx;color:var(--gray-400);">
-          · {{item.tenantInfo.name}} · 入住 {{_formatDate(item.tenantInfo.moveInDate)}}
-        </text>
+
+      <!-- 第二行：租金 + 租客速览 -->
+      <view class="flex-row align-center" style="font-size:26rpx;color:var(--gray-500);margin-bottom:10rpx;gap:12rpx;flex-wrap:wrap;">
+        <text style="font-weight:700;color:var(--gray-900);">¥{{item.rent}}</text>
+        <text style="font-weight:400;color:var(--gray-400);">/月</text>
+        <block wx:if="{{item.status === 'rented' && item.tenantInfo}}">
+          <text style="color:var(--gray-300);">|</text>
+          <text style="font-weight:500;">{{item.tenantInfo.name}}</text>
+          <text style="color:var(--gray-300);">|</text>
+          <text>入住{{item.tenantInfo.moveInDateStr}}</text>
+        </block>
       </view>
-      <!-- 第三行：下次收租 + 操作 -->
-      <view class="flex-row justify-between align-center">
-        <view wx:if="{{item.nextRentDue}}" style="font-size:24rpx;">
-          <text style="color:var(--gray-400);">下次</text>
-          <text style="font-weight:600;"> ¥{{item.nextRentDue.amount}}</text>
-          <text style="color:var(--gray-400);"> | {{_formatDate(item.nextRentDue.date)}}</text>
-          <text wx:if="{{item.nextRentDue.daysUntilDue > 0}}" style="color:var(--warning);">（{{item.nextRentDue.daysUntilDue}}天后）</text>
-          <text wx:elif="{{item.nextRentDue.daysUntilDue === 0}}" style="color:var(--warning);">（今天）</text>
-          <text wx:else style="color:var(--danger);font-weight:500;">（已逾期{{-item.nextRentDue.daysUntilDue}}天）</text>
-        </view>
-        <view class="flex-row" style="gap:8rpx;">
-          <button wx:if="{{item.tenantInfo}}" class="btn-small" style="background:#EFF6FF;color:var(--primary);border:none;font-size:22rpx;" bindtap="viewContract" data-tenant-id="{{item.tenantInfo.id}}">合同</button>
-          <button class="btn-small" style="background:var(--gray-100);color:var(--gray-500);border:none;font-size:22rpx;" bindtap="editHouse" data-house="{{item}}">编辑</button>
-          <button class="btn-small" style="background:#FEE2E2;color:var(--danger);border:none;font-size:22rpx;" bindtap="deleteHouse" data-id="{{item._id}}">删除</button>
-        </view>
+
+      <!-- 第三行：下次收租 -->
+      <view wx:if="{{item.status === 'rented' && item.nextRentDue}}" style="font-size:24rpx;margin-bottom:12rpx;{{item.nextRentDue.daysUntilDue < 0 ? 'color:var(--danger);' : item.nextRentDue.daysUntilDue <= 10 ? 'color:var(--warning);' : 'color:var(--gray-400);'}}">
+        <text style="color:var(--gray-400);font-weight:400;">下次</text>
+        <text style="font-weight:700;">¥{{item.nextRentDue.amount}}</text>
+        <text style="color:var(--gray-300);margin:0 8rpx;">|</text>
+        <text>{{item.nextRentDue.dateStr}}</text>
+        <text wx:if="{{item.nextRentDue.daysUntilDue > 0}}">（{{item.nextRentDue.daysUntilDue}}天后）</text>
+        <text wx:elif="{{item.nextRentDue.daysUntilDue === 0}}">（今天）</text>
+        <text wx:else style="font-weight:700;">（已逾期{{-item.nextRentDue.daysUntilDue}}天）</text>
+      </view>
+
+      <!-- 第四行：操作按钮 -->
+      <view class="flex-row" style="gap:12rpx;">
+        <button wx:if="{{item.status === 'rented' && item.tenantInfo}}" class="btn-small" style="background:var(--primary-bg);color:var(--primary);border:none;" bindtap="viewTenantDetail" data-tenant-id="{{item.tenantInfo.id}}">详情</button>
+        <button class="btn-small" style="background:var(--gray-100);color:var(--gray-600);border:none;" bindtap="editHouse" data-house="{{item}}">编辑</button>
+        <button class="btn-small" style="background:var(--danger-light);color:var(--danger);border:none;" bindtap="deleteHouse" data-id="{{item._id}}">删除</button>
       </view>
     </view>
   </view>

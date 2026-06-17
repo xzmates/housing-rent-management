@@ -1,0 +1,67 @@
+<view class="page-container">
+  <view style="font-size:36rpx;font-weight:700;color:var(--gray-900);margin-bottom:8rpx;">批量抄表</view>
+  <view style="font-size:24rpx;color:var(--gray-400);margin-bottom:20rpx;">填写当前水电表读数，系统自动计算费用并生成账单</view>
+
+  <view wx:if="{{loading}}" class="loading">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <view wx:elif="{{meters.length === 0}}" class="empty-state">
+    <text class="empty-text">暂无在租房屋</text>
+  </view>
+
+  <view wx:else>
+    <!-- 抄表列表 -->
+    <view wx:for="{{meters}}" wx:key="leaseId" class="card" style="border-left-color:{{item.hasError ? 'var(--danger)' : 'var(--warning)'}};{{item.hasError ? 'background:#FEF2F2;' : ''}}">
+      <view class="flex-row justify-between align-center" style="margin-bottom:12rpx;">
+        <text style="font-size:28rpx;font-weight:700;">{{item.houseLabel}}</text>
+        <text style="font-size:24rpx;color:var(--gray-500);">{{item.tenantName}}</text>
+      </view>
+
+      <view style="font-size:22rpx;color:var(--gray-400);margin-bottom:12rpx;">
+        <text>上次电表 {{item.lastElec}} 度</text>
+        <text style="margin:0 12rpx;">|</text>
+        <text>上次水表 {{item.lastWater}} 吨</text>
+      </view>
+
+      <view class="flex-row" style="gap:16rpx;margin-bottom:12rpx;">
+        <view style="flex:1;">
+          <text style="font-size:22rpx;color:var(--gray-500);margin-bottom:4rpx;display:block;">本次电表读数</text>
+          <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.currentElec}}" data-index="{{index}}" bindinput="onElecInput" type="digit" placeholder="电表度数" />
+        </view>
+        <view style="flex:1;">
+          <text style="font-size:22rpx;color:var(--gray-500);margin-bottom:4rpx;display:block;">本次水表读数</text>
+          <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.currentWater}}" data-index="{{index}}" bindinput="onWaterInput" type="digit" placeholder="水表吨数" />
+        </view>
+      </view>
+
+      <view wx:if="{{item.hasError}}" style="background:var(--danger-light);border-radius:8rpx;padding:8rpx 12rpx;margin-bottom:8rpx;">
+        <text style="font-size:22rpx;color:var(--danger);">⚠️ {{item.errorMsg}}</text>
+      </view>
+
+      <view wx:if="{{item.rowCost > 0}}" style="background:var(--warning-light);border-radius:8rpx;padding:12rpx;">
+        <view class="flex-row justify-between" style="font-size:24rpx;margin-bottom:4rpx;">
+          <text style="color:#92400E;">用电 {{item.elecUsage}} 度</text>
+          <text style="color:#92400E;">¥{{item.elecCost.toFixed(1)}}</text>
+        </view>
+        <view class="flex-row justify-between" style="font-size:24rpx;margin-bottom:4rpx;">
+          <text style="color:#92400E;">用水 {{item.waterUsage}} 吨</text>
+          <text style="color:#92400E;">¥{{item.waterCost.toFixed(1)}}</text>
+        </view>
+        <view class="flex-row justify-between" style="font-size:26rpx;font-weight:700;border-top:2rpx solid #FDE68A;padding-top:8rpx;margin-top:4rpx;">
+          <text style="color:#92400E;">小计</text>
+          <text style="color:#92400E;">¥{{item.rowCost.toFixed(1)}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部汇总 -->
+    <view style="background:#FFFFFF;border-radius:var(--radius-md);padding:24rpx;margin-top:16rpx;box-shadow:var(--shadow-md);position:sticky;bottom:0;">
+      <view class="flex-row justify-between align-center" style="margin-bottom:16rpx;">
+        <text style="font-size:28rpx;color:var(--gray-500);">合计</text>
+        <text style="font-size:40rpx;font-weight:800;color:var(--warning);">¥{{totalCost.toFixed(1)}}</text>
+      </view>
+      <button class="btn btn-primary btn-block" bindtap="submitAll" disabled="{{submitting}}">{{submitting ? '提交中...' : '批量提交'}}</button>
+    </view>
+  </view>
+</view>

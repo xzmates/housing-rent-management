@@ -3,8 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     globals: true,
-    include: ['miniprogram/__tests__/**/*.test.js'],
-    setupFiles: ['miniprogram/__tests__/setup.js'],
+    include: ['__tests__/**/*.test.cjs'],
+    setupFiles: ['__tests__/setup.cjs'],
     server: {
       deps: {
         interopDefault: true

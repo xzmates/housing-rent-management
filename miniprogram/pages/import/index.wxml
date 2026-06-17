@@ -1,0 +1,339 @@
+<view class="page-container">
+  <!-- 输入区 -->
+  <view wx:if="{{!showPreview && !importResult}}" style="margin-bottom:24rpx;">
+    <view style="font-size:36rpx;font-weight:700;color:var(--gray-900);margin-bottom:16rpx;">智能导入</view>
+    <view style="font-size:24rpx;color:var(--gray-500);margin-bottom:20rpx;">输入房屋信息，系统自动识别并创建记录。支持语音输入转文字。</view>
+
+    <textarea
+      class="input-area"
+      value="{{inputText}}"
+      bindinput="onTextInput"
+      placeholder="请输入房屋信息，例如：&#10;东楼北101，月租1000，麦粥住的，2023年3月入住，季付，押金2000&#10;&#10;可以只说部分信息：&#10;• 101张三电话13800138000&#10;• 张三的押金其实是3000&#10;• 101上次交租是今年3月"
+      maxlength="5000"
+      auto-height
+    />
+
+    <view style="display:flex;gap:16rpx;margin-top:24rpx;">
+      <button class="btn btn-primary btn-block" bindtap="onParse">AI智能识别</button>
+    </view>
+
+    <!-- 使用说明 -->
+    <view style="background:var(--primary-bg);border-radius:12rpx;padding:24rpx;margin-top:32rpx;">
+      <text style="font-weight:600;color:var(--primary-dark);margin-bottom:12rpx;display:block;">使用说明</text>
+      <view style="font-size:24rpx;color:var(--primary);line-height:1.8;">
+        <text>• 可以用语音输入转文字，零学习成本</text>
+        <text>\n• 支持分次录入：先说房屋信息，再说租客信息，最后说缴费</text>
+        <text>\n• 支持补全信息：如"张三电话13800138000"</text>
+        <text>\n• 支持"押一付三"等合同术语</text>
+        <text>\n• AI会自动判断是新建还是更新已有记录</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 预览区 -->
+  <view wx:if="{{showPreview}}">
+    <view class="flex-row justify-between align-center" style="margin-bottom:20rpx;">
+      <text style="font-size:30rpx;font-weight:700;color:var(--gray-900);">识别到 {{operations.length}} 个操作</text>
+      <view class="filter-btn" bindtap="resetInput" style="color:var(--danger);">重新输入</view>
+    </view>
+
+    <view wx:for="{{operations}}" wx:key="tmpId" class="card" style="border-left-color:{{item.confidence >= 0.7 ? 'var(--success)' : 'var(--warning)'}};">
+      <!-- 操作头部 -->
+      <view class="flex-row justify-between align-center" bindtap="toggleExpand" data-index="{{index}}" style="cursor:pointer;">
+        <view class="flex-row align-center" style="gap:12rpx;">
+          <view class="badge badge-{{actionColors[item.action] || 'primary'}}">
+            {{actionLabels[item.action] || item.action}}
+          </view>
+          <view class="badge {{item.confidence >= 0.7 ? 'badge-success' : 'badge-warning'}}">
+            {{item.confidence >= 0.7 ? '高置信' : '请确认'}}
+          </view>
+        </view>
+        <view class="flex-row align-center" style="gap:12rpx;">
+          <text style="font-size:22rpx;color:var(--gray-400);">{{expandedIndex === index ? '收起' : '展开'}}</text>
+          <text bindtap="removeOp" data-index="{{index}}" style="font-size:22rpx;color:var(--danger);padding:8rpx;">删除</text>
+        </view>
+      </view>
+
+      <!-- 简要信息 -->
+      <view style="font-size:24rpx;color:var(--gray-500);margin-top:8rpx;">
+        <text wx:if="{{item.match.houseAddress || item.match.houseCode}}">匹配：{{item.match.houseAddress || ''}}{{item.match.houseCode || ''}} </text>
+        <text wx:if="{{item.match.tenantName}}">租客：{{item.match.tenantName}} </text>
+        <text wx:if="{{item.data.name}}">| {{item.data.name}} </text>
+        <text wx:if="{{item.data.rent}}" style="color:var(--primary);">¥{{item.data.rent}}/月</text>
+      </view>
+
+      <!-- 展开详情 -->
+      <view wx:if="{{expandedIndex === index}}" style="margin-top:20rpx;border-top:2rpx solid var(--gray-100);padding-top:16rpx;">
+        <!-- 房屋信息 (create_house / update_house) -->
+        <view wx:if="{{item.action === 'create_house' || item.action === 'update_house'}}" style="background:var(--primary-bg);border-radius:10rpx;padding:16rpx;margin-bottom:12rpx;">
+          <text style="font-weight:600;color:var(--primary-dark);margin-bottom:10rpx;display:block;">房屋信息</text>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">地址</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.address}}" data-op-index="{{index}}" data-field="address" bindinput="onFieldEdit" placeholder="东楼北" />
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">编号</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.code}}" data-op-index="{{index}}" data-field="code" bindinput="onFieldEdit" placeholder="101" />
+            </view>
+          </view>
+          <view>
+            <text style="font-size:22rpx;color:var(--gray-500);">月租金</text>
+            <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.rent}}" data-op-index="{{index}}" data-field="rent" bindinput="onFieldEdit" type="number" placeholder="1000" />
+          </view>
+        </view>
+
+        <!-- 租客信息 (create_tenant / update_tenant) -->
+        <view wx:if="{{item.action === 'create_tenant' || item.action === 'update_tenant'}}" style="background:var(--success-light);border-radius:10rpx;padding:16rpx;margin-bottom:12rpx;">
+          <text style="font-weight:600;color:#065F46;margin-bottom:10rpx;display:block;">租客信息</text>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">姓名</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.name}}" data-op-index="{{index}}" data-field="name" bindinput="onFieldEdit" placeholder="租客姓名" />
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">电话</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.phone}}" data-op-index="{{index}}" data-field="phone" bindinput="onFieldEdit" type="number" placeholder="手机号" />
+            </view>
+          </view>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">身份证</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.idCard}}" data-op-index="{{index}}" data-field="idCard" bindinput="onFieldEdit" placeholder="身份证号" />
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">押金</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.deposit}}" data-op-index="{{index}}" data-field="deposit" bindinput="onFieldEdit" type="number" placeholder="0" />
+            </view>
+          </view>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">入住日期</text>
+              <picker mode="date" value="{{item.data.moveInDate || '2026-01-01'}}" data-op-index="{{index}}" data-field="moveInDate" bindchange="onDatePick">
+                <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;">{{item.data.moveInDate || '点击选择日期'}}</view>
+              </picker>
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">支付方式</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.paymentCycleLabel}}" data-op-index="{{index}}" data-field="paymentCycleLabel" bindinput="onFieldEdit" placeholder="季付" />
+            </view>
+          </view>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">月租金</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.rent}}" data-op-index="{{index}}" data-field="rent" bindinput="onFieldEdit" type="number" placeholder="1000" />
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">最近交租日</text>
+              <picker mode="date" value="{{item.data.lastPaymentDate || '2026-01-01'}}" data-op-index="{{index}}" data-field="lastPaymentDate" bindchange="onDatePick">
+                <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;">{{item.data.lastPaymentDate || '点击选择日期'}}</view>
+              </picker>
+            </view>
+          </view>
+          <!-- 缴费基准线 -->
+          <view style="margin-top:8rpx;padding-top:8rpx;border-top:2rpx solid rgba(16,185,129,0.15);">
+            <text style="font-size:22rpx;color:#065F46;font-weight:600;margin-bottom:8rpx;display:block;">缴费基准线</text>
+            <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+              <view style="flex:1;">
+                <text style="font-size:22rpx;color:var(--gray-500);">最近租金金额</text>
+                <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.lastRentAmount}}" data-op-index="{{index}}" data-field="lastRentAmount" bindinput="onFieldEdit" type="number" placeholder="默认月租×周期" />
+              </view>
+              <view style="flex:1;">
+                <text style="font-size:22rpx;color:var(--primary);font-weight:600;">费用覆盖到</text>
+                <picker mode="date" value="{{item.data.rentCoveredUntil || '2026-01-01'}}" data-op-index="{{index}}" data-field="rentCoveredUntil" bindchange="onDatePick">
+                  <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;border-color:var(--primary);">{{item.data.rentCoveredUntil || '系统推算，可微调'}}</view>
+                </picker>
+              </view>
+            </view>
+            <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+              <view style="flex:1;">
+                <text style="font-size:22rpx;color:var(--primary);font-weight:600;">下次交租日（自动推算）</text>
+                <picker mode="date" value="{{item.data.nextRentDueDate || '2026-01-01'}}" data-op-index="{{index}}" data-field="nextRentDueDate" bindchange="onDatePick">
+                  <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;border-color:var(--primary);">{{item.data.nextRentDueDate || '自动计算'}}</view>
+                </picker>
+              </view>
+            </view>
+            <view style="font-size:20rpx;color:var(--gray-400);margin-bottom:8rpx;">系统将从"费用覆盖到"日期开始追踪收租</view>
+          </view>
+          <!-- 水电基准 -->
+          <view style="margin-top:8rpx;padding-top:8rpx;border-top:2rpx solid rgba(16,185,129,0.15);">
+            <text style="font-size:22rpx;color:#065F46;font-weight:600;margin-bottom:8rpx;display:block;">水电基准</text>
+            <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+              <view style="flex:1;">
+                <text style="font-size:22rpx;color:var(--gray-500);">抄表日期</text>
+                <picker mode="date" value="{{item.data.lastUtilityDate || '2026-01-01'}}" data-op-index="{{index}}" data-field="lastUtilityDate" bindchange="onDatePick">
+                  <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;">{{item.data.lastUtilityDate || '点击选择日期'}}</view>
+                </picker>
+              </view>
+              <view style="flex:1;">
+                <text style="font-size:22rpx;color:var(--gray-500);">水电费金额</text>
+                <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.utilityAmount}}" data-op-index="{{index}}" data-field="utilityAmount" bindinput="onFieldEdit" type="number" placeholder="200" />
+              </view>
+            </view>
+            <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+              <view style="flex:1;">
+                <text style="font-size:22rpx;color:var(--gray-500);">电表读数</text>
+                <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.electricityReading}}" data-op-index="{{index}}" data-field="electricityReading" bindinput="onFieldEdit" type="digit" placeholder="450" />
+              </view>
+              <view style="flex:1;">
+                <text style="font-size:22rpx;color:var(--gray-500);">水表读数</text>
+                <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.waterReading}}" data-op-index="{{index}}" data-field="waterReading" bindinput="onFieldEdit" type="digit" placeholder="120" />
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 合同信息 (create_lease) -->
+        <view wx:if="{{item.action === 'create_lease'}}" style="background:#EFF6FF;border-radius:10rpx;padding:16rpx;margin-bottom:12rpx;">
+          <text style="font-weight:600;color:#1D4ED8;margin-bottom:10rpx;display:block;">合同信息</text>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">月租金</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.rent}}" data-op-index="{{index}}" data-field="rent" bindinput="onFieldEdit" type="number" placeholder="1000" />
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">押金</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.deposit}}" data-op-index="{{index}}" data-field="deposit" bindinput="onFieldEdit" type="number" placeholder="0" />
+            </view>
+          </view>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">入住日期</text>
+              <picker mode="date" value="{{item.data.startDate || item.data.moveInDate || '2026-01-01'}}" data-op-index="{{index}}" data-field="startDate" bindchange="onDatePick">
+                <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;">{{item.data.startDate || item.data.moveInDate || '点击选择日期'}}</view>
+              </picker>
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">支付方式</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.paymentCycleLabel}}" data-op-index="{{index}}" data-field="paymentCycleLabel" bindinput="onFieldEdit" placeholder="月付" />
+            </view>
+          </view>
+        </view>
+
+        <!-- 缴费信息 (create_payment) -->
+        <view wx:if="{{item.action === 'create_payment'}}" style="background:var(--warning-light);border-radius:10rpx;padding:16rpx;margin-bottom:12rpx;">
+          <text style="font-weight:600;color:#78350F;margin-bottom:10rpx;display:block;">缴费信息</text>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">缴费类型</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.paymentType}}" data-op-index="{{index}}" data-field="paymentType" bindinput="onFieldEdit" placeholder="rent" />
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">金额</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.amount}}" data-op-index="{{index}}" data-field="amount" bindinput="onFieldEdit" type="number" placeholder="租金金额" />
+            </view>
+          </view>
+          <view>
+            <text style="font-size:22rpx;color:var(--gray-500);">缴费日期</text>
+            <picker mode="date" value="{{item.data.paymentDate || '2026-01-01'}}" data-op-index="{{index}}" data-field="paymentDate" bindchange="onDatePick">
+              <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;">{{item.data.paymentDate || '点击选择日期'}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <!-- 退租信息 (checkout_tenant) -->
+        <view wx:if="{{item.action === 'checkout_tenant'}}" style="background:#FFF7ED;border-radius:10rpx;padding:16rpx;margin-bottom:12rpx;">
+          <text style="font-weight:600;color:#C2410C;margin-bottom:10rpx;display:block;">退租结算</text>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">退租日期</text>
+              <picker mode="date" value="{{item.data.moveOutDate || '2026-06-15'}}" data-op-index="{{index}}" data-field="moveOutDate" bindchange="onDatePick">
+                <view class="form-input" style="height:64rpx;font-size:26rpx;display:flex;align-items:center;">{{item.data.moveOutDate || '点击选择日期'}}</view>
+              </picker>
+            </view>
+          </view>
+          <view class="flex-row" style="gap:16rpx;margin-bottom:8rpx;">
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">退租电表</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.moveOutElectricity}}" data-op-index="{{index}}" data-field="moveOutElectricity" bindinput="onFieldEdit" type="digit" placeholder="电表读数" />
+            </view>
+            <view style="flex:1;">
+              <text style="font-size:22rpx;color:var(--gray-500);">退租水表</text>
+              <input class="form-input" style="height:64rpx;font-size:26rpx;" value="{{item.data.moveOutWater}}" data-op-index="{{index}}" data-field="moveOutWater" bindinput="onFieldEdit" type="digit" placeholder="水表读数" />
+            </view>
+          </view>
+          <!-- 结算明细（如有） -->
+          <view wx:if="{{item.data.settlement}}" style="margin-top:12rpx;background:rgba(255,255,255,0.6);border-radius:8rpx;padding:12rpx;">
+            <view class="flex-row justify-between" style="margin-bottom:4rpx;">
+              <text style="font-size:22rpx;color:var(--gray-600);">预缴房租</text>
+              <text style="font-size:22rpx;">¥{{item.data.settlement.prepaidRent}}</text>
+            </view>
+            <view class="flex-row justify-between" style="margin-bottom:4rpx;">
+              <text style="font-size:22rpx;color:var(--gray-600);">押金</text>
+              <text style="font-size:22rpx;">¥{{item.data.settlement.depositAmount}}</text>
+            </view>
+            <view class="flex-row justify-between" style="margin-bottom:4rpx;">
+              <text style="font-size:22rpx;color:var(--gray-600);">应缴房租（{{item.data.settlement.owedRentNote}}）</text>
+              <text style="font-size:22rpx;">¥{{item.data.settlement.owedRent}}</text>
+            </view>
+            <view wx:if="{{item.data.settlement.pendingUtility > 0}}" class="flex-row justify-between" style="margin-bottom:4rpx;">
+              <text style="font-size:22rpx;color:var(--gray-600);">水电费</text>
+              <text style="font-size:22rpx;">¥{{item.data.settlement.pendingUtility}}</text>
+            </view>
+            <view style="border-top:2rpx solid var(--gray-200);padding-top:8rpx;margin-top:8rpx;">
+              <view wx:if="{{item.data.settlement.refundAmount > 0}}" class="flex-row justify-between">
+                <text style="font-size:24rpx;font-weight:700;color:var(--success);">退费</text>
+                <text style="font-size:24rpx;font-weight:700;color:var(--success);">¥{{item.data.settlement.refundAmount}}</text>
+              </view>
+              <view wx:if="{{item.data.settlement.extraDue > 0}}" class="flex-row justify-between">
+                <text style="font-size:24rpx;font-weight:700;color:var(--danger);">还需补缴</text>
+                <text style="font-size:24rpx;font-weight:700;color:var(--danger);">¥{{item.data.settlement.extraDue}}</text>
+              </view>
+            </view>
+          </view>
+          <view style="font-size:20rpx;color:var(--gray-400);margin-top:8rpx;">点击"确认执行"后将完成退租操作</view>
+        </view>
+
+        <!-- 警告 -->
+        <view wx:if="{{item.warnings.length > 0}}" style="background:var(--warning-light);border-radius:10rpx;padding:12rpx 16rpx;">
+          <text wx:for="{{item.warnings}}" wx:for-item="warn" wx:key="*this" style="font-size:22rpx;color:#92400E;display:block;">{{warn}}</text>
+        </view>
+
+        <!-- 原始文本 -->
+        <view style="margin-top:12rpx;">
+          <text style="font-size:22rpx;color:var(--gray-400);">原文：{{item.rawText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view style="display:flex;gap:16rpx;margin-top:24rpx;">
+      <button class="btn btn-block" style="background:var(--gray-100);color:var(--gray-600);" bindtap="resetInput">取消</button>
+      <button class="btn btn-primary btn-block" bindtap="confirmImport" disabled="{{importing}}">{{importing ? '执行中...' : '确认执行 ' + operations.length + ' 个操作'}}</button>
+    </view>
+  </view>
+
+  <!-- 执行结果 -->
+  <view wx:if="{{importResult}}">
+    <view style="font-size:36rpx;font-weight:700;color:var(--gray-900);margin-bottom:24rpx;">执行结果</view>
+
+    <view class="stats-grid" style="margin-bottom:24rpx;">
+      <view class="stat-card">
+        <view class="stat-label">成功</view>
+        <view class="stat-value green">{{importResult.success}}</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">失败</view>
+        <view class="stat-value {{importResult.failed > 0 ? 'red' : 'blue'}}">{{importResult.failed}}</view>
+      </view>
+    </view>
+
+    <view wx:for="{{importResult.details}}" wx:key="tmpId" class="list-item" style="border-left-color:{{item.status === 'success' ? 'var(--success)' : item.status === 'skipped' ? 'var(--gray-300)' : 'var(--danger)'}};">
+      <view class="flex-row justify-between align-center">
+        <view class="flex-row align-center" style="gap:8rpx;">
+          <text style="font-size:26rpx;font-weight:600;">{{actionLabels[item.action] || item.action}}</text>
+          <text wx:if="{{item.matched}}" style="font-size:22rpx;color:var(--gray-400);">{{item.matched}}</text>
+        </view>
+        <view class="badge {{item.status === 'success' ? 'badge-success' : item.status === 'skipped' ? 'badge-gray' : 'badge-danger'}}">
+          {{item.status === 'success' ? '成功' : item.status === 'skipped' ? '跳过' : '失败'}}
+        </view>
+      </view>
+      <view style="font-size:22rpx;color:var(--gray-400);margin-top:8rpx;">{{item.rawText}}</view>
+      <view wx:if="{{item.error}}" style="font-size:22rpx;color:var(--danger);margin-top:4rpx;">{{item.error}}</view>
+    </view>
+
+    <view style="display:flex;gap:16rpx;margin-top:32rpx;">
+      <button class="btn btn-primary btn-block" bindtap="resetInput">继续录入</button>
+    </view>
+  </view>
+</view>

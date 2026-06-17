@@ -3,10 +3,14 @@
     "pages/dashboard/index",
     "pages/houses/index",
     "pages/tenants/index",
+    "pages/tenant-detail/index",
     "pages/payments/index",
     "pages/utility/index",
+    "pages/batch-meter/index",
+    "pages/import/index",
     "pages/settings/index",
-    "pages/contract/index"
+    "pages/contract/index",
+    "pages/create-lease/index"
   ],
   "window": {
     "backgroundTextStyle": "light",

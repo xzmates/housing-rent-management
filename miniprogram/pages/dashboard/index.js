@@ -1,34 +1,25 @@
-const dbService = require('../../services/database');
+const api = require('../../services/api');
 
 Page({
   data: {
     loading: true,
-    stats: { houses: 0, activeTenants: 0, monthlyIncome: 0, pendingPayments: 0 },
-    upcomingHouses: [],
-    overdueHouses: [],
+    stats: { houses: 0, activeLeases: 0, monthlyIncome: 0, unpaidAmount: 0 },
+    overdueBills: [],
+    upcomingBills: [],
     recentActivities: []
   },
 
-  onLoad() {
-    this.loadAll();
-  },
-
-  onPullDownRefresh() {
-    this.loadAll().then(() => wx.stopPullDownRefresh());
-  },
-
-  onShow() {
-    // 每次显示页面时刷新数据
-    this.loadAll();
-  },
+  onLoad() { this.loadAll(); },
+  onPullDownRefresh() { this.loadAll().then(() => wx.stopPullDownRefresh()); },
+  onShow() { this.loadAll(); },
 
   async loadAll() {
     this.setData({ loading: true });
     try {
       await Promise.all([
         this.loadStats(),
-        this.loadRecentActivities(),
-        this.loadUpcomingRentHouses()
+        this.loadBills(),
+        this.loadRecentActivities()
       ]);
     } catch (e) {
       console.error('加载仪表盘失败', e);
@@ -39,32 +30,26 @@ Page({
 
   async loadStats() {
     try {
-      const [houses, tenantsResult, payments] = await Promise.all([
-        dbService.getHouses(),
-        dbService.getTenants({ status: 'active' }),
-        dbService.getPayments()
+      const [housesRes, leasesRes, billsRes] = await Promise.all([
+        api.getHouses(),
+        api.getLeases({ status: 'active' }),
+        api.getBills()
       ]);
 
       const now = new Date();
+      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const bills = billsRes.data || [];
+
       const stats = {
-        houses: houses.data.length,
-        activeTenants: tenantsResult.data.length,
-        monthlyIncome: 0,
-        pendingPayments: 0
+        houses: (housesRes.data || []).length,
+        activeLeases: (leasesRes.data || []).length,
+        monthlyIncome: bills
+          .filter(b => b.status === 'paid' && b.period && b.period.startsWith(thisMonth))
+          .reduce((s, b) => s + b.paidAmount, 0),
+        unpaidAmount: bills
+          .filter(b => b.status !== 'paid')
+          .reduce((s, b) => s + (b.amount - b.paidAmount), 0)
       };
-
-      stats.monthlyIncome = payments.data
-        .filter(p => {
-          const d = new Date(p.paymentDate);
-          return d.getMonth() === now.getMonth()
-            && d.getFullYear() === now.getFullYear()
-            && p.status === 'paid';
-        })
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-      stats.pendingPayments = payments.data
-        .filter(p => p.status === 'pending' || p.status === 'overdue')
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
 
       this.setData({ stats });
     } catch (e) {
@@ -72,119 +57,96 @@ Page({
     }
   },
 
-  async loadUpcomingRentHouses() {
+  async loadBills() {
     try {
-      const houses = await dbService.getUpcomingRentHouses(10);
-      const overdue = houses.filter(h => h.overdueItems?.length > 0);
-      const upcoming = houses.filter(h => !h.overdueItems?.length);
+      const [leaseRes, billsRes] = await Promise.all([
+        api.getLeases({ status: 'active' }),
+        api.getBills()
+      ]);
 
-      // 预计算格式化数值（重建纯对象避免 setData Date 序列化问题）
-      const fmtAmount = (v) => { const n = Number(v); return isNaN(n) ? '0' : n.toFixed(1); };
-      const fmtDate = (d) => {
-        if (!d) return '';
-        const date = new Date(d);
-        return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
-      };
-      const rebuild = (item) => {
-        if (!item) return item;
-        const result = {
-          houseId: item.houseId,
-          houseCode: item.houseCode,
-          houseAddress: item.houseAddress,
-          tenantId: item.tenantId,
-          tenantName: item.tenantName,
-          monthlyRent: item.monthlyRent,
-          monthlyRentStr: fmtAmount(item.monthlyRent),
-          rentCoveredUntilStr: fmtDate(item.rentCoveredUntil),
-          amountStr: fmtAmount(item.amount),
-          totalOverdueStr: fmtAmount(item.totalOverdue),
-          nextDueDateStr: fmtDate(item.nextDueDate),
-          daysUntilDue: item.daysUntilDue || 0,
-          cycleLabel: item.cycleLabel,
-          cycleAmountStr: fmtAmount(item.cycleAmount),
-          overdueItems: (item.overdueItems || []).map(oi => ({
-            amount: oi.amount,
-            amountStr: fmtAmount(oi.amount),
-            dueDateStr: fmtDate(oi.dueDate),
-            daysOverdue: oi.daysOverdue || 0
-          })),
-          upcomingItem: item.upcomingItem ? {
-            amount: item.upcomingItem.amount,
-            amountStr: fmtAmount(item.upcomingItem.amount),
-            dueDateStr: fmtDate(item.upcomingItem.dueDate),
-            daysUntilDue: item.upcomingItem.daysUntilDue || 0
-          } : null
-        };
-        return result;
-      };
-
-      const pendingOverdue = overdue.reduce((s, h) => s + (h.totalOverdue || 0), 0);
-      const stats = this.data.stats;
-      stats.pendingPayments = pendingOverdue;
-
-      this.setData({
-        upcomingHouses: upcoming.map(rebuild),
-        overdueHouses: overdue.map(rebuild),
-        stats
+      const leases = leaseRes.data || [];
+      const leaseMap = {};
+      const houseIds = new Set();
+      const tenantIds = new Set();
+      leases.forEach(l => {
+        leaseMap[l._id] = l;
+        houseIds.add(l.houseId);
+        tenantIds.add(l.tenantId);
       });
+
+      const [houseData, tenantData] = await Promise.all([
+        Promise.all([...houseIds].map(id => api.getHouseById(id).catch(() => null))),
+        Promise.all([...tenantIds].map(id => api.getTenantById(id).catch(() => null)))
+      ]);
+      const houseMap = {};
+      houseData.forEach(h => { if (h) houseMap[h._id] = h; });
+      const tenantMap = {};
+      tenantData.forEach(t => { if (t) tenantMap[t._id] = t; });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const in10Days = new Date(today);
+      in10Days.setDate(in10Days.getDate() + 10);
+
+      const unpaidBills = (billsRes.data || [])
+        .filter(b => b.status !== 'paid' && b.type === 'rent')
+        .map(b => {
+          const lease = leaseMap[b.leaseId] || {};
+          const house = houseMap[lease.houseId] || {};
+          const tenant = tenantMap[lease.tenantId] || {};
+          const dueDate = new Date(b.dueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          return {
+            ...b,
+            houseCode: house.code || '',
+            houseAddress: house.address || '',
+            tenantName: tenant.name || '',
+            dueDateStr: api.formatDate(b.dueDate),
+            remaining: b.amount - b.paidAmount,
+            daysUntilDue,
+            isOverdue: daysUntilDue < 0
+          };
+        })
+        .sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+
+      const overdueBills = unpaidBills.filter(b => b.isOverdue);
+      const upcomingBills = unpaidBills.filter(b => !b.isOverdue && b.daysUntilDue <= 10);
+
+      const stats = this.data.stats;
+      stats.unpaidAmount = unpaidBills.reduce((s, b) => s + b.remaining, 0);
+
+      this.setData({ overdueBills, upcomingBills, stats });
     } catch (e) {
-      console.error('加载收费提醒失败', e);
+      console.error('加载账单提醒失败', e);
     }
   },
 
   async loadRecentActivities() {
     try {
       const activities = [];
-
-      const [housesResult, tenantsResult, paymentsResult, utilityResult] = await Promise.all([
-        dbService.getHouses(),
-        dbService.getTenants(),
-        dbService.getPayments(),
-        dbService.getUtilityRecords()
+      const [billsRes, leasesRes] = await Promise.all([
+        api.getBills(),
+        api.getLeases()
       ]);
 
-      housesResult.data.slice(0, 3).forEach(h => {
-        const d = new Date(h.createdAt);
+      (billsRes.data || []).slice(0, 5).forEach(b => {
+        const d = new Date(b.updatedAt || b.createdAt);
+        const typeText = { rent: '租金', utility: '水电费', deposit_return: '押金退还' }[b.type] || b.type;
         activities.push({
-          id: 'house_' + h._id,
-          type: 'house',
-          title: `新增房屋 ${h.code || ''} - ${h.address}`,
+          id: 'bill_' + b._id,
+          title: `${typeText}账单 ¥${b.amount} ${b.status === 'paid' ? '已缴' : '待缴'}`,
           time: this._getRelativeTime(d),
           timestamp: d.getTime(),
-          status: 'success'
+          status: b.status === 'paid' ? 'success' : 'pending'
         });
       });
 
-      tenantsResult.data.slice(0, 3).forEach(t => {
-        const d = new Date(t.createdAt);
+      (leasesRes.data || []).slice(0, 3).forEach(l => {
+        const d = new Date(l.createdAt);
         activities.push({
-          id: 'tenant_' + t._id,
-          type: 'tenant',
-          title: `${t.name} ${t.status === 'active' ? '入住' : '退租'}`,
-          time: this._getRelativeTime(d),
-          timestamp: d.getTime(),
-          status: 'success'
-        });
-      });
-
-      paymentsResult.data.slice(0, 3).forEach(p => {
-        const d = new Date(p.paymentDate || p.createdAt);
-        activities.push({
-          id: 'payment_' + p._id,
-          type: 'payment',
-          title: `${p.description || '缴费'} ¥${p.amount}`,
-          time: this._getRelativeTime(d),
-          timestamp: d.getTime(),
-          status: p.status === 'paid' ? 'success' : 'pending'
-        });
-      });
-
-      utilityResult.data.slice(0, 3).forEach(r => {
-        const d = new Date(r.calculationDate || r.createdAt);
-        activities.push({
-          id: 'utility_' + r._id,
-          type: 'payment',
-          title: `水电费 ¥${r.totalCost}`,
+          id: 'lease_' + l._id,
+          title: `新合同创建`,
           time: this._getRelativeTime(d),
           timestamp: d.getTime(),
           status: 'success'
@@ -208,12 +170,11 @@ Page({
     return Math.floor(diff / 2592000) + '月前';
   },
 
-  _formatDate(date) {
-    if (!date) return '—';
-    const d = new Date(date);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}/${m}/${day}`;
+  switchToTab(e) {
+    wx.switchTab({ url: e.currentTarget.dataset.url });
+  },
+
+  goToBills() {
+    wx.switchTab({ url: '/pages/payments/index' });
   }
 });

@@ -1,0 +1,79 @@
+<view class="page-container">
+  <view style="margin-bottom:20rpx;">
+    <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">创建租赁合同</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
+
+  <view wx:else>
+    <!-- 选择租客 -->
+    <view class="form-group">
+      <text class="form-label">租客</text>
+      <picker mode="selector" range="{{tenantLabels}}" value="{{form.tenantIndex}}" bindchange="onTenantChange">
+        <view class="form-picker">{{tenantLabels[form.tenantIndex] || '请选择租客'}}</view>
+      </picker>
+    </view>
+
+    <!-- 选择房屋 -->
+    <view class="form-group">
+      <text class="form-label">房屋</text>
+      <picker mode="selector" range="{{houseLabels}}" value="{{form.houseIndex}}" bindchange="onHouseChange">
+        <view class="form-picker">{{houseLabels[form.houseIndex] || '请选择房屋'}}</view>
+      </picker>
+    </view>
+
+    <!-- 起租日期 -->
+    <view class="form-group">
+      <text class="form-label">起租日期</text>
+      <picker mode="date" value="{{form.startDate}}" bindchange="onStartDateChange">
+        <view class="form-picker">{{form.startDate || '选择日期'}}</view>
+      </picker>
+    </view>
+
+    <!-- 租金和押金 -->
+    <view class="flex-row" style="gap:20rpx;">
+      <view class="form-group" style="flex:1;">
+        <text class="form-label">月租金（元）</text>
+        <input class="form-input" value="{{form.rent}}" data-field="rent" bindinput="onFormInput" type="digit" placeholder="月租金" />
+      </view>
+      <view class="form-group" style="flex:1;">
+        <text class="form-label">押金（元）</text>
+        <input class="form-input" value="{{form.deposit}}" data-field="deposit" bindinput="onFormInput" type="digit" placeholder="押金" />
+      </view>
+    </view>
+
+    <!-- 支付周期 -->
+    <view class="form-group">
+      <text class="form-label">支付方式</text>
+      <picker mode="selector" range="{{['月付','季付','半年付','年付']}}" value="{{form.paymentIndex}}" bindchange="onPaymentChange">
+        <view class="form-picker">{{['月付','季付','半年付','年付'][form.paymentIndex] || '月付'}}</view>
+      </picker>
+    </view>
+
+    <!-- 入住水电读数 -->
+    <view class="flex-row" style="gap:20rpx;">
+      <view class="form-group" style="flex:1;">
+        <text class="form-label">入住电表读数</text>
+        <input class="form-input" value="{{form.moveInElectricity}}" data-field="moveInElectricity" bindinput="onFormInput" type="digit" placeholder="0" />
+      </view>
+      <view class="form-group" style="flex:1;">
+        <text class="form-label">入住水表读数</text>
+        <input class="form-input" value="{{form.moveInWater}}" data-field="moveInWater" bindinput="onFormInput" type="digit" placeholder="0" />
+      </view>
+    </view>
+
+    <!-- 备注 -->
+    <view class="form-group">
+      <text class="form-label">备注</text>
+      <textarea class="form-input" value="{{form.remark}}" data-field="remark" bindinput="onFormInput" placeholder="可选备注" style="height:120rpx;" />
+    </view>
+
+    <view style="background:var(--primary-bg);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+      <text style="color:var(--primary);font-size:24rpx;">💡 创建合同后将自动生成租金账单，房屋状态将变为"已租"</text>
+    </view>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:20rpx;" bindtap="submit" disabled="{{saving}}">
+      {{saving ? '创建中...' : '创建合同'}}
+    </button>
+  </view>
+</view>
