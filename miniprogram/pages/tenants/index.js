@@ -12,7 +12,17 @@ Page({
     nameSearch: '',
     form: { name: '', idCard: '', phone: '' },
     moveOutDate: '',
-    damageDeduction: 0,
+    damageAmount: 0,
+    moveOutElectricity: '',
+    moveOutWater: '',
+    lastElectricityReading: 0,
+    lastWaterReading: 0,
+    electricityPrice: 0.8,
+    waterPrice: 3.5,
+    settlementPreview: null,
+    outstandingBills: [],
+    outstandingAmount: 0,
+    loadingMoveOutBills: false,
     settlementResult: null,
     processingMoveOut: false
   },
@@ -33,13 +43,26 @@ Page({
 
       // 为每个租客查询是否有活跃合同
       const enriched = await Promise.all(tenants.map(async (t) => {
-        const tenant = { ...t, isActive: false, houseLabel: '', leaseInfo: null };
+        const tenant = {
+          ...t,
+          isActive: false,
+          houseLabel: '',
+          leaseInfo: null,
+          rentText: '',
+          contractDateText: '无合同',
+          statusText: '无合同',
+          statusClass: 'status-orange'
+        };
         try {
           const leaseRes = await api.getLeases({ tenantId: t._id, status: 'active' });
           if (leaseRes.data && leaseRes.data.length > 0) {
             tenant.isActive = true;
             const lease = leaseRes.data[0];
             tenant.leaseInfo = lease;
+            tenant.rentText = lease.rent ? `¥${lease.rent}/月` : '';
+            tenant.contractDateText = lease.rentCoveredUntil ? `租金覆盖至 ${api.formatDate(lease.rentCoveredUntil)}` : `入住 ${api.formatDate(lease.startDate)}`;
+            tenant.statusText = '在租';
+            tenant.statusClass = 'status-green';
             // 加载房屋信息
             try {
               const house = await api.getHouseById(lease.houseId);
@@ -116,6 +139,35 @@ Page({
     });
   },
 
+  showTenantMore(e) {
+    const tenant = e.currentTarget.dataset.tenant;
+    if (!tenant) return;
+    const itemList = tenant.isActive
+      ? ['编辑资料', '办理退租']
+      : ['创建合同', '编辑资料', '删除租客'];
+    wx.showActionSheet({
+      itemList,
+      success: (res) => {
+        const action = itemList[res.tapIndex];
+        if (action === '创建合同') {
+          wx.navigateTo({ url: `/pages/create-lease/index?tenantId=${tenant._id}` });
+          return;
+        }
+        if (action === '编辑资料') {
+          this.editTenant({ currentTarget: { dataset: { tenant } } });
+          return;
+        }
+        if (action === '办理退租') {
+          this.handleMoveOut({ currentTarget: { dataset: { tenant } } });
+          return;
+        }
+        if (action === '删除租客') {
+          this.deleteTenant({ currentTarget: { dataset: { id: tenant._id } } });
+        }
+      }
+    });
+  },
+
   async saveTenant() {
     const form = this.data.form;
     const msg = V.run([
@@ -144,7 +196,9 @@ Page({
   },
 
   async deleteTenant(e) {
-    const id = e.currentTarget.dataset.id;
+    const id = (e.currentTarget.dataset && e.currentTarget.dataset.id)
+      || (this.data.editingTenant && this.data.editingTenant._id);
+    if (!id) return;
     wx.showModal({
       title: '确认删除',
       content: '确定要删除这个租客吗？有活跃合同时无法删除。',
@@ -153,6 +207,7 @@ Page({
           try {
             await api.deleteTenant(id);
             wx.showToast({ title: '已删除', icon: 'success' });
+            this.closeModal();
             this.loadTenants();
           } catch (e) {
             wx.showToast({ title: e.message || '删除失败', icon: 'none' });
@@ -175,27 +230,165 @@ Page({
       moveOutTenantName: tenant.name,
       moveOutTenantHouse: tenant.houseLabel,
       moveOutDate: today,
-      damageDeduction: 0,
-      settlementResult: null
+      damageAmount: 0,
+      moveOutElectricity: '',
+      moveOutWater: '',
+      lastElectricityReading: Number(tenant.leaseInfo.moveInElectricity || 0),
+      lastWaterReading: Number(tenant.leaseInfo.moveInWater || 0),
+      settlementPreview: null,
+      outstandingBills: [],
+      outstandingAmount: 0,
+      loadingMoveOutBills: true,
+      settlementResult: null,
+      paidRentBills: [],
+      totalPaidRent: 0,
+      paidRentDetails: []
     });
+    await this.loadMoveOutSettlementData(tenant.leaseInfo);
+  },
+
+  async loadMoveOutSettlementData(lease) {
+    try {
+      const [res, recordsRes, prices] = await Promise.all([
+        api.getBills({ leaseId: lease._id }),
+        api.getUtilityRecords({ leaseId: lease._id }),
+        api.getUtilityPrices()
+      ]);
+      const allBills = res.data || [];
+      const bills = allBills.filter(b => b.status !== 'paid').map(b => ({
+        ...b,
+        remaining: Number(b.amount || 0) - Number(b.paidAmount || 0)
+      })).filter(b => b.remaining > 0);
+      const outstandingAmount = bills.reduce((sum, b) => sum + b.remaining, 0);
+      const records = recordsRes.data || [];
+      const lastRecord = records[0] || null;
+      const lastElectricityReading = Number(lastRecord ? lastRecord.electricityReading : (lease.moveInElectricity || 0));
+      const lastWaterReading = Number(lastRecord ? lastRecord.waterReading : (lease.moveInWater || 0));
+      const paidRentBills = allBills.filter(b => b.type === 'rent' && ['paid', 'partial'].includes(b.status));
+      const totalPaidRent = paidRentBills.reduce((sum, b) => sum + Number(b.paidAmount || 0), 0);
+      const paidRentDetails = paidRentBills.map(b => ({
+        period: b.period,
+        amount: Number(b.paidAmount || 0),
+        coverageStart: b.rentCoverageStart || '',
+        coverageEnd: b.rentCoverageEnd || ''
+      }));
+      this.setData({
+        outstandingBills: bills,
+        outstandingAmount,
+        lastElectricityReading,
+        lastWaterReading,
+        electricityPrice: Number(prices.electricityPrice || 0.8),
+        waterPrice: Number(prices.waterPrice || 3.5),
+        moveOutElectricity: String(lastElectricityReading),
+        moveOutWater: String(lastWaterReading),
+        paidRentBills,
+        totalPaidRent,
+        paidRentDetails
+      }, () => this.updateSettlementPreview());
+    } catch (e) {
+      console.error('加载退租欠款失败', e);
+      wx.showToast({ title: '欠款检查失败，请稍后重试', icon: 'none' });
+    } finally {
+      this.setData({ loadingMoveOutBills: false });
+    }
   },
 
   closeMoveOut() { this.setData({ showMoveOutModal: false, moveOutLease: null }); },
 
   onMoveOutDateChange(e) { this.setData({ moveOutDate: e.detail.value }); },
-  onDamageInput(e) { this.setData({ damageDeduction: Number(e.detail.value) || 0 }); },
+  onDamageAmountInput(e) { this.setData({ damageAmount: Number(e.detail.value) || 0 }, () => this.updateSettlementPreview()); },
+  onMoveOutElectricityInput(e) { this.setData({ moveOutElectricity: e.detail.value }, () => this.updateSettlementPreview()); },
+  onMoveOutWaterInput(e) { this.setData({ moveOutWater: e.detail.value }, () => this.updateSettlementPreview()); },
+
+  updateSettlementPreview() {
+    const electricityReading = Number(this.data.moveOutElectricity);
+    const waterReading = Number(this.data.moveOutWater);
+    const electricityUsage = Math.max(0, electricityReading - Number(this.data.lastElectricityReading || 0));
+    const waterUsage = Math.max(0, waterReading - Number(this.data.lastWaterReading || 0));
+    const utilityCost = Math.round((
+      electricityUsage * Number(this.data.electricityPrice || 0.8) +
+      waterUsage * Number(this.data.waterPrice || 3.5)
+    ) * 100) / 100;
+    const lease = this.data.moveOutLease;
+    const deposit = Number(lease ? lease.deposit : 0);
+    const damageAmount = Number(this.data.damageAmount || 0);
+    const refundableDeposit = deposit - damageAmount;
+    const payableBeforeDeposit = Math.round((Number(this.data.outstandingAmount || 0) + utilityCost) * 100) / 100;
+    const depositForOffset = Math.max(0, refundableDeposit);
+    const depositOffset = Math.round(Math.min(depositForOffset, payableBeforeDeposit) * 100) / 100;
+    const refundAmount = Math.round(Math.max(0, depositForOffset - depositOffset) * 100) / 100;
+    const damageExtraDue = damageAmount > deposit ? Math.round((damageAmount - deposit) * 100) / 100 : 0;
+    const extraPayment = Math.round((Math.max(0, payableBeforeDeposit - depositOffset) + damageExtraDue) * 100) / 100;
+
+    const moveInDate = lease ? new Date(lease.startDate) : null;
+    const moveOutDate = this.data.moveOutDate ? new Date(this.data.moveOutDate) : null;
+    let rentRefund = null;
+    if (moveInDate && moveOutDate && moveOutDate >= moveInDate) {
+      const occupiedMonths = (moveOutDate.getFullYear() - moveInDate.getFullYear()) * 12
+                             + moveOutDate.getMonth() - moveInDate.getMonth()
+                             + (moveOutDate.getDate() >= moveInDate.getDate() ? 1 : 0);
+      const monthlyRent = Number(lease.rent || 0);
+      const actualRentDue = Math.round(occupiedMonths * monthlyRent * 100) / 100;
+      const totalPaidRent = Number(this.data.totalPaidRent || 0);
+      const overpaidRent = Math.max(0, totalPaidRent - actualRentDue);
+      const startDateStr = `${moveInDate.getFullYear()}-${String(moveInDate.getMonth() + 1).padStart(2, '0')}-${String(moveInDate.getDate()).padStart(2, '0')}`;
+      const endDateStr = `${moveOutDate.getFullYear()}-${String(moveOutDate.getMonth() + 1).padStart(2, '0')}-${String(moveOutDate.getDate()).padStart(2, '0')}`;
+      rentRefund = {
+        occupiedPeriod: `${startDateStr} 至 ${endDateStr}`,
+        occupiedMonths,
+        actualRentDue,
+        paidRentDetails: this.data.paidRentDetails || [],
+        totalPaidRent,
+        overpaidRent
+      };
+    }
+    const overpaidRentAmount = rentRefund ? rentRefund.overpaidRent : 0;
+    const totalRefund = Math.round((refundAmount + overpaidRentAmount - extraPayment) * 100) / 100;
+
+    this.setData({
+      settlementPreview: {
+        electricityUsage,
+        waterUsage,
+        utilityCost,
+        payableBeforeDeposit,
+        depositOffset,
+        refundAmount,
+        extraPayment,
+        rentRefund,
+        totalRefund,
+        damageAmount,
+        damageExtraDue
+      }
+    });
+  },
 
   async confirmMoveOut() {
     const lease = this.data.moveOutLease;
     if (!lease) return;
+    if (this.data.loadingMoveOutBills) {
+      wx.showToast({ title: '正在检查欠款', icon: 'none' });
+      return;
+    }
+    const electricityReading = Number(this.data.moveOutElectricity);
+    const waterReading = Number(this.data.moveOutWater);
+    if (Number.isNaN(electricityReading) || Number.isNaN(waterReading)) {
+      wx.showToast({ title: '请输入水电读数', icon: 'none' });
+      return;
+    }
+    if (electricityReading < this.data.lastElectricityReading || waterReading < this.data.lastWaterReading) {
+      wx.showToast({ title: '读数不能小于上次读数', icon: 'none' });
+      return;
+    }
 
     this.setData({ processingMoveOut: true });
     try {
-      const result = await api.terminateLease(
-        lease._id,
-        this.data.moveOutDate,
-        this.data.damageDeduction
-      );
+      const result = await api.terminateLease({
+        leaseId: lease._id,
+        endDate: this.data.moveOutDate,
+        damageAmount: this.data.damageAmount,
+        electricityReading,
+        waterReading
+      });
       this.setData({ settlementResult: result });
       wx.showToast({ title: '退租成功', icon: 'success' });
       setTimeout(() => {

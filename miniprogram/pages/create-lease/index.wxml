@@ -3,10 +3,11 @@
     <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">创建租赁合同</text>
   </view>
 
-  <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
+  <view wx:if="{{loading}}" class="loading">
+    <text class="loading-text">加载中...</text>
+  </view>
 
   <view wx:else>
-    <!-- 选择租客 -->
     <view class="form-group">
       <text class="form-label">租客</text>
       <picker mode="selector" range="{{tenantLabels}}" value="{{form.tenantIndex}}" bindchange="onTenantChange">
@@ -14,7 +15,6 @@
       </picker>
     </view>
 
-    <!-- 选择房屋 -->
     <view class="form-group">
       <text class="form-label">房屋</text>
       <picker mode="selector" range="{{houseLabels}}" value="{{form.houseIndex}}" bindchange="onHouseChange">
@@ -22,7 +22,6 @@
       </picker>
     </view>
 
-    <!-- 起租日期 -->
     <view class="form-group">
       <text class="form-label">起租日期</text>
       <picker mode="date" value="{{form.startDate}}" bindchange="onStartDateChange">
@@ -30,7 +29,6 @@
       </picker>
     </view>
 
-    <!-- 租金和押金 -->
     <view class="flex-row" style="gap:20rpx;">
       <view class="form-group" style="flex:1;">
         <text class="form-label">月租金（元）</text>
@@ -42,34 +40,54 @@
       </view>
     </view>
 
-    <!-- 支付周期 -->
     <view class="form-group">
-      <text class="form-label">支付方式</text>
+      <text class="form-label">付款方式</text>
       <picker mode="selector" range="{{['月付','季付','半年付','年付']}}" value="{{form.paymentIndex}}" bindchange="onPaymentChange">
         <view class="form-picker">{{['月付','季付','半年付','年付'][form.paymentIndex] || '月付'}}</view>
       </picker>
     </view>
 
-    <!-- 入住水电读数 -->
-    <view class="flex-row" style="gap:20rpx;">
-      <view class="form-group" style="flex:1;">
-        <text class="form-label">入住电表读数</text>
-        <input class="form-input" value="{{form.moveInElectricity}}" data-field="moveInElectricity" bindinput="onFormInput" type="digit" placeholder="0" />
+    <view class="card" style="border-left-color:var(--primary);">
+      <view class="card-header">
+        <text class="card-title">入住水电读数</text>
       </view>
-      <view class="form-group" style="flex:1;">
-        <text class="form-label">入住水表读数</text>
-        <input class="form-input" value="{{form.moveInWater}}" data-field="moveInWater" bindinput="onFormInput" type="digit" placeholder="0" />
+
+      <view wx:if="{{lastHouseReading}}" style="background:var(--gray-50);border-radius:10rpx;padding:16rpx;margin-bottom:16rpx;">
+        <text style="font-size:24rpx;color:var(--gray-700);display:block;">上次抄表：{{lastHouseReadDate}}</text>
+        <text style="font-size:24rpx;color:var(--gray-700);display:block;margin-top:6rpx;">电表 {{lastHouseReading.electricityReading}} 度 · 水表 {{lastHouseReading.waterReading}} 吨</text>
+      </view>
+
+      <view wx:else style="background:var(--gray-50);border-radius:10rpx;padding:16rpx;margin-bottom:16rpx;">
+        <text style="font-size:24rpx;color:var(--gray-500);">该房屋暂无历史抄表记录，可从当前入住读数开始。</text>
+      </view>
+
+      <view class="flex-row justify-between align-center" style="margin-bottom:16rpx;">
+        <view class="flex-col" style="flex:1;">
+          <text style="font-size:26rpx;font-weight:600;color:var(--gray-800);">已更换水电表</text>
+          <text style="font-size:22rpx;color:var(--gray-500);margin-top:4rpx;">开启后允许输入低于上次的读数</text>
+        </view>
+        <switch checked="{{form.meterReplaced}}" bindchange="onMeterReplacedChange" />
+      </view>
+
+      <view class="flex-row" style="gap:20rpx;">
+        <view class="form-group" style="flex:1;">
+          <text class="form-label">入住电表读数</text>
+          <input class="form-input" value="{{form.moveInElectricity}}" data-field="moveInElectricity" bindinput="onFormInput" type="digit" placeholder="电表读数" />
+        </view>
+        <view class="form-group" style="flex:1;">
+          <text class="form-label">入住水表读数</text>
+          <input class="form-input" value="{{form.moveInWater}}" data-field="moveInWater" bindinput="onFormInput" type="digit" placeholder="水表读数" />
+        </view>
       </view>
     </view>
 
-    <!-- 备注 -->
     <view class="form-group">
       <text class="form-label">备注</text>
       <textarea class="form-input" value="{{form.remark}}" data-field="remark" bindinput="onFormInput" placeholder="可选备注" style="height:120rpx;" />
     </view>
 
     <view style="background:var(--primary-bg);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
-      <text style="color:var(--primary);font-size:24rpx;">💡 创建合同后将自动生成租金账单，房屋状态将变为"已租"</text>
+      <text style="color:var(--primary);font-size:24rpx;">创建合同后会自动生成租金账单，并写入本次入住水电基准读数。</text>
     </view>
 
     <button class="btn btn-primary" style="width:100%;margin-top:20rpx;" bindtap="submit" disabled="{{saving}}">

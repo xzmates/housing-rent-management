@@ -1,0 +1,55 @@
+<view class="rent-card">
+  <view class="rent-head">
+    <view class="rent-title-block">
+      <text class="rent-title">待收租金</text>
+      <text class="rent-sub">{{filterText}}</text>
+    </view>
+    <view class="rent-total">
+      <text class="rent-money">¥{{totalAmount}}</text>
+      <text class="rent-note">{{total}} 笔</text>
+    </view>
+  </view>
+
+  <view wx:if="{{overdueCount > 0}}" class="rent-alert">
+    <text>{{overdueCount}} 笔已逾期，请优先处理</text>
+  </view>
+
+  <view wx:if="{{visibleItems.length === 0}}" class="rent-empty">
+    <text>暂无待收租金</text>
+  </view>
+
+  <view wx:else class="rent-list">
+    <view
+      wx:for="{{visibleItems}}"
+      wx:key="billId"
+      class="rent-row"
+      hover-class="rent-row-hover"
+      bindtap="onTapConfirm"
+      data-bill-id="{{item.billId}}"
+      data-house-label="{{item.houseLabel}}"
+    >
+      <view class="rent-home-mark">
+        <text>{{item.houseCode || '-'}}</text>
+      </view>
+      <view class="rent-info">
+        <view class="rent-main-line">
+          <text class="rent-house">{{item.houseLabel}}</text>
+          <text class="rent-status {{item.overdue ? 'status-red' : 'status-blue'}}">{{item.statusText}}</text>
+        </view>
+        <text class="rent-meta">{{item.tenantName}} · {{item.period || '本期租金'}}</text>
+        <text class="rent-date">到期 {{item.dueDate}}</text>
+      </view>
+      <view class="rent-side">
+        <text class="rent-row-money">¥{{item.remaining}}</text>
+        <text class="rent-action">收租</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="rent-foot">
+    <text wx:if="{{omittedCount > 0}}" class="rent-omitted">还有 {{omittedCount}} 笔未展示</text>
+    <view class="rent-history-btn" hover-class="rent-history-btn-hover" bindtap="onTapHistory">
+      <text>查看收租记录</text>
+    </view>
+  </view>
+</view>

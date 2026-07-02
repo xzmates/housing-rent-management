@@ -20,8 +20,17 @@ Page({
   async loadHouses() {
     this.setData({ loading: true });
     try {
-      const result = await api.getHouses(this.data.filters);
+      const [result, utilityRes] = await Promise.all([
+        api.getHousesWithOccupancy(this.data.filters),
+        api.getUtilityRecords().catch(() => ({ data: [] }))
+      ]);
       const houses = result.data || [];
+      const latestMeterByHouse = {};
+      (utilityRes.data || []).forEach(record => {
+        if (record.houseId && !latestMeterByHouse[record.houseId]) {
+          latestMeterByHouse[record.houseId] = record;
+        }
+      });
 
       // 按地址+编号排序
       const addrOrder = { '东楼北': 1, '东楼南': 2, '里召': 3 };
@@ -34,7 +43,13 @@ Page({
       // 为已租房屋批量加载租客信息
       const enriched = await Promise.all(houses.map(async (house) => {
         const h = { ...house };
-        if (house.status === 'rented') {
+        const latestMeter = latestMeterByHouse[house._id];
+        if (latestMeter) {
+          h.lastMeterDate = api.formatDate(latestMeter.calculationDate || latestMeter.createdAt);
+          h.electricityReading = latestMeter.electricityReading;
+          h.waterReading = latestMeter.waterReading;
+        }
+        if (house.hasActiveLease) {
           try {
             const leaseData = await api.getHouseCurrentLease(house._id);
             if (leaseData.tenant) {
@@ -151,7 +166,8 @@ Page({
   },
 
   async deleteHouse(e) {
-    const id = e.currentTarget.dataset.id;
+    const id = e && e.currentTarget ? e.currentTarget.dataset.id : e;
+    if (!id) return;
     wx.showModal({
       title: '确认删除',
       content: '确定要删除这个房屋吗？',
@@ -172,6 +188,31 @@ Page({
   viewTenantDetail(e) {
     const tenantId = e.currentTarget.dataset.tenantId;
     wx.navigateTo({ url: `/pages/tenant-detail/index?tenantId=${tenantId}` });
+  },
+
+  showHouseMore(e) {
+    const house = e.currentTarget.dataset.house;
+    if (!house) return;
+    const itemList = house.status === 'rented' && house.tenantInfo
+      ? ['查看租客', '编辑房屋']
+      : ['编辑房屋', '删除房屋'];
+    wx.showActionSheet({
+      itemList,
+      success: (res) => {
+        const action = itemList[res.tapIndex];
+        if (action === '查看租客') {
+          wx.navigateTo({ url: `/pages/tenant-detail/index?tenantId=${house.tenantInfo.id}` });
+          return;
+        }
+        if (action === '编辑房屋') {
+          this.editHouse({ currentTarget: { dataset: { house } } });
+          return;
+        }
+        if (action === '删除房屋') {
+          this.deleteHouse(house._id);
+        }
+      }
+    });
   },
 
   stopPropagation() {}

@@ -1,0 +1,273 @@
+/* ratio=1:1
+ * 色源：app.json window.backgroundColor #EEF7FF + tabBar.selectedColor #1677FF；
+ * app.wxss 提供 #EEF6FF/#F8FBFF/#111827/#6B7280/#EF5350。
+ * 暗黑：浅蓝底 #EEF7FF 降明度推导 #111927，描边 #2F3A4D。
+ */
+.rent-card {
+  display: flex;
+  flex-direction: column;
+  padding: 3.2vw;
+  background-color: #F8FBFF;
+  border-width: 1rpx;
+  border-style: solid;
+  border-color: #D7E6FA;
+  border-radius: 1.07vw;
+  box-shadow: 0 2vw 5.4vw rgba(30, 79, 140, 0.10);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.rent-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2.13vw;
+}
+
+.rent-title-block {
+  min-width: 0;
+  flex: 1;
+}
+
+.rent-title {
+  display: block;
+  font-size: 4.53vw;
+  line-height: 1.2;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rent-sub {
+  display: block;
+  margin-top: 1.07vw;
+  font-size: 3.2vw;
+  line-height: 1.3;
+  color: rgba(17, 24, 39, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rent-total {
+  flex-shrink: 0;
+  text-align: right;
+  margin-left: 2.13vw;
+}
+
+.rent-money {
+  display: block;
+  font-size: 4.53vw;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #EF5350;
+}
+
+.rent-note {
+  display: block;
+  margin-top: 1.07vw;
+  font-size: 3.2vw;
+  line-height: 1.3;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.rent-alert {
+  margin-bottom: 2.13vw;
+  padding: 1.6vw 2.13vw;
+  background-color: #FFEDED;
+  border-radius: 1.07vw;
+  font-size: 3.2vw;
+  line-height: 1.35;
+  color: #D94542;
+}
+
+.rent-empty {
+  flex: 1;
+  min-height: 24vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4vw;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.rent-list {
+  flex: 1;
+  overflow: hidden;
+}
+
+.rent-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 2.13vw 0;
+  border-bottom-width: 1rpx;
+  border-bottom-style: solid;
+  border-bottom-color: rgba(148, 163, 184, 0.22);
+}
+
+.rent-row-hover {
+  opacity: 0.86;
+  transform: scale(0.99);
+}
+
+.rent-home-mark {
+  width: 10.67vw;
+  height: 10.67vw;
+  flex-shrink: 0;
+  border-radius: 1.07vw;
+  background-color: #EAF3FF;
+  color: #1677FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.2vw;
+  font-weight: 600;
+  margin-right: 2.13vw;
+}
+
+.rent-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rent-main-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.rent-house {
+  flex: 1;
+  min-width: 0;
+  font-size: 4vw;
+  line-height: 1.3;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rent-status {
+  flex-shrink: 0;
+  margin-left: 1.6vw;
+  padding: 0.8vw 1.6vw;
+  border-radius: 1.07vw;
+  font-size: 3.2vw;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.status-blue {
+  color: #1677FF;
+  background-color: #EAF3FF;
+}
+
+.status-red {
+  color: #D94542;
+  background-color: #FFEDED;
+}
+
+.rent-meta,
+.rent-date {
+  display: block;
+  margin-top: 0.8vw;
+  font-size: 3.2vw;
+  line-height: 1.25;
+  color: rgba(17, 24, 39, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rent-side {
+  flex-shrink: 0;
+  margin-left: 2.13vw;
+  text-align: right;
+}
+
+.rent-row-money {
+  display: block;
+  font-size: 4vw;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #EF5350;
+}
+
+.rent-action {
+  display: block;
+  margin-top: 1.07vw;
+  font-size: 3.2vw;
+  color: #1677FF;
+  font-weight: 600;
+}
+
+.rent-foot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2.13vw;
+}
+
+.rent-omitted {
+  flex: 1;
+  min-width: 0;
+  font-size: 3.2vw;
+  color: rgba(17, 24, 39, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rent-history-btn {
+  flex-shrink: 0;
+  height: 10.67vw;
+  line-height: 10.67vw;
+  padding: 0 3.2vw;
+  border-radius: 1.07vw;
+  background-color: #1677FF;
+  color: #FFFFFF;
+  font-size: 4vw;
+  font-weight: 600;
+  text-align: center;
+}
+
+.rent-history-btn-hover {
+  opacity: 0.86;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rent-card {
+    background-color: #111927;
+    border-color: #2F3A4D;
+    box-shadow: none;
+  }
+  .rent-title,
+  .rent-house {
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .rent-sub,
+  .rent-note,
+  .rent-meta,
+  .rent-date,
+  .rent-omitted,
+  .rent-empty {
+    color: rgba(255, 255, 255, 0.45);
+  }
+  .rent-row {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+  .rent-home-mark,
+  .status-blue {
+    background-color: #172C4A;
+  }
+  .rent-alert,
+  .status-red {
+    background-color: #3A1D22;
+  }
+}

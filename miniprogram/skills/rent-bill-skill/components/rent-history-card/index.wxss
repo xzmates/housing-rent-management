@@ -1,0 +1,220 @@
+/* ratio=1:1
+ * 色源：app.json window.backgroundColor #EEF7FF + tabBar.selectedColor #1677FF；
+ * app.wxss 提供成功色 #18A66A、金额色 #EF5350、文字 #111827。
+ * 暗黑：浅蓝底 #EEF7FF 降明度推导 #111927，描边 #2F3A4D。
+ */
+.history-card {
+  display: flex;
+  flex-direction: column;
+  padding: 3.2vw;
+  background-color: #F8FBFF;
+  border-width: 1rpx;
+  border-style: solid;
+  border-color: #D7E6FA;
+  border-radius: 1.07vw;
+  box-shadow: 0 2vw 5.4vw rgba(30, 79, 140, 0.10);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.history-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2.13vw;
+}
+
+.history-title-block {
+  min-width: 0;
+  flex: 1;
+}
+
+.history-title {
+  display: block;
+  font-size: 4.53vw;
+  line-height: 1.2;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-sub {
+  display: block;
+  margin-top: 1.07vw;
+  font-size: 3.2vw;
+  line-height: 1.3;
+  color: rgba(17, 24, 39, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-total {
+  flex-shrink: 0;
+  margin-left: 2.13vw;
+  text-align: right;
+}
+
+.history-money {
+  display: block;
+  font-size: 4.53vw;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #EF5350;
+}
+
+.history-note {
+  display: block;
+  margin-top: 1.07vw;
+  font-size: 3.2vw;
+  line-height: 1.3;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.history-empty {
+  flex: 1;
+  min-height: 24vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4vw;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.history-list {
+  flex: 1;
+  overflow: hidden;
+}
+
+.history-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 2.13vw 0;
+  border-bottom-width: 1rpx;
+  border-bottom-style: solid;
+  border-bottom-color: rgba(148, 163, 184, 0.22);
+}
+
+.history-mark {
+  width: 10.67vw;
+  height: 10.67vw;
+  flex-shrink: 0;
+  border-radius: 1.07vw;
+  background-color: #E9F8F1;
+  color: #18A66A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.2vw;
+  font-weight: 600;
+  margin-right: 2.13vw;
+}
+
+.history-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-main-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.history-house {
+  flex: 1;
+  min-width: 0;
+  font-size: 4vw;
+  line-height: 1.3;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-amount {
+  flex-shrink: 0;
+  margin-left: 2.13vw;
+  font-size: 4vw;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #EF5350;
+}
+
+.history-meta,
+.history-date {
+  display: block;
+  margin-top: 0.8vw;
+  font-size: 3.2vw;
+  line-height: 1.25;
+  color: rgba(17, 24, 39, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-foot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2.13vw;
+}
+
+.history-omitted {
+  flex: 1;
+  min-width: 0;
+  font-size: 3.2vw;
+  color: rgba(17, 24, 39, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-action-btn {
+  flex-shrink: 0;
+  height: 10.67vw;
+  line-height: 10.67vw;
+  padding: 0 3.2vw;
+  border-radius: 1.07vw;
+  background-color: #1677FF;
+  color: #FFFFFF;
+  font-size: 4vw;
+  font-weight: 600;
+  text-align: center;
+}
+
+.history-action-btn-hover {
+  opacity: 0.86;
+}
+
+@media (prefers-color-scheme: dark) {
+  .history-card {
+    background-color: #111927;
+    border-color: #2F3A4D;
+    box-shadow: none;
+  }
+  .history-title,
+  .history-house {
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .history-sub,
+  .history-note,
+  .history-meta,
+  .history-date,
+  .history-omitted,
+  .history-empty {
+    color: rgba(255, 255, 255, 0.45);
+  }
+  .history-row {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+  .history-mark {
+    background-color: #153126;
+  }
+}

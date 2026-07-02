@@ -1,0 +1,238 @@
+{
+  "apis": [
+    {
+      "name": "getRentBills",
+      "description": "查询租金待收账单（业务对象：租金待收列表卡片）。调用前置条件：用户提到房租、租金、欠租、待收、谁没交租、某房号欠多少租等场景时。可按房号或租客姓名筛选。返回未结清租金账单列表，并汇总待收金额和逾期数量。【严禁场景】禁止用于水电费、押金退还、退租结算；用户刚完成收租后不要重复展示完整列表，优先展示收款结果卡片。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-bill-list-card/index"
+        }
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "houseCode": {
+            "type": "string",
+            "description": "房屋编号，如 101。用户未指定房号时为空字符串。"
+          },
+          "tenantName": {
+            "type": "string",
+            "description": "租客姓名。用户未指定租客时为空字符串。"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "未结清租金账单列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "billId": { "type": "string", "description": "账单 ID" },
+                "leaseId": { "type": "string", "description": "合同 ID" },
+                "houseId": { "type": "string", "description": "房屋 ID" },
+                "tenantId": { "type": "string", "description": "租客 ID" },
+                "houseCode": { "type": "string", "description": "房屋编号" },
+                "houseAddress": { "type": "string", "description": "房屋位置" },
+                "houseLabel": { "type": "string", "description": "房屋展示名" },
+                "tenantName": { "type": "string", "description": "租客姓名" },
+                "period": { "type": "string", "description": "账单周期" },
+                "amount": { "type": "number", "description": "应收金额" },
+                "paidAmount": { "type": "number", "description": "已收金额" },
+                "remaining": { "type": "number", "description": "待收金额" },
+                "dueDate": { "type": "string", "description": "到期日 YYYY-MM-DD" },
+                "overdue": { "type": "boolean", "description": "是否逾期" },
+                "status": { "type": "string", "description": "账单状态 unpaid/partial" },
+                "statusText": { "type": "string", "description": "状态文案" }
+              },
+              "required": ["billId", "leaseId", "houseId", "tenantId", "houseCode", "houseAddress", "houseLabel", "tenantName", "period", "amount", "paidAmount", "remaining", "dueDate", "overdue", "status", "statusText"],
+              "additionalProperties": false
+            }
+          },
+          "total": { "type": "number", "description": "待收账单数量" },
+          "totalAmount": { "type": "number", "description": "待收总金额" },
+          "overdueCount": { "type": "number", "description": "逾期数量" },
+          "filterText": { "type": "string", "description": "筛选条件文案" }
+        },
+        "required": ["items", "total", "totalAmount", "overdueCount", "filterText"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "confirmRentPayment",
+      "description": "生成租金收款确认卡（业务对象：收款确认卡片）。调用前置条件：用户已从待收租金列表中选择一笔账单，或上下文中已有明确 billId。该接口只确认金额、收款日期和收款方式，并生成一次性 confirmToken，不写入数据库。【严禁场景】禁止在没有 billId 时调用；禁止确认已全额支付的账单；禁止用于水电费账单；禁止跳过确认卡直接调用 payRentBill。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-pay-confirm-card/index"
+        }
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "billId": {
+            "type": "string",
+            "description": "租金账单 ID，必须来自 getRentBills 返回的 items[].billId。"
+          },
+          "amount": {
+            "type": "number",
+            "description": "本次收款金额。未提供时默认收取该账单剩余待收金额。"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["cash", "wechat", "bank", "other"],
+            "description": "收款方式，现金 cash、微信 wechat、银行转账 bank、其他 other。未提供时默认 cash。"
+          },
+          "paymentDate": {
+            "type": "string",
+            "description": "收款日期 YYYY-MM-DD。未提供时默认今天。"
+          }
+        },
+        "required": ["billId"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "billId": { "type": "string" },
+          "leaseId": { "type": "string" },
+          "houseLabel": { "type": "string" },
+          "tenantName": { "type": "string" },
+          "period": { "type": "string" },
+          "amount": { "type": "number", "description": "本次确认收款金额" },
+          "billAmount": { "type": "number", "description": "账单应收金额" },
+          "paidAmount": { "type": "number", "description": "已收金额" },
+          "remaining": { "type": "number", "description": "确认前待收金额" },
+          "dueDate": { "type": "string" },
+          "paymentDate": { "type": "string" },
+          "paymentMethod": { "type": "string" },
+          "paymentMethodText": { "type": "string" },
+          "statusText": { "type": "string" },
+          "confirmToken": { "type": "string", "description": "一次性收款确认令牌，仅供确认卡按钮调用 payRentBill 使用。" }
+        },
+        "required": ["billId", "leaseId", "houseLabel", "tenantName", "period", "amount", "billAmount", "paidAmount", "remaining", "dueDate", "paymentDate", "paymentMethod", "paymentMethodText", "statusText", "confirmToken"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "payRentBill",
+      "description": "确认并完成租金收款（业务对象：收款结果卡片）。调用前置条件：用户已看到收款确认卡，并点击确认卡上的“确认收款”按钮；必须携带 confirmRentPayment 返回的一次性 confirmToken。内部会调用现有收款云函数更新账单和流水。返回收款结果、剩余金额和账单状态。【严禁场景】禁止在用户未点击确认卡按钮时调用；禁止自行构造 billId/amount 绕过 confirmToken；禁止为已全额支付账单重复收款；禁止用于水电费、押金退还或退租结算。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-pay-result-card/index"
+        }
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "confirmToken": { "type": "string", "description": "confirmRentPayment 返回的一次性确认令牌，必须由确认卡按钮透传。" },
+          "billId": { "type": "string", "description": "租金账单 ID，仅用于展示回传；实际执行以 confirmToken 内记录为准。" },
+          "amount": { "type": "number", "description": "本次收款金额。未提供时默认收取剩余待收金额。" },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["cash", "wechat", "bank", "other"],
+            "description": "收款方式。未提供时默认 cash。"
+          },
+          "paymentDate": { "type": "string", "description": "收款日期 YYYY-MM-DD。未提供时默认今天。" }
+        },
+        "required": ["confirmToken"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "billId": { "type": "string" },
+          "houseLabel": { "type": "string" },
+          "tenantName": { "type": "string" },
+          "period": { "type": "string" },
+          "paymentAmount": { "type": "number" },
+          "totalPaid": { "type": "number" },
+          "totalAmount": { "type": "number" },
+          "remaining": { "type": "number" },
+          "paymentDate": { "type": "string" },
+          "paymentMethod": { "type": "string" },
+          "paymentMethodText": { "type": "string" },
+          "status": { "type": "string" },
+          "statusText": { "type": "string" }
+        },
+        "required": ["billId", "houseLabel", "tenantName", "period", "paymentAmount", "totalPaid", "totalAmount", "remaining", "paymentDate", "paymentMethod", "paymentMethodText", "status", "statusText"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getRentPaymentHistory",
+      "description": "查询租金收款记录（业务对象：收租记录卡片）。调用前置条件：用户主动要求查看收租记录、最近收租、某房号或某租客的收租历史。返回按时间倒序排列的租金收款记录。【严禁场景】禁止在用户明确查询待收租金时替代待收账单列表；禁止返回水电费流水。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-history-card/index"
+        }
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "houseCode": { "type": "string", "description": "房屋编号。未指定时为空字符串。" },
+          "tenantName": { "type": "string", "description": "租客姓名。未指定时为空字符串。" }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "租金收款记录",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paymentId": { "type": "string" },
+                "billId": { "type": "string" },
+                "houseLabel": { "type": "string" },
+                "tenantName": { "type": "string" },
+                "period": { "type": "string" },
+                "amount": { "type": "number" },
+                "paymentDate": { "type": "string" },
+                "paymentMethod": { "type": "string" },
+                "paymentMethodText": { "type": "string" }
+              },
+              "required": ["paymentId", "billId", "houseLabel", "tenantName", "period", "amount", "paymentDate", "paymentMethod", "paymentMethodText"],
+              "additionalProperties": false
+            }
+          },
+          "total": { "type": "number" },
+          "totalAmount": { "type": "number" },
+          "filterText": { "type": "string" }
+        },
+        "required": ["items", "total", "totalAmount", "filterText"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "components": [
+    {
+      "path": "components/rent-bill-list-card/index",
+      "relatedPage": "/pages/payments/index"
+    },
+    {
+      "path": "components/rent-pay-confirm-card/index",
+      "relatedPage": "/pages/payments/index"
+    },
+    {
+      "path": "components/rent-pay-result-card/index",
+      "relatedPage": "/pages/payments/index"
+    },
+    {
+      "path": "components/rent-history-card/index",
+      "relatedPage": "/pages/payments/index"
+    }
+  ]
+}

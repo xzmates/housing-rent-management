@@ -1,0 +1,31 @@
+<view class="assistant-card">
+  <view class="assistant-head">
+    <view class="assistant-accent"></view>
+    <view class="assistant-title-block">
+      <text class="assistant-title">{{title}}</text>
+      <text class="assistant-sub">{{subtitle}}</text>
+    </view>
+  </view>
+
+  <text class="assistant-question">要办理哪件事？</text>
+
+  <view class="assistant-list">
+    <view
+      wx:for="{{actions}}"
+      wx:key="key"
+      class="assistant-row"
+      hover-class="assistant-row-hover"
+      bindtap="onTapAction"
+      data-sample="{{item.sample}}"
+    >
+      <view class="assistant-index">
+        <text>{{item.index}}</text>
+      </view>
+      <view class="assistant-info">
+        <text class="assistant-name">{{item.title}}</text>
+        <text class="assistant-desc">{{item.subtitle}}</text>
+      </view>
+      <text class="assistant-arrow">›</text>
+    </view>
+  </view>
+</view>

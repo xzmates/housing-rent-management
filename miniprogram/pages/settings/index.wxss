@@ -1,1 +1,264 @@
-/* 复用全局样式 */
+.settings-page .home-hero {
+  min-height: 236rpx;
+}
+
+.admin-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 22rpx;
+}
+
+.admin-main {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  min-width: 0;
+}
+
+.admin-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 30rpx;
+  display: block;
+  position: relative;
+  flex-shrink: 0;
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #0F7CFF, #66B3FF);
+  box-shadow: 0 14rpx 26rpx rgba(22,119,255,0.22);
+}
+
+.admin-avatar.symbol-user::before {
+  width: 30rpx;
+  height: 30rpx;
+  left: 33rpx;
+  top: 22rpx;
+  border-width: 5rpx;
+}
+
+.admin-avatar.symbol-user::after {
+  width: 50rpx;
+  height: 28rpx;
+  left: 23rpx;
+  top: 56rpx;
+  border-width: 5rpx;
+}
+
+.admin-info {
+  min-width: 0;
+}
+
+.admin-title {
+  display: block;
+  font-size: 34rpx;
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--home-ink);
+}
+
+.admin-subtitle {
+  display: block;
+  margin-top: 10rpx;
+  max-width: 360rpx;
+  font-size: 23rpx;
+  line-height: 1.35;
+  color: var(--home-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-metrics {
+  display: flex;
+  gap: 14rpx;
+  flex-shrink: 0;
+}
+
+.admin-metric {
+  width: 96rpx;
+  height: 92rpx;
+  border-radius: 24rpx;
+  background: #EAF3FF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.metric-number {
+  font-size: 32rpx;
+  line-height: 1.05;
+  font-weight: 800;
+  color: var(--home-blue);
+}
+
+.metric-label {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--home-muted);
+}
+
+.setting-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  min-height: 92rpx;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--home-line);
+}
+
+.setting-form-row:last-of-type {
+  border-bottom: 0;
+}
+
+.setting-label {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--home-ink);
+}
+
+.setting-input-wrap {
+  width: 292rpx;
+  height: 72rpx;
+  border-radius: 22rpx;
+  background: #F4F8FD;
+  border: 1rpx solid #DCE6F2;
+  display: flex;
+  align-items: center;
+  padding: 0 20rpx;
+  box-sizing: border-box;
+}
+
+.setting-input {
+  flex: 1;
+  height: 70rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--home-ink);
+}
+
+.setting-unit {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: var(--home-muted);
+}
+
+.save-pill {
+  width: 100%;
+  margin-top: 24rpx;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18rpx;
+  margin-bottom: 24rpx;
+}
+
+.setting-mini-card {
+  min-height: 160rpx;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
+  box-shadow: var(--home-shadow-soft);
+  border: 1rpx solid rgba(255,255,255,0.78);
+}
+
+.electric-card {
+  background: #EAF3FF;
+}
+
+.water-card {
+  background: #EAF8F1;
+}
+
+.mini-label,
+.mini-unit {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.35;
+  color: var(--home-muted);
+}
+
+.mini-value {
+  display: block;
+  margin: 12rpx 0 8rpx;
+  font-size: 42rpx;
+  line-height: 1.08;
+  font-weight: 800;
+  color: var(--home-ink);
+}
+
+.contract-entry {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  text-decoration: none;
+}
+
+.icon-violet {
+  background: var(--home-violet-bg);
+  color: var(--home-violet);
+}
+
+.contract-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.contract-title,
+.about-title {
+  display: block;
+  font-size: 32rpx;
+  line-height: 1.25;
+  font-weight: 800;
+  color: var(--home-ink);
+}
+
+.contract-note,
+.about-line {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.45;
+  color: var(--home-muted);
+}
+
+.contract-arrow {
+  width: 34rpx;
+  height: 34rpx;
+  color: #A4B1C2;
+}
+
+.about-card {
+  margin-bottom: 0;
+}
+
+@media (max-width: 360px) {
+  .admin-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-metrics {
+    width: 100%;
+  }
+
+  .admin-metric {
+    flex: 1;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .setting-form-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .setting-input-wrap {
+    width: 100%;
+  }
+}

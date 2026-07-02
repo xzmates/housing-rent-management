@@ -6,6 +6,28 @@
 
 const db = () => wx.cloud.database();
 const _ = () => db().command;
+const PAGE_SIZE = 20;
+
+async function queryAll(collectionName, options = {}) {
+  const { where = {}, orderBy, pageSize = PAGE_SIZE } = options;
+  const all = [];
+  let offset = 0;
+
+  while (true) {
+    let q = db().collection(collectionName);
+    if (Object.keys(where).length > 0) q = q.where(where);
+    if (orderBy) q = q.orderBy(orderBy.field, orderBy.direction);
+
+    const res = await q.skip(offset).limit(pageSize).get();
+    const rows = res.data || [];
+    all.push(...rows);
+
+    if (rows.length < pageSize) break;
+    offset += rows.length;
+  }
+
+  return { data: all };
+}
 
 // ==================== 云函数调用（写操作）====================
 
@@ -16,7 +38,8 @@ async function _callCloud(name, data = {}) {
     if (result.code && result.code !== 200) {
       throw new Error(result.message || `云函数 ${name} 返回错误`);
     }
-    return result.data || result;
+    if (Object.prototype.hasOwnProperty.call(result, 'data')) return result.data;
+    return result;
   } catch (e) {
     console.error(`云函数 ${name} 调用失败`, e);
     throw e;
@@ -25,6 +48,7 @@ async function _callCloud(name, data = {}) {
 
 /** 创建租赁合同（自动生成租金账单） */
 async function createLease(params) {
+  await assertLeaseCreatable(params.houseId, params.tenantId);
   return _callCloud('createLeaseAgreement', params);
 }
 
@@ -39,13 +63,26 @@ async function payBill(billId, amount, paymentDate, paymentMethod) {
 }
 
 /** 退租结算 */
-async function terminateLease(leaseId, endDate, damageDeduction) {
-  return _callCloud('terminateLease', { leaseId, endDate, damageDeduction });
+async function terminateLease(paramsOrLeaseId, endDate, damageDeduction) {
+  if (typeof paramsOrLeaseId === 'object') {
+    return _callCloud('terminateLease', paramsOrLeaseId);
+  }
+  return _callCloud('terminateLease', { leaseId: paramsOrLeaseId, endDate, damageDeduction });
+}
+
+/** 删除合同，并同步删除该合同对应的账单、流水和水电记录 */
+async function deleteLease(leaseId) {
+  return _callCloud('deleteLeaseAgreement', { leaseId });
 }
 
 /** 生成月租账单 */
 async function generateMonthlyBills(targetMonth) {
   return _callCloud('generateMonthlyRentBills', targetMonth ? { targetMonth } : {});
+}
+
+/** 为生效合同生成下一期租金账单，可用于提前收租 */
+async function createNextRentBill(leaseId, options = {}) {
+  return _callCloud('createNextRentBill', { leaseId, ...options });
 }
 
 /** 获取房屋当前租客信息 */
@@ -58,6 +95,44 @@ async function getTenantBills(tenantId, opts = {}) {
   return _callCloud('getTenantBills', { tenantId, ...opts });
 }
 
+async function queryLeaseData(action, params = {}) {
+  return _callCloud('queryLeaseData', { action, ...params });
+}
+
+async function voiceTranscribe(params = {}) {
+  return _callCloud('voiceTranscribe', params);
+}
+
+async function voicePlanCommand(params = {}) {
+  return _callCloud('voicePlanCommand', params);
+}
+
+async function voiceDialogueTurn(params = {}) {
+  return _callCloud('voiceDialogueTurn', params);
+}
+
+async function voiceSynthesize(params = {}) {
+  return _callCloud('voiceSynthesize', params);
+}
+
+async function executeVoiceScenario(intent = {}) {
+  const plan = intent.executionPlan && intent.executionPlan[0];
+  return _callCloud('executeVoiceScenario', {
+    scene: intent.scene,
+    operation: intent.operation,
+    variant: intent.variant,
+    slots: intent.slots,
+    executionPlan: intent.executionPlan,
+    transcript: intent.transcript,
+    normalizedText: intent.normalizedText,
+    ...(plan || {})
+  });
+}
+
+async function importLeaseSnapshot(params = {}) {
+  return _callCloud('importLeaseSnapshot', params);
+}
+
 // ==================== 直接查询（读操作）====================
 
 // ---- 房屋 ----
@@ -68,10 +143,45 @@ async function getHouses(filters) {
     if (filters.status) where.status = filters.status;
     if (filters.code) where.code = filters.code;
   }
-  let q = db().collection('houses');
-  if (Object.keys(where).length > 0) q = q.where(where);
-  const res = await q.orderBy('createdAt', 'desc').get();
-  return { data: res.data || [] };
+  return queryAll('houses', {
+    where,
+    orderBy: { field: 'createdAt', direction: 'desc' }
+  });
+}
+
+async function getActiveLeases() {
+  const res = await getLeases({ status: 'active' });
+  return res.data || [];
+}
+
+async function getHousesWithOccupancy(filters) {
+  const [houseRes, activeLeases] = await Promise.all([
+    getHouses(filters && filters.code ? { code: filters.code } : undefined),
+    getActiveLeases()
+  ]);
+  const activeByHouse = {};
+  activeLeases.forEach(lease => {
+    if (!activeByHouse[lease.houseId]) activeByHouse[lease.houseId] = lease;
+  });
+
+  let houses = (houseRes.data || []).map(house => {
+    const activeLease = activeByHouse[house._id] || null;
+    const status = activeLease ? 'rented' : (house.status === 'maintenance' ? 'maintenance' : 'available');
+    return {
+      ...house,
+      status,
+      rawStatus: house.status,
+      activeLease,
+      hasActiveLease: !!activeLease,
+      relationMismatch: house.status !== status
+    };
+  });
+
+  if (filters && filters.status) {
+    houses = houses.filter(house => house.status === filters.status);
+  }
+
+  return { data: houses };
 }
 
 async function getHouseById(id) {
@@ -86,6 +196,16 @@ async function addHouse(data) {
 }
 
 async function updateHouse(id, data) {
+  if (data.status !== undefined) {
+    const leases = await getLeases({ houseId: id, status: 'active' });
+    const hasActiveLease = leases.data && leases.data.length > 0;
+    if (data.status === 'rented' && !hasActiveLease) {
+      throw new Error('不能手动设为已租，请通过创建租赁合同绑定租客');
+    }
+    if (data.status === 'available' && hasActiveLease) {
+      throw new Error('该房屋已有生效合同，请先退租后再设为可租');
+    }
+  }
   return db().collection('houses').doc(id).update({
     data: { ...data, updatedAt: db().serverDate() }
   });
@@ -94,7 +214,10 @@ async function updateHouse(id, data) {
 async function deleteHouse(id) {
   const house = await getHouseById(id);
   if (!house) throw new Error('房屋不存在');
-  if (house.status === 'rented') throw new Error('该房屋正在出租中，请先退租再删除');
+  const leases = await getLeases({ houseId: id, status: 'active' });
+  if ((leases.data && leases.data.length > 0) || house.status === 'rented') {
+    throw new Error('该房屋正在出租中，请先退租再删除');
+  }
   return db().collection('houses').doc(id).remove();
 }
 
@@ -106,10 +229,10 @@ async function getTenants(filters) {
     if (filters.name) where.name = db().RegExp({ regexp: filters.name, options: 'i' });
     if (filters.phone) where.phone = filters.phone;
   }
-  let q = db().collection('tenants');
-  if (Object.keys(where).length > 0) q = q.where(where);
-  const res = await q.orderBy('createdAt', 'desc').get();
-  return { data: res.data || [] };
+  return queryAll('tenants', {
+    where,
+    orderBy: { field: 'createdAt', direction: 'desc' }
+  });
 }
 
 async function getTenantById(id) {
@@ -124,6 +247,7 @@ async function addTenant(data) {
       idCard: data.idCard || '',
       phone: data.phone || '',
       remark: data.remark || '',
+      status: data.status || 'inactive',
       createdAt: db().serverDate(),
       updatedAt: db().serverDate()
     }
@@ -142,61 +266,94 @@ async function updateTenant(id, data) {
 
 async function deleteTenant(id) {
   // 检查是否有活跃合同
-  const leases = await db().collection('lease_agreements')
-    .where({ tenantId: id, status: 'active' }).get();
+  const leases = await getLeases({ tenantId: id, status: 'active' });
   if (leases.data && leases.data.length > 0) {
     throw new Error('该租客有未结束的合同，无法删除');
   }
   return db().collection('tenants').doc(id).remove();
 }
 
+async function getTenantsWithOccupancy(filters) {
+  const [tenantRes, activeLeases] = await Promise.all([
+    getTenants(filters),
+    getActiveLeases()
+  ]);
+  const activeByTenant = {};
+  activeLeases.forEach(lease => {
+    if (!activeByTenant[lease.tenantId]) activeByTenant[lease.tenantId] = lease;
+  });
+
+  return {
+    data: (tenantRes.data || []).map(tenant => {
+      const activeLease = activeByTenant[tenant._id] || null;
+      return {
+        ...tenant,
+        activeLease,
+        isActive: !!activeLease
+      };
+    })
+  };
+}
+
+async function assertLeaseCreatable(houseId, tenantId) {
+  const [house, tenant, houseLeases, tenantLeases] = await Promise.all([
+    getHouseById(houseId),
+    getTenantById(tenantId),
+    getLeases({ houseId, status: 'active' }),
+    getLeases({ tenantId, status: 'active' })
+  ]);
+
+  if (!house) throw new Error('房屋不存在');
+  if (!tenant) throw new Error('租客不存在');
+  if (houseLeases.data && houseLeases.data.length > 0) {
+    throw new Error('该房屋已有生效中的租赁合同');
+  }
+  if (tenantLeases.data && tenantLeases.data.length > 0) {
+    throw new Error('该租客已有生效中的租赁合同');
+  }
+  if (house.status === 'maintenance') {
+    throw new Error(`房屋当前状态为 ${house.status}，无法创建租赁合同`);
+  }
+}
+
 // ---- 租赁合同 ----
 
 async function getLeases(filters) {
-  const where = {};
-  if (filters) {
-    if (filters.houseId) where.houseId = filters.houseId;
-    if (filters.tenantId) where.tenantId = filters.tenantId;
-    if (filters.status) where.status = filters.status;
-  }
-  let q = db().collection('lease_agreements');
-  if (Object.keys(where).length > 0) q = q.where(where);
-  const res = await q.orderBy('createdAt', 'desc').get();
-  return { data: res.data || [] };
+  return queryLeaseData('listLeases', { filters });
 }
 
 async function getLeaseById(id) {
-  const res = await db().collection('lease_agreements').doc(id).get();
-  return res.data;
+  return queryLeaseData('getLeaseById', { id });
 }
 
 // ---- 账单 ----
 
 async function getBills(filters) {
+  return queryLeaseData('listBills', { filters });
+}
+
+async function getPayments(filters) {
   const where = {};
   if (filters) {
+    if (filters.leaseIds) {
+      if (!Array.isArray(filters.leaseIds) || filters.leaseIds.length === 0) return { data: [] };
+      where.leaseId = _().in(filters.leaseIds);
+    }
     if (filters.leaseId) where.leaseId = filters.leaseId;
-    if (filters.type) where.type = filters.type;
-    if (filters.status) where.status = filters.status;
-    if (filters.leaseIds) where.leaseId = _().in(filters.leaseIds);
+    if (filters.billId) where.billId = filters.billId;
+    if (filters.tenantId) where.tenantId = filters.tenantId;
+    if (filters.houseId) where.houseId = filters.houseId;
   }
-  let q = db().collection('bills');
-  if (Object.keys(where).length > 0) q = q.where(where);
-  const res = await q.orderBy('createdAt', 'desc').get();
-  return { data: res.data || [] };
+  return queryAll('payments', {
+    where,
+    orderBy: { field: 'createdAt', direction: 'desc' }
+  });
 }
 
 // ---- 水电抄表记录 ----
 
 async function getUtilityRecords(filters) {
-  const where = {};
-  if (filters) {
-    if (filters.leaseId) where.leaseId = filters.leaseId;
-  }
-  let q = db().collection('utility_records');
-  if (Object.keys(where).length > 0) q = q.where(where);
-  const res = await q.orderBy('calculationDate', 'desc').get();
-  return { data: res.data || [] };
+  return queryLeaseData('listUtilityRecords', { filters });
 }
 
 // ---- 系统设置 ----
@@ -238,7 +395,8 @@ async function getUtilityPrices() {
 
 function formatDate(date) {
   if (!date) return '';
-  const d = new Date(date);
+  const value = date && date.$date ? date.$date : date;
+  const d = new Date(value);
   if (isNaN(d.getTime())) return '';
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
@@ -251,17 +409,25 @@ module.exports = {
   addMeterReading,
   payBill,
   terminateLease,
+  deleteLease,
   generateMonthlyBills,
+  createNextRentBill,
   getHouseCurrentLease,
   getTenantBills,
+  voiceTranscribe,
+  voicePlanCommand,
+  voiceDialogueTurn,
+  voiceSynthesize,
+  executeVoiceScenario,
+  importLeaseSnapshot,
   // 房屋
-  getHouses, getHouseById, addHouse, updateHouse, deleteHouse,
+  getHouses, getHousesWithOccupancy, getHouseById, addHouse, updateHouse, deleteHouse,
   // 租客
-  getTenants, getTenantById, addTenant, updateTenant, deleteTenant,
+  getTenants, getTenantsWithOccupancy, getTenantById, addTenant, updateTenant, deleteTenant,
   // 合同
-  getLeases, getLeaseById,
+  getLeases, getActiveLeases, getLeaseById,
   // 账单
-  getBills,
+  getBills, getPayments,
   // 水电
   getUtilityRecords,
   // 设置

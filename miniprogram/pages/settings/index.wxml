@@ -1,56 +1,83 @@
-<view class="page-container">
-  <!-- 水电单价设置 -->
-  <view class="card">
-    <view class="card-header">
-      <text class="card-title">水电单价设置</text>
-    </view>
-    <text class="stat-label" style="margin-bottom:24rpx;">设置电费和水费的单价，用于水电费自动计算</text>
-
-    <view class="form-group">
-      <text class="form-label">电费单价（元/度）</text>
-      <input class="form-input" model:value="{{form.electricityPrice}}" type="number" />
-    </view>
-    <view class="form-group">
-      <text class="form-label">水费单价（元/吨）</text>
-      <input class="form-input" model:value="{{form.waterPrice}}" type="number" />
-    </view>
-
-    <button class="btn btn-primary btn-block" bindtap="saveSettings">{{saving ? '保存中...' : '保存设置'}}</button>
+<view class="home-page settings-page">
+  <view class="home-hero">
+    <text class="home-hero-title">我的</text>
+    <text class="home-hero-subtitle">系统设置、合同查询和基础信息</text>
   </view>
 
-  <!-- 当前设置 -->
-  <view class="card">
-    <view class="card-header">
-      <text class="card-title">当前系统设置</text>
-    </view>
-    <view class="stats-grid">
-      <view class="stat-card" style="background:#EFF6FF;border:2rpx solid #BFDBFE;">
-        <view class="stat-label">电费单价</view>
-        <view class="stat-value blue">¥{{settings.electricityPrice}}/度</view>
+  <view class="home-shell">
+    <view class="admin-card glass-panel">
+      <view class="admin-main">
+        <view class="admin-avatar symbol-user"></view>
+        <view class="admin-info">
+          <text class="admin-title">房租管理系统</text>
+          <text class="admin-subtitle">CloudBase 环境 {{envId}}</text>
+        </view>
       </view>
-      <view class="stat-card" style="background:#F0FDF4;border:2rpx solid #BBF7D0;">
-        <view class="stat-label">水费单价</view>
-        <view class="stat-value green">¥{{settings.waterPrice}}/吨</view>
+      <view class="admin-metrics">
+        <view class="admin-metric">
+          <text class="metric-number">{{stats.houses}}</text>
+          <text class="metric-label">房屋</text>
+        </view>
+        <view class="admin-metric">
+          <text class="metric-number">{{stats.tenants}}</text>
+          <text class="metric-label">租客</text>
+        </view>
       </view>
     </view>
-    <text style="font-size:22rpx;color:var(--gray-400);margin-top:12rpx;display:block;">
-      更新时间: {{_formatDate(settings.updatedAt)}}
-    </text>
-  </view>
 
-  <!-- 关于 -->
-  <view class="card">
-    <view class="card-header">
-      <text class="card-title">关于</text>
+    <view class="glass-panel">
+      <view class="section-head">
+        <view>
+          <text class="section-title">水电单价</text>
+          <text class="section-note">用于抄表和退租结算</text>
+        </view>
+      </view>
+
+      <view class="setting-form-row">
+        <text class="setting-label">电费单价</text>
+        <view class="setting-input-wrap">
+          <input class="setting-input" value="{{form.electricityPrice}}" data-field="electricityPrice" bindinput="onFormInput" type="digit" />
+          <text class="setting-unit">元/度</text>
+        </view>
+      </view>
+
+      <view class="setting-form-row">
+        <text class="setting-label">水费单价</text>
+        <view class="setting-input-wrap">
+          <input class="setting-input" value="{{form.waterPrice}}" data-field="waterPrice" bindinput="onFormInput" type="digit" />
+          <text class="setting-unit">元/吨</text>
+        </view>
+      </view>
+
+      <button class="primary-pill save-pill" bindtap="saveSettings">{{saving ? '保存中...' : '保存设置'}}</button>
     </view>
-    <text style="font-size:26rpx;color:var(--gray-500);display:block;margin-bottom:12rpx;">
-      房屋租赁管理系统
-    </text>
-    <text style="font-size:24rpx;color:var(--gray-400);display:block;">
-      基于 CloudBase 云开发的租赁管理解决方案
-    </text>
-    <text style="font-size:24rpx;color:var(--gray-400);display:block;margin-top:8rpx;">
-      环境ID: {{envId}}
-    </text>
+
+    <view class="settings-grid">
+      <view class="setting-mini-card electric-card">
+        <text class="mini-label">当前电价</text>
+        <text class="mini-value">¥{{settings.electricityPrice}}</text>
+        <text class="mini-unit">每度</text>
+      </view>
+      <view class="setting-mini-card water-card">
+        <text class="mini-label">当前水价</text>
+        <text class="mini-value">¥{{settings.waterPrice}}</text>
+        <text class="mini-unit">每吨</text>
+      </view>
+    </view>
+
+    <navigator url="/pages/contract/index" class="contract-entry glass-card tap-card">
+      <view class="line-icon icon-violet symbol-contract"></view>
+      <view class="contract-info">
+        <text class="contract-title">合同与历史收入</text>
+        <text class="contract-note">查询全部合同，按年份或状态筛选</text>
+      </view>
+      <view class="chevron contract-arrow"></view>
+    </navigator>
+
+    <view class="about-card glass-card">
+      <text class="about-title">关于</text>
+      <text class="about-line">基于 CloudBase 云开发的租赁管理解决方案</text>
+      <text class="about-line">更新时间：{{_formatDate(settings.updatedAt)}}</text>
+    </view>
   </view>
 </view>

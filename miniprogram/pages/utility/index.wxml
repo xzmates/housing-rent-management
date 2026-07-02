@@ -1,5 +1,4 @@
 <view class="page-container">
-  <!-- 当前单价设置 -->
   <view class="card">
     <view class="card-header">
       <text class="card-title">当前单价设置</text>
@@ -14,10 +13,9 @@
         <view class="stat-value green">¥{{settings.waterPrice}}/吨</view>
       </view>
     </view>
-    <navigator url="/pages/settings/index" style="font-size:24rpx;color:var(--primary);margin-top:8rpx;">修改单价 →</navigator>
+    <navigator url="/pages/settings/index" style="font-size:24rpx;color:var(--primary);margin-top:8rpx;">修改单价 ›</navigator>
   </view>
 
-  <!-- 计算表单 -->
   <view class="card">
     <view class="card-header">
       <text class="card-title">计算水电费</text>
@@ -25,25 +23,32 @@
 
     <view class="form-group">
       <text class="form-label">选择房屋</text>
-      <picker mode="selector" range="{{houseLabels}}" bindchange="onHouseChange">
+      <picker mode="selector" range="{{houseLabels}}" value="{{form.houseIndex}}" bindchange="onHouseChange">
         <view class="form-picker">{{houseLabels[form.houseIndex] || '请选择房屋'}}</view>
       </picker>
     </view>
 
     <view wx:if="{{currentTenant}}" style="background:var(--primary-bg);border-radius:12rpx;padding:16rpx;margin-bottom:16rpx;">
-      <text style="color:var(--primary);font-size:24rpx;">当前租客: {{currentTenant.name}}</text>
+      <text style="color:var(--primary);font-size:24rpx;">当前租客：{{currentTenant.name}}</text>
+    </view>
+
+    <view wx:if="{{lastReading}}" style="background:var(--gray-50);border-radius:10rpx;padding:16rpx;margin-bottom:16rpx;">
+      <text style="font-size:24rpx;color:var(--gray-700);display:block;">上次抄表：{{lastReadingDate}}</text>
+      <text style="font-size:24rpx;color:var(--gray-700);display:block;margin-top:6rpx;">电表 {{lastReading.electricityReading}} 度 · 水表 {{lastReading.waterReading}} 吨</text>
+    </view>
+
+    <view wx:elif="{{currentLease}}" style="background:var(--gray-50);border-radius:10rpx;padding:16rpx;margin-bottom:16rpx;">
+      <text style="font-size:24rpx;color:var(--gray-500);">暂无历史抄表记录，将从合同入住读数开始计算。</text>
     </view>
 
     <view class="flex-row" style="gap:20rpx;">
       <view class="form-group" style="flex:1;">
         <text class="form-label">当前电表读数（度）</text>
         <input class="form-input" value="{{form.currentElectricity}}" bindinput="onElecInput" type="digit" placeholder="电表读数" />
-        <text wx:if="{{lastReading}}" style="font-size:20rpx;color:var(--gray-400);">上次: {{lastReading.electricityReading}} 度</text>
       </view>
       <view class="form-group" style="flex:1;">
         <text class="form-label">当前水表读数（吨）</text>
         <input class="form-input" value="{{form.currentWater}}" bindinput="onWaterInput" type="digit" placeholder="水表读数" />
-        <text wx:if="{{lastReading}}" style="font-size:20rpx;color:var(--gray-400);">上次: {{lastReading.waterReading}} 吨</text>
       </view>
     </view>
 
@@ -52,7 +57,6 @@
     </button>
   </view>
 
-  <!-- 计算结果 -->
   <view wx:if="{{result}}" class="card" style="background:#F0FDF4;border:2rpx solid #BBF7D0;">
     <view class="card-header">
       <text class="card-title" style="color:#065F46;">计算结果</text>
@@ -82,28 +86,29 @@
       </view>
     </view>
     <view style="background:#D1FAE5;border-radius:8rpx;padding:12rpx;margin-top:12rpx;">
-      <text style="color:#065F46;font-size:24rpx;">✅ 水电费计算完成！已自动生成水电费账单。</text>
+      <text style="color:#065F46;font-size:24rpx;">水电费计算完成，已自动生成水电费账单。</text>
     </view>
   </view>
 
-  <!-- 最近水电记录 -->
   <view class="card" style="margin-top:20rpx;">
     <view class="card-header">
       <text class="card-title">最近水电记录</text>
     </view>
-    <view wx:if="{{utilityRecords.length === 0}}" class="empty-state" style="padding:40rpx 0;"><text class="empty-text">暂无水电记录</text></view>
+    <view wx:if="{{utilityRecords.length === 0}}" class="empty-state" style="padding:40rpx 0;">
+      <text class="empty-text">暂无水电记录</text>
+    </view>
     <view wx:else>
       <view wx:for="{{utilityRecords}}" wx:key="_id" class="list-item" style="margin-bottom:8rpx;">
         <view class="flex-row justify-between">
           <view>
-            <text style="font-size:26rpx;font-weight:500;">{{currentTenant.name}}</text>
+            <text style="font-size:26rpx;font-weight:500;">{{item.recordType === 'move_in_baseline' ? '入住基准读数' : currentTenant.name}}</text>
           </view>
           <text style="font-size:28rpx;font-weight:700;">¥{{item.totalCost}}</text>
         </view>
         <view class="flex-row" style="font-size:22rpx;color:var(--gray-400);margin-top:6rpx;">
-          <text>电{{item.electricityUsage}}度</text>
+          <text>电 {{item.electricityReading}} 度</text>
           <text style="margin:0 12rpx;">·</text>
-          <text>水{{item.waterUsage}}吨</text>
+          <text>水 {{item.waterReading}} 吨</text>
         </view>
       </view>
     </view>

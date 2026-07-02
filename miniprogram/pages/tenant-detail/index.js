@@ -39,7 +39,7 @@ Page({
       const bills = (data.bills || []).map(b => ({
         ...b,
         typeText: { rent: '租金', utility: '水电费', deposit_return: '押金退还', extra_due: '补缴' }[b.type] || b.type,
-        statusText: b.status === 'paid' ? '已缴' : b.status === 'partial' ? '部分缴' : '待缴',
+        statusText: b.type === 'deposit_return' && b.status === 'paid' ? '已退' : b.status === 'paid' ? '已缴' : b.status === 'partial' ? '部分缴' : '待缴',
         dueDateStr: api.formatDate(b.dueDate)
       }));
 

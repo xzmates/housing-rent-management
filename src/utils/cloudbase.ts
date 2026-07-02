@@ -1,7 +1,7 @@
 import cloudbase from "@cloudbase/js-sdk";
 
 // 云开发环境ID，使用时请替换为您的环境ID
-export const ENV_ID = import.meta.env.VITE_ENV_ID || "housing-rent-management-401848f6";
+export const ENV_ID = import.meta.env.VITE_ENV_ID || "cloud1-2gxr9nlc327f3b44";
 
 // 检查环境ID是否已配置
 export const isValidEnvId = ENV_ID && ENV_ID !== "your-env-id";

@@ -5,24 +5,27 @@
     "pages/tenants/index",
     "pages/tenant-detail/index",
     "pages/payments/index",
+    "pages/prepay-rent/index",
     "pages/utility/index",
     "pages/batch-meter/index",
     "pages/import/index",
     "pages/settings/index",
     "pages/contract/index",
-    "pages/create-lease/index"
+    "pages/create-lease/index",
+    "pages/ai-moveout-detail/index"
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#3B82F6",
+    "navigationBarBackgroundColor": "#EEF7FF",
     "navigationBarTitleText": "房屋租赁管理",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#EEF7FF"
   },
   "tabBar": {
     "color": "#9CA3AF",
-    "selectedColor": "#3B82F6",
-    "backgroundColor": "#FFFFFF",
-    "borderStyle": "black",
+    "selectedColor": "#1677FF",
+    "backgroundColor": "#F8FBFF",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/dashboard/index",
@@ -58,5 +61,26 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "agent": {
+    "skills": [
+      {
+        "name": "rent-bill",
+        "description": "租金账单与收租 - 查询待收租金、确认收款、完成收租和查看收租记录。用户提到收租、租金账单、租客缴租、欠租、查租金时触发，MVP 仅处理租金，不处理水电燃气物业费。",
+        "path": "skills/rent-bill-skill"
+      },
+      {
+        "name": "rental-assistant",
+        "description": "租赁办理助手 - 覆盖新增房屋、新增租客、新建合同、缴费确认、单次抄表、提前收租、退租结算。所有最终写入操作必须先展示确认卡，由用户点击确认办理后才执行。",
+        "path": "skills/rental-assistant-skill"
+      }
+    ]
+  },
+  "subPackages": [
+    {
+      "root": "skills",
+      "independent": true,
+      "pages": []
+    }
+  ]
 }

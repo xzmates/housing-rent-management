@@ -49,8 +49,23 @@
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
-    "include": []
+    "ignore": [
+      {
+        "value": "cli-agent-run",
+        "type": "folder"
+      }
+    ],
+    "include": [
+      {
+        "value": "skills",
+        "type": "folder"
+      }
+    ]
   },
-  "editorSetting": {}
+  "editorSetting": {},
+  "watchOptions": {
+    "ignore": [
+      "cli-agent-run/**/*"
+    ]
+  }
 }

@@ -104,7 +104,7 @@ class DatabaseService {
       });
     } catch (error: any) {
       if (error.code === 'DATABASE_COLLECTION_NOT_EXIST' || error.message?.includes('Db or Table not exist')) {
-        const guideUrl = `https://tcb.cloud.tencent.com/dev?envId=${import.meta.env.VITE_ENV_ID || 'housing-rent-management-401848f6'}#/db/doc`;
+        const guideUrl = `https://tcb.cloud.tencent.com/dev?envId=${import.meta.env.VITE_ENV_ID || 'cloud1-2gxr9nlc327f3b44'}#/db/doc`;
         throw new Error(`数据库集合 'houses' 不存在。请按以下步骤创建：\n\n1. 登录 CloudBase 控制台: ${guideUrl}\n2. 点击"创建集合"按钮\n3. 输入集合名称: "houses"\n4. 点击确定\n5. 刷新本页面后重试`);
       }
       throw error;
@@ -155,7 +155,7 @@ class DatabaseService {
       };
     } catch (error: any) {
       if (error.code === 'DATABASE_COLLECTION_NOT_EXIST' || error.message?.includes('Db or Table not exist')) {
-        const guideUrl = `https://tcb.cloud.tencent.com/dev?envId=${import.meta.env.VITE_ENV_ID || 'housing-rent-management-401848f6'}#/db/doc`;
+        const guideUrl = `https://tcb.cloud.tencent.com/dev?envId=${import.meta.env.VITE_ENV_ID || 'cloud1-2gxr9nlc327f3b44'}#/db/doc`;
         throw new Error(`数据库集合 'houses' 不存在。请按以下步骤创建：\n\n1. 登录 CloudBase 控制台: ${guideUrl}\n2. 点击"创建集合"按钮\n3. 输入集合名称: "houses"\n4. 点击确定\n5. 刷新本页面后重试`);
       }
       throw error;
@@ -408,7 +408,7 @@ class DatabaseService {
     } catch (error: any) {
       console.error('添加缴费记录失败:', error, paymentData);
       if (error.code === 'DATABASE_COLLECTION_NOT_EXIST' || error.message?.includes('Db or Table not exist')) {
-        const guideUrl = `https://tcb.cloud.tencent.com/dev?envId=${import.meta.env.VITE_ENV_ID || 'housing-rent-management-401848f6'}#/db/doc`;
+        const guideUrl = `https://tcb.cloud.tencent.com/dev?envId=${import.meta.env.VITE_ENV_ID || 'cloud1-2gxr9nlc327f3b44'}#/db/doc`;
         throw new Error(`数据库集合 'payments' 不存在。请按以下步骤创建：\n\n1. 登录 CloudBase 控制台: ${guideUrl}\n2. 点击"创建集合"按钮\n3. 输入集合名称: "payments"\n4. 点击确定\n5. 刷新本页面后重试`);
       }
       throw error;

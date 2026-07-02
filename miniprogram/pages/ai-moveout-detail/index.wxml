@@ -1,0 +1,134 @@
+<view class="detail-page" style="padding-top: {{closeTop}}px;">
+  <view wx:if="{{!moveOutPreview && loaded}}" class="empty-box">
+    <text>退租结算信息已失效，请重新发起退租。</text>
+  </view>
+
+  <view wx:if="{{moveOutPreview}}" class="detail-content">
+    <view class="header-row">
+      <text class="page-title">办理退租</text>
+    </view>
+
+    <view class="notice-box">
+      <text>租客 </text>
+      <text class="notice-strong">{{moveOutPreview.tenantName}}</text>
+      <text> 将从 {{moveOutPreview.houseText}} 退租</text>
+    </view>
+
+    <view class="form-block">
+      <text class="form-label">退租日期</text>
+      <picker mode="date" value="{{moveOutDate}}" bindchange="onDateChange">
+        <view class="form-picker">{{moveOutDate}}</view>
+      </picker>
+    </view>
+    <view class="form-block">
+      <text class="form-label">房屋损失费（元）</text>
+      <input class="form-input" value="{{damageAmountInput}}" type="digit" data-field="damageAmount" bindinput="onFieldInput" placeholder="无损坏填0" />
+    </view>
+    <view class="form-block">
+      <text class="form-label">退租电表读数（上次 {{moveOutPreview.lastElectricity}}）</text>
+      <input class="form-input" value="{{moveOutElectricityInput}}" type="digit" data-field="moveOutElectricity" bindinput="onFieldInput" placeholder="当前电表读数" />
+    </view>
+    <view class="form-block">
+      <text class="form-label">退租水表读数（上次 {{moveOutPreview.lastWater}}）</text>
+      <input class="form-input" value="{{moveOutWaterInput}}" type="digit" data-field="moveOutWater" bindinput="onFieldInput" placeholder="当前水表读数" />
+    </view>
+
+    <view wx:if="{{errorText}}" class="error-box">
+      <text>{{errorText}}</text>
+    </view>
+
+    <view wx:if="{{resultText}}" class="result-box {{resultStatus === 'success' ? 'success' : 'failed'}}">
+      <text>{{resultText}}</text>
+    </view>
+
+    <view class="{{moveOutPreview.outstandingAmount > 0 ? 'warning-box' : 'ok-box'}}">
+      <text>{{moveOutPreview.canMoveOutText}}</text>
+    </view>
+
+    <view class="settlement-box">
+      <text class="section-title">结算预览</text>
+      <view class="line-row">
+        <text>水电用量</text>
+        <text>{{moveOutPreview.utilityUsageText}}</text>
+      </view>
+      <view class="line-row">
+        <text>本次水电费</text>
+        <text>¥{{moveOutPreview.utilityCost}}</text>
+      </view>
+      <view wx:if="{{moveOutPreview.supplementalRent > 0}}" class="line-row">
+        <text>退租补租</text>
+        <text>¥{{moveOutPreview.supplementalRent}}</text>
+      </view>
+      <view class="line-row">
+        <text>退租前应结款</text>
+        <text>¥{{moveOutPreview.payableBeforeDeposit}}</text>
+      </view>
+      <view class="line-row">
+        <text>押金抵扣</text>
+        <text>¥{{moveOutPreview.depositOffset}}</text>
+      </view>
+
+      <view wx:if="{{moveOutPreview.damageAmount > 0}}" class="damage-box">
+        <view class="line-row damage-title">
+          <text>房屋损失费</text>
+          <text>¥{{moveOutPreview.damageAmount}}</text>
+        </view>
+        <view class="line-row sub-line">
+          <text>押金抵扣损失</text>
+          <text>¥{{moveOutPreview.damageOffset}}</text>
+        </view>
+        <view wx:if="{{moveOutPreview.damageExtraDue > 0}}" class="line-row sub-line">
+          <text>额外赔偿</text>
+          <text>¥{{moveOutPreview.damageExtraDue}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{moveOutPreview.refundAmount > 0}}" class="line-row green-line">
+        <text>应退押金</text>
+        <text>¥{{moveOutPreview.refundAmount}}</text>
+      </view>
+      <view wx:if="{{moveOutPreview.extraPayment > 0}}" class="line-row danger-line">
+        <text>仍需补缴</text>
+        <text>¥{{moveOutPreview.extraPayment}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{moveOutPreview.rentRefund && moveOutPreview.rentRefund.overpaidRent > 0}}" class="rent-refund-box">
+      <text class="section-title green-text">多付租金退还</text>
+      <text class="detail-line">实际入住：{{moveOutPreview.rentRefund.occupiedPeriod}}</text>
+      <text class="detail-line">入住月数：{{moveOutPreview.rentRefund.occupiedMonths}} 个月（不满整月按整月）</text>
+      <text class="detail-line">实际应付租金：¥{{moveOutPreview.rentRefund.actualRentDue}}</text>
+      <text class="detail-line">已付租金合计：¥{{moveOutPreview.rentRefund.totalPaidRent}}</text>
+      <view wx:for="{{moveOutPreview.rentRefund.paidRentDetails}}" wx:key="period" class="paid-rent-row">
+        <text>{{item.period}}：¥{{item.amount}}</text>
+      </view>
+      <text class="refund-total">多付租金退还：¥{{moveOutPreview.rentRefund.overpaidRent}}</text>
+    </view>
+
+    <view class="final-box">
+      <text class="section-title">最终结算</text>
+      <view wx:if="{{moveOutPreview.refundAmount > 0}}" class="line-row">
+        <text>押金退还</text>
+        <text>¥{{moveOutPreview.refundAmount}}</text>
+      </view>
+      <view wx:if="{{moveOutPreview.rentRefund && moveOutPreview.rentRefund.overpaidRent > 0}}" class="line-row">
+        <text>多付租金退还</text>
+        <text>¥{{moveOutPreview.rentRefund.overpaidRent}}</text>
+      </view>
+      <view wx:if="{{moveOutPreview.extraPayment > 0}}" class="line-row">
+        <text>仍需补缴</text>
+        <text class="danger-text">-¥{{moveOutPreview.extraPayment}}</text>
+      </view>
+      <view class="line-row total-row">
+        <text>{{moveOutPreview.finalLabel}}</text>
+        <text class="{{moveOutPreview.totalRefund >= 0 ? 'green-text' : 'danger-text'}}">¥{{moveOutPreview.finalAmount}}</text>
+      </view>
+    </view>
+
+    <view class="bottom-actions">
+      <view class="confirm-btn {{confirmDisabled ? 'is-disabled' : ''}}" bindtap="onConfirm">
+        <text>{{confirmText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

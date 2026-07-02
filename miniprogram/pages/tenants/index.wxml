@@ -1,62 +1,49 @@
-<view class="page-container">
-  <!-- 头部 -->
-  <view class="flex-row justify-between align-center" style="margin-bottom:20rpx;">
-    <view>
-      <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">租客管理</text>
-      <text class="stat-label">共 {{filteredTenants.length}} 位租客</text>
-    </view>
-    <button class="btn btn-primary btn-small" bindtap="showAddModal">+ 添加</button>
+<view class="home-page tenants-page">
+  <view class="home-hero">
+    <text class="home-hero-title">租客管理</text>
+    <text class="home-hero-subtitle">共 {{filteredTenants.length}} 位租客</text>
+    <button class="home-hero-action" bindtap="showAddModal">
+      <view class="hero-action-icon"></view>
+      <text>添加</text>
+    </button>
   </view>
 
-  <!-- 筛选器 -->
-  <view class="filter-bar">
-    <view class="filter-btn {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
-    <view class="filter-btn {{filters.status === 'active' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="active">在住的</view>
-    <view class="filter-btn {{filters.status === 'inactive' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="inactive">无合同</view>
-    <view class="filter-btn" style="display:flex;align-items:center;background:var(--gray-50);border-color:var(--gray-100);padding:8rpx 16rpx;gap:4rpx;">
-      <text style="font-size:22rpx;color:var(--gray-400);">🔍</text>
-      <input placeholder="搜姓名" bindinput="onNameSearchInput" value="{{nameSearch}}" style="width:100rpx;font-size:24rpx;" />
-    </view>
-  </view>
-
-  <!-- 加载/空状态 -->
-  <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
-  <view wx:elif="{{filteredTenants.length === 0}}" class="empty-state">
-    <text class="empty-text">{{nameSearch ? '未找到匹配租客' : '暂无租客'}}</text>
-    <button wx:if="{{!nameSearch}}" class="btn btn-primary btn-small" bindtap="showAddModal">添加租客</button>
-  </view>
-
-  <!-- 租客列表 -->
-  <view wx:else style="display:flex;flex-direction:column;gap:16rpx;">
-    <view wx:for="{{filteredTenants}}" wx:key="_id" class="list-item" style="border-left-color:{{item.isActive ? 'var(--success)' : 'var(--gray-300)'}};">
-      <!-- 第一行：姓名 + 状态 -->
-      <view class="flex-row justify-between align-center" style="margin-bottom:10rpx;">
-        <view class="flex-row align-center" style="gap:10rpx;">
-          <text style="font-size:30rpx;font-weight:700;color:var(--gray-900);">{{item.name}}</text>
-          <view style="width:14rpx;height:14rpx;border-radius:50%;{{item.isActive ? 'background:var(--success);' : 'background:var(--gray-400);'}}"></view>
-        </view>
-        <view class="badge {{item.isActive ? 'badge-success' : 'badge-gray'}}">
-          {{item.isActive ? '在住' : '无合同'}}
-        </view>
+  <view class="home-shell glass-panel">
+    <view class="home-filter-row">
+      <view class="filter-chip-group">
+        <view class="soft-chip {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
+        <view class="soft-chip {{filters.status === 'active' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="active">在住的</view>
+        <view class="soft-chip {{filters.status === 'inactive' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="inactive">无合同</view>
       </view>
-
-      <!-- 第二行：手机 | 身份证 | 房屋 -->
-      <view class="flex-row align-center" style="font-size:24rpx;color:var(--gray-500);margin-bottom:14rpx;gap:12rpx;">
-        <text>{{item.phone || '—'}}</text>
-        <text style="color:var(--gray-300);">|</text>
-        <text>{{item.idCard ? item.idCard : '—'}}</text>
-        <text wx:if="{{item.houseLabel}}" style="color:var(--gray-300);">|</text>
-        <text wx:if="{{item.houseLabel}}">{{item.houseLabel}}</text>
+      <view class="soft-search">
+        <view class="search-mark"></view>
+        <input placeholder="搜姓名" bindinput="onNameSearchInput" value="{{nameSearch}}" class="home-search-input" />
       </view>
+    </view>
 
-      <!-- 第三行：操作按钮 -->
-      <view class="flex-row" style="gap:12rpx;">
-        <button class="btn-small" style="background:var(--primary-bg);color:var(--primary);border:none;" bindtap="viewTenantDetail" data-tenant-id="{{item._id}}">详情</button>
-        <button wx:if="{{item.isActive}}" class="btn-small" style="background:var(--gray-50);color:var(--gray-600);border:none;" bindtap="editTenant" data-tenant="{{item}}">编辑</button>
-        <button wx:if="{{item.isActive}}" class="btn-small" style="background:var(--warning-light);color:var(--warning);border:none;" bindtap="handleMoveOut" data-tenant="{{item}}">退租</button>
-        <button wx:if="{{!item.isActive}}" class="btn-small" style="background:var(--primary-bg);color:var(--primary);border:none;" bindtap="goToCreateLease" data-tenant-id="{{item._id}}">创建合同</button>
-        <button wx:if="{{!item.isActive}}" class="btn-small" style="background:var(--gray-50);color:var(--gray-600);border:none;" bindtap="editTenant" data-tenant="{{item}}">编辑</button>
-        <button class="btn-small" style="background:var(--danger-light);color:var(--danger);border:none;" bindtap="deleteTenant" data-id="{{item._id}}">删除</button>
+    <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
+    <view wx:elif="{{filteredTenants.length === 0}}" class="empty-state">
+      <text class="empty-text">{{nameSearch ? '未找到匹配租客' : '暂无租客'}}</text>
+      <button wx:if="{{!nameSearch}}" class="primary-pill" bindtap="showAddModal">添加租客</button>
+    </view>
+
+    <view wx:else class="tenant-list">
+      <view wx:for="{{filteredTenants}}" wx:key="_id" class="tenant-card tap-card" bindtap="viewTenantDetail" data-tenant-id="{{item._id}}">
+        <view class="tenant-main">
+          <view class="tenant-info">
+            <view class="tenant-title-row">
+              <text class="tenant-name">{{item.name}}</text>
+              <text class="status-pill {{item.statusClass}}">{{item.statusText}}</text>
+            </view>
+            <text class="tenant-line">{{item.houseLabel || '无合同'}} <text wx:if="{{item.rentText}}"> · {{item.rentText}}</text></text>
+            <text class="tenant-line">{{item.contractDateText}}</text>
+            <text class="tenant-phone">电话 {{item.phone || '-'}}</text>
+          </view>
+          <view class="tenant-actions">
+            <button class="primary-pill detail-pill" catchtap="viewTenantDetail" data-tenant-id="{{item._id}}">查看详情</button>
+            <button class="ghost-pill more-pill" catchtap="showTenantMore" data-tenant="{{item}}">更多</button>
+          </view>
+        </view>
       </view>
     </view>
   </view>
@@ -83,10 +70,11 @@
       </view>
 
       <view wx:if="{{!editingTenant}}" style="background:var(--primary-bg);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
-        <text style="color:var(--primary);font-size:24rpx;">💡 添加租客后可为其创建租赁合同</text>
+        <text style="color:var(--primary);font-size:24rpx;">提示：添加租客后可为其创建租赁合同</text>
       </view>
 
       <view class="modal-actions">
+        <button wx:if="{{editingTenant}}" class="btn tenant-delete-btn" bindtap="deleteTenant" loading="{{saving}}">删除</button>
         <button class="btn" style="background:var(--gray-100);color:var(--gray-600);" bindtap="closeModal">取消</button>
         <button class="btn btn-primary" bindtap="saveTenant">{{saving ? '保存中...' : '保存'}}</button>
       </view>
@@ -113,26 +101,157 @@
       </view>
 
       <view class="form-group">
-        <text class="form-label">损坏扣款（元）</text>
-        <input class="form-input" value="{{damageDeduction}}" type="digit" placeholder="0" bindinput="onDamageInput" />
+        <text class="form-label">房屋损失费（元）</text>
+        <input class="form-input" value="{{damageAmount}}" type="digit" placeholder="无损坏填0" bindinput="onDamageAmountInput" />
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">退租电表读数（上次 {{lastElectricityReading}}）</text>
+        <input class="form-input" value="{{moveOutElectricity}}" type="digit" placeholder="当前电表读数" bindinput="onMoveOutElectricityInput" />
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">退租水表读数（上次 {{lastWaterReading}}）</text>
+        <input class="form-input" value="{{moveOutWater}}" type="digit" placeholder="当前水表读数" bindinput="onMoveOutWaterInput" />
+      </view>
+
+      <view wx:if="{{loadingMoveOutBills}}" style="background:var(--gray-50);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="color:var(--gray-500);">正在生成退租结算...</text>
+      </view>
+
+      <view wx:elif="{{outstandingAmount > 0}}" style="background:var(--danger-light);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="color:var(--danger);font-weight:600;margin-bottom:10rpx;display:block;">待抵扣款项 ¥{{outstandingAmount}}</text>
+        <text style="color:var(--danger);font-size:24rpx;">确认退租后将优先用押金自动抵扣。</text>
+        <view wx:for="{{outstandingBills}}" wx:key="_id" class="flex-row justify-between" style="margin-top:10rpx;font-size:24rpx;color:var(--danger);">
+          <text>{{item.period || item.type}}</text>
+          <text>¥{{item.remaining}}</text>
+        </view>
+      </view>
+
+      <view wx:else style="background:#ECFDF5;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="color:#047857;">未结清款项已全部结清，可以办理退租。</text>
+      </view>
+
+      <view wx:if="{{settlementPreview}}" style="background:#F8FAFC;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="font-weight:600;color:var(--gray-800);margin-bottom:12rpx;display:block;">结算预览</text>
+        <view class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:var(--gray-500);">水电用量</text>
+          <text>{{settlementPreview.electricityUsage}} 度 / {{settlementPreview.waterUsage}} 吨</text>
+        </view>
+        <view class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:var(--gray-500);">本次水电费</text>
+          <text>¥{{settlementPreview.utilityCost}}</text>
+        </view>
+        <view class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:var(--gray-500);">退租前应结款</text>
+          <text>¥{{settlementPreview.payableBeforeDeposit}}</text>
+        </view>
+        <view class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:var(--gray-500);">押金抵扣</text>
+          <text>¥{{settlementPreview.depositOffset}}</text>
+        </view>
+        <view wx:if="{{settlementPreview.damageAmount > 0}}" style="background:#FEF2F2;border-radius:8rpx;padding:16rpx;margin-top:12rpx;">
+          <view class="flex-row justify-between">
+            <text style="color:#991B1B;font-weight:600;">房屋损失费</text>
+            <text style="color:#991B1B;font-weight:700;">¥{{settlementPreview.damageAmount}}</text>
+          </view>
+          <view wx:if="{{settlementPreview.damageAmount > settlementPreview.damageExtraDue}}" class="flex-row justify-between" style="margin-top:6rpx;font-size:24rpx;">
+            <text style="color:var(--gray-500);">押金抵扣损失</text>
+            <text style="color:var(--gray-500);">¥{{settlementPreview.damageAmount - settlementPreview.damageExtraDue}}</text>
+          </view>
+          <view wx:if="{{settlementPreview.damageExtraDue > 0}}" class="flex-row justify-between" style="margin-top:6rpx;font-size:24rpx;">
+            <text style="color:var(--gray-500);">额外赔偿</text>
+            <text style="color:var(--gray-500);">¥{{settlementPreview.damageExtraDue}}</text>
+          </view>
+        </view>
+        <view wx:if="{{settlementPreview.refundAmount > 0}}" class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:#065F46;">应退押金</text>
+          <text style="color:#065F46;font-weight:700;">¥{{settlementPreview.refundAmount}}</text>
+        </view>
+        <view wx:if="{{settlementPreview.extraPayment > 0}}" class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:#991B1B;">仍需补缴</text>
+          <text style="color:#991B1B;font-weight:700;">¥{{settlementPreview.extraPayment}}</text>
+        </view>
+      </view>
+
+      <!-- 租金退还明细 -->
+      <view wx:if="{{settlementPreview.rentRefund && settlementPreview.rentRefund.overpaidRent > 0}}" style="background:#F0FDF4;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="font-weight:600;color:#065F46;margin-bottom:12rpx;display:block;">多付租金退还</text>
+        <view style="font-size:24rpx;color:var(--gray-600);">
+          <view style="margin-bottom:8rpx;">
+            <text>实际入住：{{settlementPreview.rentRefund.occupiedPeriod}}</text>
+          </view>
+          <view style="margin-bottom:8rpx;">
+            <text>入住月数：{{settlementPreview.rentRefund.occupiedMonths}} 个月（不满整月按整月）</text>
+          </view>
+          <view style="margin-bottom:8rpx;">
+            <text>实际应付租金：¥{{settlementPreview.rentRefund.actualRentDue}}</text>
+          </view>
+          <view style="margin-bottom:8rpx;border-bottom:1rpx solid #D1FAE5;padding-bottom:8rpx;">
+            <text>已付租金合计：¥{{settlementPreview.rentRefund.totalPaidRent}}</text>
+          </view>
+          <view wx:for="{{settlementPreview.rentRefund.paidRentDetails}}" wx:key="period" style="margin-bottom:6rpx;padding-left:16rpx;">
+            <text style="color:var(--gray-500);">• {{item.period}}：¥{{item.amount}}</text>
+          </view>
+          <view style="margin-top:12rpx;color:#065F46;font-weight:600;">
+            <text>多付租金退还：¥{{settlementPreview.rentRefund.overpaidRent}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 最终结算 -->
+      <view wx:if="{{settlementPreview}}" style="background:#EFF6FF;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="font-weight:600;color:var(--gray-800);margin-bottom:12rpx;display:block;">最终结算</text>
+        <view wx:if="{{settlementPreview.refundAmount > 0}}" class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:var(--gray-500);">押金退还</text>
+          <text>¥{{settlementPreview.refundAmount}}</text>
+        </view>
+        <view wx:if="{{settlementPreview.rentRefund && settlementPreview.rentRefund.overpaidRent > 0}}" class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:var(--gray-500);">多付租金退还</text>
+          <text>¥{{settlementPreview.rentRefund.overpaidRent}}</text>
+        </view>
+        <view wx:if="{{settlementPreview.extraPayment > 0}}" class="flex-row justify-between" style="margin-top:8rpx;">
+          <text style="color:var(--gray-500);">仍需补缴</text>
+          <text style="color:#991B1B;">-¥{{settlementPreview.extraPayment}}</text>
+        </view>
+        <view class="flex-row justify-between" style="margin-top:12rpx;padding-top:12rpx;border-top:1rpx solid #BFDBFE;">
+          <text style="font-weight:700;color:var(--gray-900);">{{settlementPreview.totalRefund >= 0 ? '应退总额' : '仍需补缴'}}</text>
+          <text wx:if="{{settlementPreview.totalRefund >= 0}}" style="font-weight:700;color:#065F46;font-size:32rpx;">¥{{settlementPreview.totalRefund}}</text>
+          <text wx:else style="font-weight:700;color:#991B1B;font-size:32rpx;">¥{{0 - settlementPreview.totalRefund}}</text>
+        </view>
       </view>
 
       <!-- 结算结果 -->
       <view wx:if="{{settlementResult}}" style="background:#EFF6FF;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
         <text style="color:#1D4ED8;font-weight:500;margin-bottom:12rpx;">结算结果</text>
+        <view wx:if="{{settlementResult.rentRefund && settlementResult.rentRefund.overpaidRent > 0}}" style="background:#F0FDF4;border-radius:8rpx;padding:16rpx;margin-bottom:12rpx;">
+          <text style="color:#065F46;font-weight:600;margin-bottom:8rpx;display:block;">租金退还明细</text>
+          <text style="font-size:24rpx;color:var(--gray-600);display:block;">实际入住：{{settlementResult.rentRefund.occupiedPeriod}}</text>
+          <text style="font-size:24rpx;color:var(--gray-600);display:block;">实际应付：{{settlementResult.rentRefund.occupiedMonths}}个月 = ¥{{settlementResult.rentRefund.actualRentDue}}</text>
+          <text style="font-size:24rpx;color:var(--gray-600);display:block;">已付租金：¥{{settlementResult.rentRefund.totalPaidRent}}</text>
+          <text style="font-size:24rpx;color:#065F46;font-weight:600;display:block;">退还多付租金：¥{{settlementResult.rentRefund.overpaidRent}}</text>
+        </view>
         <view wx:if="{{settlementResult.refundAmount > 0}}" class="flex-row justify-between" style="margin-top:8rpx;">
-          <text style="color:#065F46;">应退金额</text>
-          <text style="color:#065F46;font-weight:700;">¥{{settlementResult.refundAmount}}</text>
+          <text style="color:var(--gray-500);">押金退还</text>
+          <text style="color:var(--gray-700);">¥{{settlementResult.refundAmount}}</text>
         </view>
         <view wx:if="{{settlementResult.extraPayment > 0}}" class="flex-row justify-between" style="margin-top:8rpx;">
-          <text style="color:#991B1B;">需补缴</text>
+          <text style="color:#991B1B;">已补缴</text>
           <text style="color:#991B1B;font-weight:700;">¥{{settlementResult.extraPayment}}</text>
+        </view>
+        <view wx:if="{{settlementResult.totalRefund > 0}}" class="flex-row justify-between" style="margin-top:12rpx;padding-top:12rpx;border-top:1rpx solid #BFDBFE;">
+          <text style="font-weight:700;color:#065F46;">总计应退</text>
+          <text style="font-weight:700;color:#065F46;font-size:32rpx;">¥{{settlementResult.totalRefund}}</text>
+        </view>
+        <view wx:elif="{{settlementResult.totalRefund < 0}}" class="flex-row justify-between" style="margin-top:12rpx;padding-top:12rpx;border-top:1rpx solid #BFDBFE;">
+          <text style="font-weight:700;color:#991B1B;">仍需补缴</text>
+          <text style="font-weight:700;color:#991B1B;font-size:32rpx;">¥{{0 - settlementResult.totalRefund}}</text>
         </view>
       </view>
 
       <view class="modal-actions">
         <button class="btn" style="background:var(--gray-100);color:var(--gray-600);" bindtap="closeMoveOut">取消</button>
-        <button class="btn" style="background:#EA580C;color:#FFFFFF;" bindtap="confirmMoveOut">{{processingMoveOut ? '处理中...' : '确认退租'}}</button>
+        <button class="btn" disabled="{{loadingMoveOutBills || processingMoveOut}}" style="background:{{loadingMoveOutBills ? 'var(--gray-300)' : '#EA580C'}};color:#FFFFFF;" bindtap="confirmMoveOut">{{processingMoveOut ? '处理中...' : '确认退租'}}</button>
       </view>
     </view>
   </view>

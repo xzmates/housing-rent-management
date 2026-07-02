@@ -1,77 +1,82 @@
-<view class="page-container">
-  <!-- 头部 -->
-  <view class="flex-row justify-between align-center" style="margin-bottom:20rpx;">
-    <view>
-      <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">房屋管理</text>
-      <text class="stat-label">共 {{houses.length}} 套房</text>
+<view class="home-page houses-page">
+  <view class="home-hero">
+    <text class="home-hero-title">房屋管理</text>
+    <text class="home-hero-subtitle">共 {{houses.length}} 套房</text>
+    <button class="home-hero-action" bindtap="showAddModal">
+      <view class="hero-action-icon"></view>
+      <text>添加</text>
+    </button>
+  </view>
+
+  <view class="home-shell glass-panel">
+    <view class="home-filter-row">
+      <view class="filter-chip-group">
+        <view class="soft-chip {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
+        <view class="soft-chip {{filters.status === 'available' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="available">可租</view>
+        <view class="soft-chip {{filters.status === 'rented' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="rented">已租</view>
+      </view>
+      <view class="soft-search">
+        <view class="search-mark"></view>
+        <input placeholder="搜编号" bindinput="onSearchInput" class="home-search-input" />
+      </view>
     </view>
-    <button class="btn btn-primary btn-small" bindtap="showAddModal">+ 添加</button>
-  </view>
 
-  <!-- 筛选器 -->
-  <view class="filter-bar">
-    <view class="filter-btn {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
-    <view class="filter-btn {{filters.status === 'available' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="available">可租</view>
-    <view class="filter-btn {{filters.status === 'rented' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="rented">已租</view>
-    <view class="filter-btn" style="display:flex;align-items:center;background:var(--gray-50);border-color:var(--gray-100);padding:8rpx 16rpx;gap:4rpx;">
-      <text style="font-size:22rpx;color:var(--gray-400);">🔍</text>
-      <input placeholder="搜编号" bindinput="onSearchInput" style="width:100rpx;font-size:24rpx;" />
+    <view wx:if="{{loading}}" class="loading">
+      <text class="loading-text">加载中...</text>
     </view>
-  </view>
 
-  <!-- 加载状态 -->
-  <view wx:if="{{loading}}" class="loading">
-    <text class="loading-text">加载中...</text>
-  </view>
+    <view wx:elif="{{houses.length === 0}}" class="empty-state">
+      <text class="empty-text">暂无房屋</text>
+      <button class="primary-pill" bindtap="showAddModal">添加房屋</button>
+    </view>
 
-  <!-- 空状态 -->
-  <view wx:elif="{{houses.length === 0}}" class="empty-state">
-    <text class="empty-text">暂无房屋</text>
-    <button class="btn btn-primary btn-small" bindtap="showAddModal">添加房屋</button>
-  </view>
-
-  <!-- 房屋列表 -->
-  <view wx:else style="display:flex;flex-direction:column;gap:16rpx;">
-    <view wx:for="{{houses}}" wx:key="_id" class="list-item" style="border-left-color:{{item.status === 'available' ? 'var(--success)' : 'var(--primary)'}};">
-      <!-- 第一行：编号 + 地址 | 状态 -->
-      <view class="flex-row justify-between align-center" style="margin-bottom:10rpx;">
-        <view class="flex-row align-center" style="flex:1;min-width:0;gap:12rpx;">
-          <text style="font-size:30rpx;font-weight:700;color:var(--gray-900);">{{item.code}}</text>
-          <text style="font-size:26rpx;color:var(--gray-500);">{{item.address}}</text>
+    <view wx:else class="home-list">
+      <view wx:for="{{houses}}" wx:key="_id" class="house-card tap-card">
+        <view class="house-head">
+          <view>
+            <text class="house-code">{{item.code}} {{item.address}}</text>
+            <view class="house-rent-row">
+              <text class="house-rent">¥{{item.rent}}</text>
+              <text class="house-rent-unit">/ 月</text>
+            </view>
+          </view>
+          <view class="status-pill {{item.status === 'available' ? 'status-green' : 'status-blue'}}">
+            {{item.status === 'available' ? '可租' : '已租'}}
+          </view>
         </view>
-        <view class="badge {{item.status === 'available' ? 'badge-success' : 'badge-info'}}" style="flex-shrink:0;">
-          {{item.status === 'available' ? '可租' : '已租'}}
+
+        <view class="meter-strip">
+          <view class="meter-cell">
+            <text class="meter-label">最近抄表</text>
+            <text class="meter-value">{{item.lastMeterDate || '暂无'}}</text>
+          </view>
+          <view class="meter-cell">
+            <text class="meter-label">电表</text>
+            <text class="meter-value">{{item.electricityReading || '--'}} 度</text>
+          </view>
+          <view class="meter-cell">
+            <text class="meter-label">水表</text>
+            <text class="meter-value">{{item.waterReading || '--'}} 吨</text>
+          </view>
         </view>
-      </view>
 
-      <!-- 第二行：租金 + 租客速览 -->
-      <view class="flex-row align-center" style="font-size:26rpx;color:var(--gray-500);margin-bottom:10rpx;gap:12rpx;flex-wrap:wrap;">
-        <text style="font-weight:700;color:var(--gray-900);">¥{{item.rent}}</text>
-        <text style="font-weight:400;color:var(--gray-400);">/月</text>
-        <block wx:if="{{item.status === 'rented' && item.tenantInfo}}">
-          <text style="color:var(--gray-300);">|</text>
-          <text style="font-weight:500;">{{item.tenantInfo.name}}</text>
-          <text style="color:var(--gray-300);">|</text>
-          <text>入住{{item.tenantInfo.moveInDateStr}}</text>
-        </block>
-      </view>
+        <view wx:if="{{item.status === 'rented' && item.tenantInfo}}" class="house-tenant-line">
+          <text>{{item.tenantInfo.name}}</text>
+          <text>入住 {{item.tenantInfo.moveInDateStr}}</text>
+        </view>
 
-      <!-- 第三行：下次收租 -->
-      <view wx:if="{{item.status === 'rented' && item.nextRentDue}}" style="font-size:24rpx;margin-bottom:12rpx;{{item.nextRentDue.daysUntilDue < 0 ? 'color:var(--danger);' : item.nextRentDue.daysUntilDue <= 10 ? 'color:var(--warning);' : 'color:var(--gray-400);'}}">
-        <text style="color:var(--gray-400);font-weight:400;">下次</text>
-        <text style="font-weight:700;">¥{{item.nextRentDue.amount}}</text>
-        <text style="color:var(--gray-300);margin:0 8rpx;">|</text>
-        <text>{{item.nextRentDue.dateStr}}</text>
-        <text wx:if="{{item.nextRentDue.daysUntilDue > 0}}">（{{item.nextRentDue.daysUntilDue}}天后）</text>
-        <text wx:elif="{{item.nextRentDue.daysUntilDue === 0}}">（今天）</text>
-        <text wx:else style="font-weight:700;">（已逾期{{-item.nextRentDue.daysUntilDue}}天）</text>
-      </view>
+        <view wx:if="{{item.status === 'rented' && item.nextRentDue}}" class="rent-due-line">
+          <text>下次 ¥{{item.nextRentDue.amount}}</text>
+          <text>{{item.nextRentDue.dateStr}}</text>
+          <text wx:if="{{item.nextRentDue.daysUntilDue > 0}}">{{item.nextRentDue.daysUntilDue}}天后</text>
+          <text wx:elif="{{item.nextRentDue.daysUntilDue === 0}}">今天</text>
+          <text wx:else>已逾期{{-item.nextRentDue.daysUntilDue}}天</text>
+        </view>
 
-      <!-- 第四行：操作按钮 -->
-      <view class="flex-row" style="gap:12rpx;">
-        <button wx:if="{{item.status === 'rented' && item.tenantInfo}}" class="btn-small" style="background:var(--primary-bg);color:var(--primary);border:none;" bindtap="viewTenantDetail" data-tenant-id="{{item.tenantInfo.id}}">详情</button>
-        <button class="btn-small" style="background:var(--gray-100);color:var(--gray-600);border:none;" bindtap="editHouse" data-house="{{item}}">编辑</button>
-        <button class="btn-small" style="background:var(--danger-light);color:var(--danger);border:none;" bindtap="deleteHouse" data-id="{{item._id}}">删除</button>
+        <view class="house-actions">
+          <button class="ghost-pill" bindtap="editHouse" data-house="{{item}}">编辑</button>
+          <button class="ghost-pill" bindtap="showHouseMore" data-house="{{item}}">更多</button>
+        </view>
       </view>
     </view>
   </view>

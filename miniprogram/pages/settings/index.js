@@ -6,10 +6,19 @@ Page({
     saving: false, generating: false,
     settings: { electricityPrice: 0.8, waterPrice: 3.5 },
     form: { electricityPrice: 0.8, waterPrice: 3.5 },
-    envId: app.globalData.envId
+    envId: app.globalData.envId,
+    stats: { houses: 0, tenants: 0 }
   },
 
-  onLoad() { this.loadSettings(); },
+  onLoad() { this.loadAll(); },
+  onShow() { this.loadStats(); },
+  onPullDownRefresh() {
+    this.loadAll().then(() => wx.stopPullDownRefresh());
+  },
+
+  async loadAll() {
+    await Promise.all([this.loadSettings(), this.loadStats()]);
+  },
 
   async loadSettings() {
     try {
@@ -20,6 +29,20 @@ Page({
       });
     } catch (e) {
       console.error('加载设置失败', e);
+    }
+  },
+
+  async loadStats() {
+    try {
+      const [houseRes, tenantRes] = await Promise.all([api.getHouses(), api.getTenants()]);
+      this.setData({
+        stats: {
+          houses: (houseRes.data || []).length,
+          tenants: (tenantRes.data || []).length
+        }
+      });
+    } catch (e) {
+      console.error('加载我的页统计失败', e);
     }
   },
 

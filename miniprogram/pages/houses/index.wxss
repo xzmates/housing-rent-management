@@ -1,1 +1,144 @@
-/* 复用全局样式 */
+.houses-page .home-hero {
+  min-height: 252rpx;
+}
+
+.home-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  margin-bottom: 28rpx;
+}
+
+.filter-chip-group {
+  display: flex;
+  gap: 14rpx;
+  flex-wrap: wrap;
+}
+
+.home-search-input {
+  flex: 1;
+  min-width: 160rpx;
+  height: 66rpx;
+  font-size: 27rpx;
+  color: var(--home-text);
+}
+
+.home-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.house-card {
+  border-radius: 26rpx;
+  background: rgba(255,255,255,0.80);
+  box-shadow: var(--home-shadow-soft);
+  padding: 28rpx;
+  border: 1rpx solid rgba(255,255,255,0.86);
+}
+
+.house-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.house-code {
+  display: block;
+  font-size: 40rpx;
+  line-height: 1.15;
+  font-weight: 700;
+  color: var(--home-ink);
+}
+
+.house-rent-row {
+  margin-top: 10rpx;
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+}
+
+.house-rent {
+  color: var(--home-blue);
+  font-size: 40rpx;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.house-rent-unit {
+  color: var(--home-muted);
+  font-size: 26rpx;
+}
+
+.meter-strip {
+  margin-top: 24rpx;
+  border-radius: 22rpx;
+  background: rgba(241,247,255,0.86);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  overflow: hidden;
+}
+
+.meter-cell {
+  min-height: 86rpx;
+  padding: 16rpx 14rpx;
+  border-right: 1rpx solid rgba(148,163,184,0.22);
+  box-sizing: border-box;
+}
+
+.meter-cell:last-child {
+  border-right: 0;
+}
+
+.meter-label {
+  display: block;
+  color: var(--home-muted);
+  font-size: 23rpx;
+  margin-bottom: 6rpx;
+}
+
+.meter-value {
+  display: block;
+  color: var(--home-text);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.house-tenant-line,
+.rent-due-line {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+  margin-top: 18rpx;
+  color: var(--home-muted);
+  font-size: 26rpx;
+}
+
+.rent-due-line {
+  color: var(--home-orange);
+  font-weight: 600;
+}
+
+.house-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14rpx;
+  margin-top: 22rpx;
+}
+
+.danger-text {
+  color: var(--home-red);
+}
+
+@media (max-width: 360px) {
+  .home-filter-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .home-search-input {
+    width: 100%;
+  }
+}

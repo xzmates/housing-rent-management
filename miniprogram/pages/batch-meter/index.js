@@ -5,7 +5,8 @@ Page({
     loading: true, submitting: false,
     meters: [],
     utilityPrices: { electricityPrice: 0.8, waterPrice: 3.5 },
-    totalCost: 0
+    totalCost: 0,
+    totalCostText: '0.0'
   },
 
   onLoad() { this.loadData(); },
@@ -31,11 +32,14 @@ Page({
         // 获取上次抄表读数
         let lastElec = lease.moveInElectricity || 0;
         let lastWater = lease.moveInWater || 0;
+        let lastReadDate = '入住读数';
         try {
-          const records = await api.getUtilityRecords({ leaseId: lease._id });
+          const records = await api.getUtilityRecords({ houseId: lease.houseId });
           if (records.data && records.data.length > 0) {
-            lastElec = records.data[0].electricityReading || lastElec;
-            lastWater = records.data[0].waterReading || lastWater;
+            const latest = records.data[0];
+            lastElec = latest.electricityReading || lastElec;
+            lastWater = latest.waterReading || lastWater;
+            lastReadDate = api.formatDate(latest.calculationDate || latest.createdAt) || '未知时间';
           }
         } catch (e) { /* use move-in readings */ }
 
@@ -44,10 +48,11 @@ Page({
           houseId: lease.houseId,
           houseLabel: house ? `${house.code} - ${house.address}` : '未知房屋',
           tenantName: tenant?.name || '未知租客',
-          lastElec, lastWater,
+          lastElec, lastWater, lastReadDate,
           currentElec: '', currentWater: '',
           elecUsage: 0, waterUsage: 0,
           elecCost: 0, waterCost: 0, rowCost: 0,
+          elecCostText: '0.0', waterCostText: '0.0', rowCostText: '0.0',
           hasError: false, errorMsg: ''
         });
       }
@@ -103,13 +108,16 @@ Page({
     row.elecCost = row.elecUsage * prices.electricityPrice;
     row.waterCost = row.waterUsage * prices.waterPrice;
     row.rowCost = row.elecCost + row.waterCost;
+    row.elecCostText = row.elecCost.toFixed(1);
+    row.waterCostText = row.waterCost.toFixed(1);
+    row.rowCostText = row.rowCost.toFixed(1);
 
     this.setData({ [`meters[${idx}]`]: row }, () => this._calcTotal());
   },
 
   _calcTotal() {
     const total = this.data.meters.reduce((sum, m) => sum + m.rowCost, 0);
-    this.setData({ totalCost: total });
+    this.setData({ totalCost: total, totalCostText: total.toFixed(1) });
   },
 
   async submitAll() {

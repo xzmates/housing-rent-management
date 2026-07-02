@@ -2,18 +2,22 @@ const api = require('../../services/api');
 
 Page({
   data: {
-    calculating: false, recordsLoading: false,
+    calculating: false,
+    recordsLoading: false,
     settings: { electricityPrice: 0.8, waterPrice: 3.5 },
     allHouses: [],
     houseLabels: [],
     currentLease: null,
     currentTenant: null,
     lastReading: null,
+    lastReadingDate: '',
     utilityRecords: [],
     result: null,
     form: {
-      houseId: '', houseIndex: -1,
-      currentElectricity: 0, currentWater: 0
+      houseId: '',
+      houseIndex: -1,
+      currentElectricity: 0,
+      currentWater: 0
     }
   },
 
@@ -28,16 +32,19 @@ Page({
     try {
       const prices = await api.getUtilityPrices();
       this.setData({ settings: prices });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   },
 
   async loadHouses() {
     try {
-      const result = await api.getHouses();
-      const houses = (result.data || []).filter(h => h.status === 'rented');
-      const addrOrder = { '东楼北': 1, '东楼南': 2, '里召': 3 };
+      const result = await api.getHousesWithOccupancy();
+      const houses = (result.data || []).filter(h => h.hasActiveLease);
+      const addrOrder = { '东楼区': 1, '东楼北': 2, '里召': 3 };
       houses.sort((a, b) => {
-        const aa = addrOrder[a.address] ?? 99, bb = addrOrder[b.address] ?? 99;
+        const aa = addrOrder[a.address] ?? 99;
+        const bb = addrOrder[b.address] ?? 99;
         if (aa !== bb) return aa - bb;
         return (parseInt(a.code, 10) || 0) - (parseInt(b.code, 10) || 0);
       });
@@ -45,17 +52,23 @@ Page({
         allHouses: houses,
         houseLabels: houses.map(h => `${h.code} - ${h.address}`)
       });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   },
 
   async onHouseChange(e) {
-    const idx = e.detail.value;
+    const idx = Number(e.detail.value);
     const house = this.data.allHouses[idx];
     this.setData({
       'form.houseId': house?._id || '',
       'form.houseIndex': idx,
-      currentLease: null, currentTenant: null, lastReading: null,
-      utilityRecords: [], result: null
+      currentLease: null,
+      currentTenant: null,
+      lastReading: null,
+      lastReadingDate: '',
+      utilityRecords: [],
+      result: null
     });
     if (!house) return;
 
@@ -63,11 +76,15 @@ Page({
       wx.showLoading({ title: '加载租客...' });
       const data = await api.getHouseCurrentLease(house._id);
       if (data.currentLease && data.tenant) {
+        const lastReading = data.utilityRecords?.[0] || null;
         this.setData({
           currentLease: data.currentLease,
           currentTenant: data.tenant,
-          lastReading: data.utilityRecords?.[0] || null,
-          utilityRecords: data.utilityRecords || []
+          lastReading,
+          lastReadingDate: lastReading ? (api.formatDate(lastReading.calculationDate || lastReading.createdAt) || '未知时间') : '',
+          utilityRecords: data.utilityRecords || [],
+          'form.currentElectricity': lastReading ? Number(lastReading.electricityReading || 0) : 0,
+          'form.currentWater': lastReading ? Number(lastReading.waterReading || 0) : 0
         });
       } else {
         wx.showToast({ title: '该房屋无活跃租客', icon: 'none' });
@@ -80,8 +97,13 @@ Page({
     }
   },
 
-  onElecInput(e) { this.setData({ 'form.currentElectricity': e.detail.value }); },
-  onWaterInput(e) { this.setData({ 'form.currentWater': e.detail.value }); },
+  onElecInput(e) {
+    this.setData({ 'form.currentElectricity': e.detail.value });
+  },
+
+  onWaterInput(e) {
+    this.setData({ 'form.currentWater': e.detail.value });
+  },
 
   async calculateBill() {
     const form = this.data.form;
@@ -89,6 +111,19 @@ Page({
     if (!lease) {
       wx.showToast({ title: '请先选择房屋', icon: 'none' });
       return;
+    }
+
+    const last = this.data.lastReading;
+    if (last) {
+      const lastElectricity = Number(last.electricityReading || 0);
+      const lastWater = Number(last.waterReading || 0);
+      if ((Number(form.currentElectricity) || 0) < lastElectricity || (Number(form.currentWater) || 0) < lastWater) {
+        wx.showToast({
+          title: `抄表读数不能低于上次：电${lastElectricity}，水${lastWater}`,
+          icon: 'none'
+        });
+        return;
+      }
     }
 
     this.setData({ calculating: true });
@@ -99,13 +134,15 @@ Page({
         waterReading: Number(form.currentWater) || 0
       });
       this.setData({ result });
-      // 刷新记录
+
       const data = await api.getHouseCurrentLease(form.houseId);
+      const latest = data.utilityRecords?.[0] || null;
       this.setData({
         utilityRecords: data.utilityRecords || [],
-        lastReading: data.utilityRecords?.[0] || null,
-        'form.currentElectricity': 0,
-        'form.currentWater': 0
+        lastReading: latest,
+        lastReadingDate: latest ? (api.formatDate(latest.calculationDate || latest.createdAt) || '未知时间') : '',
+        'form.currentElectricity': latest ? Number(latest.electricityReading || 0) : 0,
+        'form.currentWater': latest ? Number(latest.waterReading || 0) : 0
       });
       wx.showToast({ title: '计算完成', icon: 'success' });
     } catch (e) {

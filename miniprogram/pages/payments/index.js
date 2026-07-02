@@ -11,7 +11,7 @@ Page({
     houseFilterId: '',
     houseFilterLabel: '全部房屋',
     houseOptions: ['全部房屋'],
-    stats: { totalUnpaid: 0, totalPaid: 0, rentUnpaid: 0, utilityUnpay: 0 },
+    stats: { totalUnpaid: 0, totalPaid: 0, rentPaid: 0, utilityPaid: 0, lossPaid: 0, rentUnpaid: 0, utilityUnpay: 0, managedDeposit: 0 },
     // 缴费弹窗
     payBillId: '',
     payAmount: 0,
@@ -49,8 +49,8 @@ Page({
   async loadBills() {
     this.setData({ loading: true });
     try {
-      // 获取所有活跃合同
-      const leaseRes = await api.getLeases({ status: 'active' });
+      // 获取所有合同，包含已退租合同，确保历史缴费记录仍可查看
+      const leaseRes = await api.getLeases();
       const leases = leaseRes.data || [];
       this.setData({ allLeases: leases });
 
@@ -80,28 +80,45 @@ Page({
       houseData.forEach(h => { if (h) houseMap[h._id] = h; });
       const tenantMap = {};
       tenantData.forEach(t => { if (t) tenantMap[t._id] = t; });
-
       // 查询所有账单
-      const billRes = await api.getBills({ leaseIds });
+      const [billRes, paymentsRes] = await Promise.all([
+        api.getBills({ leaseIds }),
+        api.getPayments({ leaseIds }).catch(() => ({ data: [] }))
+      ]);
+
+      // 构建押金抵扣映射（billId -> 抵扣金额）
+      const depositOffsetMap = {};
+      (paymentsRes.data || []).forEach(p => {
+        if (p.paymentMethod === 'deposit_offset') {
+          depositOffsetMap[p.billId] = (depositOffsetMap[p.billId] || 0) + Number(p.amount || 0);
+        }
+      });
+
       let bills = (billRes.data || []).map(bill => {
         const lease = leaseMap[bill.leaseId] || {};
         const house = houseMap[lease.houseId] || {};
         const tenant = tenantMap[lease.tenantId] || {};
         return {
           ...bill,
+          _depositOffset: depositOffsetMap[bill._id] || 0,
           houseLabel: house.code ? `${house.code} - ${house.address}` : '',
           tenantName: tenant.name || '',
           houseId: lease.houseId,
           remaining: bill.amount - bill.paidAmount,
-          typeText: { rent: '租金', utility: '水电费', deposit_return: '押金退还', extra_due: '补缴' }[bill.type] || bill.type,
-          statusText: bill.status === 'paid' ? '已缴' : bill.status === 'partial' ? '部分缴' : '待缴',
-          dueDateStr: api.formatDate(bill.dueDate)
+          typeText: { rent: '租金', deposit: '押金', utility: '水电费', deposit_return: '押金退还', rent_refund: '租金退还', extra_due: '补缴', other: '补缴' }[bill.type] || bill.type,
+          statusText: ['deposit_return', 'rent_refund'].indexOf(bill.type) >= 0 && bill.status === 'paid' ? '已退' : bill.status === 'paid' ? '已缴' : bill.status === 'partial' ? '部分缴' : '待缴',
+          dueDateStr: api.formatDate(bill.dueDate),
+          utilityDetail: bill.type === 'utility' ? (bill.remark || '') : ''
         };
       });
 
       // 筛选
       const { status, type } = this.data.filters;
-      if (status) bills = bills.filter(b => b.status === status);
+      if (status === 'unpaid') {
+        bills = bills.filter(b => b.status === 'unpaid' || b.status === 'partial');
+      } else if (status) {
+        bills = bills.filter(b => b.status === status);
+      }
       if (type) bills = bills.filter(b => b.type === type);
       if (this.data.houseFilterId) {
         const filterLeaseIds = leases.filter(l => l.houseId === this.data.houseFilterId).map(l => l._id);
@@ -129,30 +146,48 @@ Page({
 
   _calcStats(bills) {
     const unpaid = bills.filter(b => b.status !== 'paid');
+    const refundTypes = ['rent_refund', 'deposit_return'];
     const paid = bills.filter(b => b.status === 'paid');
+    const refunds = bills.filter(b => b.status === 'paid' && refundTypes.indexOf(b.type) >= 0);
+    const rentPaid = paid.filter(b => b.type === 'rent').reduce((s, b) => s + b.paidAmount, 0) -
+      refunds.filter(b => b.type === 'rent_refund').reduce((s, b) => s + b.paidAmount, 0);
+    const utilityPaid = paid.filter(b => b.type === 'utility').reduce((s, b) => s + b.paidAmount, 0);
+    const lossPaid = (this.data.allLeases || [])
+      .filter(l => l.status === 'terminated')
+      .reduce((s, l) => s + Number(l.damageAmount || 0), 0);
     this.setData({
       stats: {
         totalUnpaid: unpaid.reduce((s, b) => s + (b.amount - b.paidAmount), 0),
-        totalPaid: paid.reduce((s, b) => s + b.paidAmount, 0),
+        totalPaid: rentPaid + utilityPaid + lossPaid,
+        rentPaid,
+        utilityPaid,
+        lossPaid,
         rentUnpaid: unpaid.filter(b => b.type === 'rent').reduce((s, b) => s + (b.amount - b.paidAmount), 0),
-        utilityUnpay: unpaid.filter(b => b.type === 'utility').reduce((s, b) => s + (b.amount - b.paidAmount), 0)
+        utilityUnpay: unpaid.filter(b => b.type === 'utility').reduce((s, b) => s + (b.amount - b.paidAmount), 0),
+        managedDeposit: (this.data.allLeases || [])
+          .filter(l => l.status === 'active')
+          .reduce((s, l) => s + Number(l.deposit || 0), 0)
       }
     });
   },
 
   setFilter(e) {
     const { key, val } = e.currentTarget.dataset;
-    const filters = this.data.filters;
-    filters[key] = val;
+    const filters = { ...this.data.filters };
+    filters[key] = filters[key] === val ? '' : val;
     this.setData({ filters }, () => this.loadBills());
   },
 
   onHouseFilterChange(e) {
-    const idx = e.detail.value;
+    const idx = Number(e.detail.value);
     if (idx === 0) {
       this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋' }, () => this.loadBills());
     } else {
       const house = this.data.allHouses[idx - 1];
+      if (!house) {
+        this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋' }, () => this.loadBills());
+        return;
+      }
       this.setData({ houseFilterId: house._id, houseFilterLabel: house.code }, () => this.loadBills());
     }
   },

@@ -1,0 +1,43 @@
+<view class="history-card">
+  <view class="history-head">
+    <view class="history-title-block">
+      <text class="history-title">收租记录</text>
+      <text class="history-sub">{{filterText}}</text>
+    </view>
+    <view class="history-total">
+      <text class="history-money">¥{{totalAmount}}</text>
+      <text class="history-note">{{total}} 条</text>
+    </view>
+  </view>
+
+  <view wx:if="{{visibleItems.length === 0}}" class="history-empty">
+    <text>暂无收租记录</text>
+  </view>
+
+  <view wx:else class="history-list">
+    <view
+      wx:for="{{visibleItems}}"
+      wx:key="paymentId"
+      class="history-row"
+    >
+      <view class="history-mark">
+        <text>收</text>
+      </view>
+      <view class="history-info">
+        <view class="history-main-line">
+          <text class="history-house">{{item.houseLabel}}</text>
+          <text class="history-amount">¥{{item.amount}}</text>
+        </view>
+        <text class="history-meta">{{item.tenantName}} · {{item.period || '本期租金'}}</text>
+        <text class="history-date">{{item.paymentMethodText}} · {{item.paymentDate}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="history-foot">
+    <text wx:if="{{omittedCount > 0}}" class="history-omitted">还有 {{omittedCount}} 条未展示</text>
+    <view class="history-action-btn" hover-class="history-action-btn-hover" bindtap="onTapBills">
+      <text>继续收租</text>
+    </view>
+  </view>
+</view>

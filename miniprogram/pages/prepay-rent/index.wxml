@@ -1,0 +1,66 @@
+<view class="page-container">
+  <view style="margin-bottom:20rpx;">
+    <navigator open-type="navigateBack" style="font-size:26rpx;color:var(--primary);">返回</navigator>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <block wx:else>
+    <view class="card">
+      <view class="card-header">
+        <text class="card-title">提前收租</text>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">选择合同</text>
+        <picker mode="selector" range="{{leaseLabels}}" value="{{leaseIndex}}" bindchange="onLeaseChange">
+          <view class="form-picker">{{leaseLabels[leaseIndex] || '请选择合同'}}</view>
+        </picker>
+      </view>
+
+      <view wx:if="{{selectedLease}}" style="background:var(--gray-50);border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">
+        <text style="font-size:24rpx;color:var(--gray-700);display:block;">{{selectedLease.houseLabel}} · {{selectedLease.tenantName}}</text>
+        <text style="font-size:22rpx;color:var(--gray-500);display:block;margin-top:6rpx;">已缴至 {{selectedLease.rentCoveredUntilText || '-'}}</text>
+        <text style="font-size:22rpx;color:var(--gray-500);display:block;margin-top:4rpx;">下次交租 {{selectedLease.nextRentDueDateText || '-'}}</text>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">收租方式</text>
+        <picker mode="selector" range="{{modeOptions}}" value="{{modeIndex}}" bindchange="onModeChange">
+          <view class="form-picker">{{modeOptions[modeIndex]}}</view>
+        </picker>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">收租金额</text>
+        <input class="form-input" type="digit" value="{{amount}}" bindinput="onAmountInput" placeholder="请输入金额" disabled="{{modeIndex !== 4}}" />
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">收款方式</text>
+        <picker mode="selector" range="{{payMethods}}" value="{{payMethodIndex}}" bindchange="onPayMethodChange">
+          <view class="form-picker">{{payMethods[payMethodIndex]}}</view>
+        </picker>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">收款日期</text>
+        <picker mode="date" value="{{payDate}}" bindchange="onPayDateChange">
+          <view class="form-picker">{{payDate}}</view>
+        </picker>
+      </view>
+
+      <view style="background:var(--primary-bg);border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">
+        <text style="font-size:24rpx;color:var(--primary-dark);display:block;">预计收款 ￥{{preview.amountText}}</text>
+        <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:6rpx;">覆盖：{{preview.coverageText || '-'}}</text>
+        <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">从 {{preview.startText || '-'}} 开始顺延</text>
+      </view>
+
+      <button class="btn btn-primary btn-block" bindtap="submit" disabled="{{saving || !selectedLease}}">
+        {{saving ? '处理中...' : '确认提前收租'}}
+      </button>
+    </view>
+  </block>
+</view>

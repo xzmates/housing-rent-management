@@ -254,8 +254,10 @@ async function resolveOperations(rawOps, api) {
 
   // 索引：address|code → house
   const houseMap = {};
+  const houseByCode = {};
   for (const h of houses) {
     houseMap[(h.address || '') + '|' + (h.code || '')] = h;
+    if (h.code && !houseByCode[h.code]) houseByCode[h.code] = h;
   }
 
   // 索引：name → tenant
@@ -279,7 +281,7 @@ async function resolveOperations(rawOps, api) {
     const addr = op.match.houseAddress || op.data.address || '';
     const code = op.match.houseCode || op.data.code || '';
     const key = addr + '|' + code;
-    const existingHouse = (addr || code) ? houseMap[key] : null;
+    const existingHouse = (addr || code) ? (houseMap[key] || (code ? houseByCode[code] : null)) : null;
     const existingTenant = op.match.tenantName ? tenantByName[op.match.tenantName] : null;
     const existingLease = existingHouse ? leaseByHouse[existingHouse._id] : null;
 
@@ -289,7 +291,7 @@ async function resolveOperations(rawOps, api) {
           newOp.action = 'update_house';
           newOp.match = { houseAddress: existingHouse.address, houseCode: existingHouse.code };
           newOp.warnings.push('房屋已存在，将更新信息');
-          if (existingHouse.status === 'rented') {
+          if (existingLease) {
             delete newOp.data.address;
             delete newOp.data.code;
             newOp.warnings.push('房屋正在出租，地址和编号不可修改');
@@ -300,7 +302,7 @@ async function resolveOperations(rawOps, api) {
       case 'update_house':
         if (existingHouse) {
           newOp.match = { houseAddress: existingHouse.address, houseCode: existingHouse.code };
-          if (existingHouse.status === 'rented') {
+          if (existingLease) {
             delete newOp.data.address;
             delete newOp.data.code;
             newOp.warnings.push('房屋正在出租，地址和编号不可修改');
@@ -595,7 +597,7 @@ async function executeOperations(operations, api) {
         case 'update_house': {
           const house = await _findHouse(api, op.match);
           if (!house) throw new Error('未找到匹配的房屋：' + _matchLabel(op.match));
-          if (house.status === 'rented') {
+          if (house.hasActiveLease) {
             throw new Error(house.address + house.code + ' 正在出租中，不能修改房屋信息');
           }
           await api.updateHouse(house._id, op.data);
@@ -730,7 +732,9 @@ async function executeOperations(operations, api) {
 
 async function _findHouse(api, match) {
   if (!match.houseAddress && !match.houseCode) return null;
-  const houses = await api.getHouses();
+  const houses = api.getHousesWithOccupancy
+    ? await api.getHousesWithOccupancy()
+    : await api.getHouses();
   return (houses.data || []).find(h => {
     const addrMatch = !match.houseAddress || h.address === match.houseAddress;
     const codeMatch = !match.houseCode || h.code === match.houseCode;

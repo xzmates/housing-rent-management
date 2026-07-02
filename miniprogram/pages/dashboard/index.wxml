@@ -1,143 +1,142 @@
-<view class="page-container">
-  <!-- 统计卡片 2x2 -->
-  <view class="stats-grid">
-    <view class="stat-card" style="border-top-color:var(--primary);">
-      <view class="stat-label">房屋总数</view>
-      <view class="stat-value blue">{{stats.houses}}</view>
-    </view>
-    <view class="stat-card" style="border-top-color:var(--success);">
-      <view class="stat-label">活跃合同</view>
-      <view class="stat-value green">{{stats.activeLeases}}</view>
-    </view>
-    <view class="stat-card" style="border-top-color:var(--warning);">
-      <view class="stat-label">本月收入</view>
-      <view class="stat-value yellow">¥{{stats.monthlyIncome}}</view>
-    </view>
-    <view class="stat-card" style="border-top-color:var(--danger);">
-      <view class="stat-label">待收金额</view>
-      <view class="stat-value red">¥{{stats.unpaidAmount}}</view>
-    </view>
+<view class="home-page dashboard-page">
+  <view class="home-hero">
+    <text class="home-hero-title">房屋租赁管理</text>
+    <text class="home-hero-subtitle">高效管理房源与租约，轻松掌控租赁业务</text>
   </view>
 
-  <!-- 收费提醒 -->
-  <view class="card" wx:if="{{overdueBills.length > 0 || upcomingBills.length > 0}}" style="border-left-color:var(--warning);">
-    <view class="card-header">
-      <text class="card-title">收费提醒</text>
-      <text class="stat-label">含逾期及未来10天</text>
+  <view class="home-shell">
+    <view class="glass-panel dashboard-stats-panel">
+      <view class="biz-grid">
+        <view class="biz-tile">
+          <view class="line-icon icon-blue symbol-home"></view>
+          <view class="biz-copy">
+            <text class="biz-label">房屋总数</text>
+            <view class="biz-value-row">
+              <text class="biz-value blue">{{stats.houses}}</text>
+              <text class="biz-unit">套房</text>
+            </view>
+          </view>
+        </view>
+        <view class="biz-tile">
+          <view class="line-icon icon-green symbol-contract"></view>
+          <view class="biz-copy">
+            <text class="biz-label">活跃合同</text>
+            <view class="biz-value-row">
+              <text class="biz-value green">{{stats.activeLeases}}</text>
+              <text class="biz-unit">份</text>
+            </view>
+          </view>
+        </view>
+        <view class="biz-tile">
+          <view class="line-icon icon-orange symbol-money"></view>
+          <view class="biz-copy">
+            <text class="biz-label">待收金额</text>
+            <view class="biz-value-row">
+              <text class="biz-value red">¥{{stats.unpaidAmount}}</text>
+              <text class="biz-unit">元</text>
+            </view>
+          </view>
+        </view>
+        <view class="biz-tile">
+          <view class="line-icon icon-violet symbol-shield"></view>
+          <view class="biz-copy">
+            <text class="biz-label">在管押金</text>
+            <view class="biz-value-row">
+              <text class="biz-value violet">¥{{stats.managedDeposit}}</text>
+              <text class="biz-unit">元</text>
+            </view>
+          </view>
+        </view>
+      </view>
     </view>
 
-    <!-- 逾期账单 -->
-    <view wx:for="{{overdueBills}}" wx:key="_id" style="background:var(--danger-light);border-radius:var(--radius-sm);padding:20rpx;margin-bottom:16rpx;">
-      <view class="flex-row justify-between align-center">
-        <view style="flex:1;min-width:0;">
-          <text style="font-size:28rpx;font-weight:700;color:#7F1D1D;">{{item.houseCode}} - {{item.houseAddress}}</text>
-          <view style="font-size:24rpx;color:#B91C1C;margin-top:4rpx;">{{item.tenantName}} · {{item.period}}</view>
+    <view class="glass-panel">
+      <view class="section-head">
+        <view>
+          <text class="section-title">临近收费提醒</text>
+          <text class="section-note">按未缴租金账单和应缴日期自动汇总</text>
         </view>
-        <view class="badge badge-danger">逾期</view>
+        <view class="reminder-summary">
+          <text>本月待提醒 <text class="summary-count">{{reminderSummary.count}}</text> 笔</text>
+          <text>合计 <text class="summary-money">¥{{reminderSummary.amount}}</text></text>
+        </view>
       </view>
-      <view class="flex-row justify-between" style="margin-top:12rpx;">
-        <text style="color:#B91C1C;font-size:24rpx;">到期 {{item.dueDateStr}}（逾期 {{0 - item.daysUntilDue}}天）</text>
-        <text style="color:#B91C1C;font-weight:800;font-size:32rpx;">¥{{item.remaining}}</text>
+
+      <view wx:if="{{visibleReminderBills.length === 0}}" class="soft-empty">
+        <view class="empty-line-icon symbol-wave"></view>
+        <text>本月暂无临近收费</text>
+      </view>
+
+      <view wx:else class="reminder-list">
+        <view wx:for="{{visibleReminderBills}}" wx:key="_id" class="reminder-row tap-card" bindtap="openReminder" data-item="{{item}}">
+          <view class="reminder-house">
+            <view class="mini-house-icon symbol-home"></view>
+            <view>
+              <text class="reminder-main">{{item.houseCode}} · {{item.houseAddress}}</text>
+              <text class="reminder-sub">{{item.tenantName || '未知租客'}}</text>
+            </view>
+          </view>
+          <view class="reminder-date">
+            <text>{{item.dueDateStr}} 应缴</text>
+            <text class="status-pill {{item.statusClass}}">{{item.statusText}}</text>
+          </view>
+          <view class="reminder-amount">
+            <text>¥{{item.remaining}}</text>
+            <view class="chevron"></view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{reminderSummary.count > 4}}" class="view-all-row" bindtap="goToBills">
+        <text>查看全部提醒</text>
+        <view class="chevron"></view>
       </view>
     </view>
 
-    <!-- 即将到期 -->
-    <view wx:for="{{upcomingBills}}" wx:key="_id" style="background:var(--warning-light);border-radius:var(--radius-sm);padding:20rpx;margin-bottom:16rpx;">
-      <view class="flex-row justify-between align-center">
-        <view style="flex:1;min-width:0;">
-          <text style="font-size:28rpx;font-weight:700;color:#78350F;">{{item.houseCode}} - {{item.houseAddress}}</text>
-          <view style="font-size:24rpx;color:#B45309;margin-top:4rpx;">{{item.tenantName}} · {{item.period}}</view>
-        </view>
-        <view class="badge badge-warning">即将到期</view>
+    <view class="glass-panel">
+      <view class="section-head">
+        <text class="section-title">快捷操作</text>
       </view>
-      <view class="flex-row justify-between" style="margin-top:8rpx;">
-        <text style="color:#92400E;font-size:24rpx;">
-          {{item.dueDateStr}}
-          <text wx:if="{{item.daysUntilDue > 0}}">（{{item.daysUntilDue}}天后）</text>
-          <text wx:elif="{{item.daysUntilDue === 0}}">（今天）</text>
-        </text>
-        <text style="color:#92400E;font-weight:700;font-size:28rpx;">¥{{item.remaining}}</text>
+      <view class="quick-grid">
+        <navigator url="/pages/create-lease/index" class="quick-tile tap-card">
+          <view class="quick-icon icon-blue symbol-plus"></view>
+          <text>新建合同</text>
+          <view class="quick-arrow chevron"></view>
+        </navigator>
+        <navigator url="/pages/prepay-rent/index" class="quick-tile tap-card">
+          <view class="quick-icon icon-green symbol-money"></view>
+          <text>提前收租</text>
+          <view class="quick-arrow chevron"></view>
+        </navigator>
+        <navigator url="/pages/import/index" class="quick-tile tap-card">
+          <view class="quick-icon icon-violet symbol-upload"></view>
+          <text>语音助手</text>
+          <view class="quick-arrow chevron"></view>
+        </navigator>
+        <navigator url="/pages/batch-meter/index" class="quick-tile tap-card">
+          <view class="quick-icon icon-orange symbol-meter"></view>
+          <text>批量抄表</text>
+          <view class="quick-arrow chevron"></view>
+        </navigator>
       </view>
     </view>
-  </view>
 
-  <!-- 快捷操作 -->
-  <view class="card" style="border-left-color:var(--gray-300);">
-    <view class="card-header">
-      <text class="card-title">快捷操作</text>
-    </view>
-    <view class="flex-row" style="gap:16rpx;flex-wrap:wrap;">
-      <view bindtap="switchToTab" data-url="/pages/houses/index" class="flex-col align-center" style="flex:1;min-width:140rpx;padding:24rpx 12rpx;background:var(--primary-bg);border-radius:var(--radius-sm);">
-        <view style="width:48rpx;height:48rpx;background:var(--primary);border-radius:12rpx;display:flex;align-items:center;justify-content:center;">
-          <text style="font-size:24rpx;color:#FFFFFF;font-weight:700;">H</text>
-        </view>
-        <text style="font-size:22rpx;color:var(--primary-dark);margin-top:10rpx;font-weight:600;">房屋</text>
+    <view class="glass-panel contract-feature">
+      <view class="contract-art">
+        <view class="paper-lines"></view>
       </view>
-      <view bindtap="switchToTab" data-url="/pages/tenants/index" class="flex-col align-center" style="flex:1;min-width:140rpx;padding:24rpx 12rpx;background:var(--success-light);border-radius:var(--radius-sm);">
-        <view style="width:48rpx;height:48rpx;background:var(--success);border-radius:12rpx;display:flex;align-items:center;justify-content:center;">
-          <text style="font-size:24rpx;color:#FFFFFF;font-weight:700;">T</text>
-        </view>
-        <text style="font-size:22rpx;color:#047857;margin-top:10rpx;font-weight:600;">租客</text>
+      <view class="contract-content">
+        <text class="section-title">合同查询</text>
+        <text class="section-note">查询历史合同与收入明细，全面掌握经营情况</text>
+        <navigator url="/pages/contract/index" class="contract-button tap-card">
+          <text>查看合同和历史收入</text>
+          <view class="chevron contract-chevron"></view>
+        </navigator>
       </view>
-      <view bindtap="switchToTab" data-url="/pages/payments/index" class="flex-col align-center" style="flex:1;min-width:140rpx;padding:24rpx 12rpx;background:var(--warning-light);border-radius:var(--radius-sm);">
-        <view style="width:48rpx;height:48rpx;background:var(--warning);border-radius:12rpx;display:flex;align-items:center;justify-content:center;">
-          <text style="font-size:24rpx;color:#FFFFFF;font-weight:700;">¥</text>
-        </view>
-        <text style="font-size:22rpx;color:#B45309;margin-top:10rpx;font-weight:600;">账单</text>
-      </view>
-      <navigator url="/pages/utility/index" class="flex-col align-center" style="flex:1;min-width:140rpx;padding:24rpx 12rpx;background:var(--gray-100);border-radius:var(--radius-sm);">
-        <view style="width:48rpx;height:48rpx;background:var(--gray-600);border-radius:12rpx;display:flex;align-items:center;justify-content:center;">
-          <text style="font-size:24rpx;color:#FFFFFF;font-weight:700;">W</text>
-        </view>
-        <text style="font-size:22rpx;color:var(--gray-600);margin-top:10rpx;font-weight:600;">水电</text>
-      </navigator>
     </view>
-    <view class="flex-row" style="gap:16rpx;margin-top:16rpx;">
-      <navigator url="/pages/import/index" class="flex-col align-center" style="flex:1;padding:24rpx 12rpx;background:#FDF4FF;border-radius:var(--radius-sm);">
-        <view style="width:48rpx;height:48rpx;background:#9333EA;border-radius:12rpx;display:flex;align-items:center;justify-content:center;">
-          <text style="font-size:24rpx;color:#FFFFFF;font-weight:700;">导</text>
-        </view>
-        <text style="font-size:22rpx;color:#7C3AED;margin-top:10rpx;font-weight:600;">智能导入</text>
-      </navigator>
-      <navigator url="/pages/batch-meter/index" class="flex-col align-center" style="flex:1;padding:24rpx 12rpx;background:#FFF7ED;border-radius:var(--radius-sm);">
-        <view style="width:48rpx;height:48rpx;background:#EA580C;border-radius:12rpx;display:flex;align-items:center;justify-content:center;">
-          <text style="font-size:24rpx;color:#FFFFFF;font-weight:700;">表</text>
-        </view>
-        <text style="font-size:22rpx;color:#C2410C;margin-top:10rpx;font-weight:600;">批量抄表</text>
-      </navigator>
-      <navigator url="/pages/create-lease/index" class="flex-col align-center" style="flex:1;padding:24rpx 12rpx;background:#EFF6FF;border-radius:var(--radius-sm);">
-        <view style="width:48rpx;height:48rpx;background:#2563EB;border-radius:12rpx;display:flex;align-items:center;justify-content:center;">
-          <text style="font-size:24rpx;color:#FFFFFF;font-weight:700;">合</text>
-        </view>
-        <text style="font-size:22rpx;color:#1D4ED8;margin-top:10rpx;font-weight:600;">新合同</text>
-      </navigator>
-    </view>
-  </view>
 
-  <!-- 最近活动 -->
-  <view class="card" style="border-left-color:var(--gray-300);">
-    <view class="card-header">
-      <text class="card-title">最近活动</text>
+    <view wx:if="{{loading}}" class="loading">
+      <text class="loading-text">加载中...</text>
     </view>
-    <view wx:if="{{recentActivities.length === 0}}" class="empty-state" style="padding:40rpx 0;">
-      <text class="stat-label">暂无活动</text>
-    </view>
-    <view wx:if="{{recentActivities.length > 0}}">
-      <view wx:for="{{recentActivities}}" wx:key="id" class="flex-row align-center" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
-        <view style="width:8rpx;height:8rpx;border-radius:50%;background:var(--gray-300);margin-right:16rpx;flex-shrink:0;"></view>
-        <view class="flex-col flex-1">
-          <text style="font-size:26rpx;font-weight:600;color:var(--gray-800);">{{item.title}}</text>
-          <text style="font-size:22rpx;color:var(--gray-400);margin-top:4rpx;">{{item.time}}</text>
-        </view>
-        <view wx:if="{{item.status}}" class="badge {{item.status === 'success' ? 'badge-success' : 'badge-warning'}}">
-          {{item.status === 'success' ? '完成' : '待处理'}}
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 加载状态 -->
-  <view wx:if="{{loading}}" class="loading">
-    <text class="loading-text">加载中...</text>
   </view>
 </view>

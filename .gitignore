@@ -29,14 +29,19 @@ dist-ssr
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
 
 # CloudBase
 .cloudbase
 cloudbase-state.json
 
+# WeChat DevTools local config
+project.private.config.json
+
 # AI Editor config files
 .agent/
 .agents/
+.rules/
 .augment-guidelines
 .claude/
 .clinerules/
@@ -49,7 +54,8 @@ cloudbase-state.json
 .iflow/
 .kiro/
 .lingma/
-.mcp.json
+/mcp.json
+/.mcp.json
 .opencode.json
 .qoder/
 .qwen/
@@ -61,12 +67,22 @@ CLAUDE.md
 CODEBUDDY.md
 IFLOW.md
 codebuddy-plugin/
-rules/
+/rules/
 skills-lock.json
+/skills/
 
 # Misc
 build-error.txt
 test-results/
 results/
+cli-agent-run/
+screenshots/
+ui-reference/
+miniprogram_backup_v1/
+minitest/
 *.backup
-.env.example 
+tmp-*.json
+*.stackdump
+/*.png
+summary-*.md
+test-report-*.md

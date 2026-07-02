@@ -1,98 +1,117 @@
-<view class="page-container">
-  <!-- 头部 -->
-  <view class="flex-row justify-between align-center" style="margin-bottom:20rpx;">
-    <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">账单管理</text>
-    <view class="flex-row" style="gap:12rpx;">
-      <button class="btn btn-small" style="background:var(--gray-100);color:var(--gray-600);border:none;" bindtap="exportCSV">导出</button>
-    </view>
+<view class="home-page payments-page">
+  <view class="home-hero">
+    <text class="home-hero-title">缴费记录</text>
+    <text class="home-hero-subtitle">应收账单、实收流水和押金状态</text>
+    <button class="home-hero-action" bindtap="exportCSV">导出</button>
   </view>
 
-  <!-- 筛选器 -->
-  <view class="filter-bar">
-    <picker mode="selector" range="{{houseOptions}}" bindchange="onHouseFilterChange" style="flex-shrink:0;">
-      <view class="filter-btn {{houseFilterId ? 'active' : ''}}">{{houseFilterLabel}}</view>
-    </picker>
-    <view class="filter-btn {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
-    <view class="filter-btn {{filters.status === 'unpaid' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="unpaid">待缴</view>
-    <view class="filter-btn {{filters.status === 'partial' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="partial">部分缴</view>
-    <view class="filter-btn {{filters.status === 'paid' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="paid">已缴</view>
-    <view class="filter-btn {{filters.type === 'rent' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="rent">租金</view>
-    <view class="filter-btn {{filters.type === 'utility' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="utility">水电</view>
-  </view>
+  <view class="home-shell glass-panel">
+    <view class="payment-filter-block">
+      <picker mode="selector" range="{{houseOptions}}" bindchange="onHouseFilterChange">
+        <view class="house-picker soft-chip {{houseFilterId ? 'active' : ''}}">{{houseFilterLabel}}</view>
+      </picker>
+      <view class="filter-chip-group wrap-chips">
+        <view class="soft-chip {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
+        <view class="soft-chip {{filters.status === 'unpaid' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="unpaid">待缴</view>
+        <view class="soft-chip {{filters.status === 'paid' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="paid">已缴</view>
+        <view class="soft-chip {{filters.type === 'rent' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="rent">租金</view>
+        <view class="soft-chip {{filters.type === 'utility' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="utility">水电</view>
+      </view>
+    </view>
 
-  <!-- 统计卡片 -->
-  <view class="stats-grid" style="margin-bottom:16rpx;">
-    <view class="stat-card">
-      <view class="stat-label">待收总额</view>
-      <view class="stat-value" style="color:var(--danger);">¥{{stats.totalUnpaid}}</view>
+    <view class="payment-stats">
+      <view class="payment-stat stat-danger">
+        <text class="stat-label-text">待收总额</text>
+        <text class="stat-number">¥{{stats.totalUnpaid}}</text>
+      </view>
+      <view class="payment-stat stat-success">
+        <text class="stat-label-text">实收合计</text>
+        <text class="stat-number">¥{{stats.totalPaid}}</text>
+      </view>
+      <view class="payment-stat stat-blue">
+        <text class="stat-label-text">租金实收</text>
+        <text class="stat-number">¥{{stats.rentPaid}}</text>
+      </view>
+      <view class="payment-stat stat-orange">
+        <text class="stat-label-text">水电费实收</text>
+        <text class="stat-number">¥{{stats.utilityPaid}}</text>
+      </view>
+      <view class="payment-stat stat-orange">
+        <text class="stat-label-text">损失费实收</text>
+        <text class="stat-number">¥{{stats.lossPaid}}</text>
+      </view>
+      <view class="payment-stat stat-violet">
+        <text class="stat-label-text">在管押金</text>
+        <text class="stat-number">¥{{stats.managedDeposit}}</text>
+      </view>
     </view>
-    <view class="stat-card">
-      <view class="stat-label">已收总额</view>
-      <view class="stat-value" style="color:var(--success);">¥{{stats.totalPaid}}</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-label">待收租金</view>
-      <view class="stat-value blue">¥{{stats.rentUnpaid}}</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-label">待收水电</view>
-      <view class="stat-value yellow">¥{{stats.utilityUnpay}}</view>
-    </view>
-  </view>
 
-  <!-- 列表 -->
-  <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
-  <view wx:elif="{{bills.length === 0}}" class="empty-state"><text class="empty-text">暂无账单</text></view>
-  <view wx:else style="display:flex;flex-direction:column;gap:16rpx;">
-    <view wx:for="{{bills}}" wx:key="_id" class="list-item" style="border-left-color:{{item.status === 'paid' ? 'var(--success)' : item.status === 'partial' ? 'var(--warning)' : 'var(--danger)'}};">
-      <!-- 第一行：类型 + 期间 | 金额 -->
-      <view class="flex-row justify-between align-center" style="margin-bottom:10rpx;">
-        <view class="flex-row align-center" style="gap:8rpx;">
-          <text style="font-size:28rpx;font-weight:700;color:var(--gray-900);">{{item.typeText}}</text>
-          <text wx:if="{{item.period}}" style="font-size:22rpx;color:var(--gray-400);background:var(--gray-100);padding:2rpx 10rpx;border-radius:6rpx;">{{item.period}}</text>
-        </view>
-        <view class="flex-row align-center" style="gap:8rpx;">
-          <text style="font-size:28rpx;font-weight:700;color:var(--gray-900);">¥{{item.amount}}</text>
-          <view class="badge {{item.status === 'paid' ? 'badge-success' : item.status === 'partial' ? 'badge-warning' : 'badge-danger'}}">
-            {{item.statusText}}
+    <view class="section-head compact-head">
+      <text class="section-title">账单明细</text>
+      <text class="section-note">{{bills.length}} 条</text>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading">
+      <text class="loading-text">加载中...</text>
+    </view>
+    <view wx:elif="{{bills.length === 0}}" class="empty-state">
+      <text class="empty-text">暂无账单</text>
+    </view>
+    <view wx:else class="payment-list">
+      <view
+        wx:for="{{bills}}"
+        wx:key="_id"
+        class="payment-card tap-card {{item.status === 'paid' ? 'paid-card' : 'unpaid-card'}}"
+        bindtap="showDetail"
+        data-bill="{{item}}"
+      >
+        <view class="payment-row-main">
+          <view class="payment-title-block">
+            <view class="payment-title-row">
+              <text class="payment-type">{{item.typeText}}</text>
+              <text class="status-pill {{item.status === 'paid' ? 'status-green' : item.status === 'partial' ? 'status-orange' : 'status-red'}}">{{item.statusText}}</text>
+            </view>
+            <text wx:if="{{item.period}}" class="payment-period">{{item.period}}</text>
           </view>
+          <text class="payment-amount">¥{{item.amount}}</text>
         </view>
-      </view>
-      <!-- 第二行：房屋 | 租客 | 到期日 -->
-      <view class="flex-row align-center" style="font-size:24rpx;color:var(--gray-500);margin-bottom:10rpx;gap:12rpx;">
-        <text style="font-weight:500;color:var(--gray-700);">{{item.houseLabel}}</text>
-        <text style="color:var(--gray-200);">|</text>
-        <text>{{item.tenantName}}</text>
-        <text wx:if="{{item.dueDateStr}}" style="color:var(--gray-200);">|</text>
-        <text wx:if="{{item.dueDateStr}}">到期 {{item.dueDateStr}}</text>
-      </view>
-      <!-- 第三行：已缴/待缴 + 操作 -->
-      <view class="flex-row justify-between align-center">
-        <text style="font-size:22rpx;color:var(--gray-400);">已缴 ¥{{item.paidAmount}} / 待缴 ¥{{item.remaining}}</text>
-        <button wx:if="{{item.status !== 'paid'}}" class="btn-small" style="background:var(--success);color:#fff;border:none;" catchtap="showPayModal" data-bill="{{item}}">缴费</button>
+
+        <view class="payment-meta">
+          <text>{{item.houseLabel || '未关联房屋'}}</text>
+          <text>{{item.tenantName || '未关联租客'}}</text>
+          <text wx:if="{{item.dueDateStr}}">到期 {{item.dueDateStr}}</text>
+        </view>
+
+        <view wx:if="{{item.utilityDetail}}" class="utility-note">
+          <text>{{item.utilityDetail}}</text>
+        </view>
+
+        <view class="payment-row-bottom">
+          <text class="payment-balance">已缴 ¥{{item.paidAmount}} / 待缴 ¥{{item.remaining}}</text>
+          <button wx:if="{{item.status !== 'paid'}}" class="primary-pill pay-pill" catchtap="showPayModal" data-bill="{{item}}">缴费</button>
+        </view>
       </view>
     </view>
   </view>
 
-  <!-- ====== 缴费弹窗 ====== -->
   <view wx:if="{{showPayModal}}" class="modal-mask" bindtap="closePay">
     <view class="modal-content" catchtap="stopPropagation">
       <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
         <text style="font-size:34rpx;font-weight:600;">缴费</text>
-        <text bindtap="closePay" style="font-size:40rpx;color:var(--gray-400);">✕</text>
+        <text bindtap="closePay" style="font-size:40rpx;color:var(--gray-400);">×</text>
       </view>
 
       <view wx:if="{{payBillInfo}}" style="background:var(--gray-50);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
         <view class="flex-row justify-between" style="margin-bottom:8rpx;">
-          <text style="color:var(--gray-400);">类型</text>
+          <text style="color:var(--gray-500);">类型</text>
           <text style="font-weight:500;">{{payBillInfo.typeText}}</text>
         </view>
         <view class="flex-row justify-between" style="margin-bottom:8rpx;">
-          <text style="color:var(--gray-400);">应收</text>
+          <text style="color:var(--gray-500);">应收</text>
           <text style="font-weight:500;">¥{{payBillInfo.amount}}</text>
         </view>
         <view class="flex-row justify-between">
-          <text style="color:var(--gray-400);">待缴</text>
+          <text style="color:var(--gray-500);">待缴</text>
           <text style="font-weight:700;color:var(--danger);">¥{{payBillInfo.remaining}}</text>
         </view>
       </view>
@@ -123,36 +142,39 @@
     </view>
   </view>
 
-  <!-- ====== 详情弹窗 ====== -->
   <view wx:if="{{showDetailModal && detailBill}}" class="modal-mask" bindtap="closeDetail">
     <view class="modal-content" catchtap="stopPropagation">
       <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
         <text style="font-size:34rpx;font-weight:600;">账单详情</text>
-        <text bindtap="closeDetail" style="font-size:40rpx;color:var(--gray-400);">✕</text>
+        <text bindtap="closeDetail" style="font-size:40rpx;color:var(--gray-400);">×</text>
       </view>
       <view style="font-size:26rpx;">
         <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
-          <text style="color:var(--gray-400);">类型</text>
+          <text style="color:var(--gray-500);">类型</text>
           <text>{{detailBill.typeText}}</text>
         </view>
         <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
-          <text style="color:var(--gray-400);">期间</text>
-          <text>{{detailBill.period || '—'}}</text>
+          <text style="color:var(--gray-500);">期间</text>
+          <text>{{detailBill.period || '-'}}</text>
+        </view>
+        <view wx:if="{{detailBill.utilityDetail}}" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
+          <view style="color:var(--gray-500);margin-bottom:8rpx;">水电明细</view>
+          <text>{{detailBill.utilityDetail}}</text>
         </view>
         <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
-          <text style="color:var(--gray-400);">应收</text>
+          <text style="color:var(--gray-500);">应收</text>
           <text style="font-weight:700;">¥{{detailBill.amount}}</text>
         </view>
         <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
-          <text style="color:var(--gray-400);">已收</text>
+          <text style="color:var(--gray-500);">已收</text>
           <text>¥{{detailBill.paidAmount}}</text>
         </view>
         <view class="flex-row justify-between" style="padding:16rpx 0;border-bottom:2rpx solid var(--gray-100);">
-          <text style="color:var(--gray-400);">到期日</text>
-          <text>{{detailBill.dueDateStr || '—'}}</text>
+          <text style="color:var(--gray-500);">到期日</text>
+          <text>{{detailBill.dueDateStr || '-'}}</text>
         </view>
         <view class="flex-row justify-between" style="padding:16rpx 0;">
-          <text style="color:var(--gray-400);">房屋</text>
+          <text style="color:var(--gray-500);">房屋</text>
           <text>{{detailBill.houseLabel}}</text>
         </view>
       </view>

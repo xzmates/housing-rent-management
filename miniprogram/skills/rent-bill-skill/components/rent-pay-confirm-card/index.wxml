@@ -1,0 +1,56 @@
+<view class="confirm-card">
+  <view class="confirm-head">
+    <text class="confirm-title">收租确认</text>
+    <text class="confirm-sub">{{statusText}}</text>
+  </view>
+
+  <view class="confirm-amount">
+    <text class="amount-label">本次收款</text>
+    <text class="amount-value">¥{{amount}}</text>
+  </view>
+
+  <view class="confirm-lines">
+    <view class="confirm-line">
+      <text class="line-label">房屋</text>
+      <text class="line-value">{{houseLabel}}</text>
+    </view>
+    <view class="confirm-line">
+      <text class="line-label">租客</text>
+      <text class="line-value">{{tenantName}}</text>
+    </view>
+    <view class="confirm-line">
+      <text class="line-label">账期</text>
+      <text class="line-value">{{period || '本期租金'}}</text>
+    </view>
+    <view class="confirm-line">
+      <text class="line-label">到期</text>
+      <text class="line-value">{{dueDate}}</text>
+    </view>
+    <view class="confirm-line">
+      <text class="line-label">方式</text>
+      <text class="line-value">{{paymentMethodText}} · {{paymentDate}}</text>
+    </view>
+  </view>
+
+  <view class="confirm-summary">
+    <text>应收 ¥{{billAmount}}</text>
+    <text>已收 ¥{{paidAmount}}</text>
+    <text>待收 ¥{{remaining}}</text>
+  </view>
+
+  <view class="confirm-actions">
+    <view class="secondary-btn" hover-class="secondary-btn-hover" bindtap="onTapBack">
+      <text>返回待收</text>
+    </view>
+    <view
+      class="primary-btn"
+      hover-class="primary-btn-hover"
+      bindtap="onTapConfirm"
+      data-bill-id="{{billId}}"
+      data-payment-method="{{paymentMethod}}"
+      data-confirm-token="{{confirmToken}}"
+    >
+      <text>确认收款</text>
+    </view>
+  </view>
+</view>

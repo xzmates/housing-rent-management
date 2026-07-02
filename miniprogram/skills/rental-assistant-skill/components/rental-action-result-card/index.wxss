@@ -1,0 +1,383 @@
+/* ratio=4:3
+ * 色源：app.json #EEF7FF/#1677FF，成功色 #18A66A，金额警示 #EF5350。
+ * 暗黑：浅蓝底降明度为 #111927，描边 #2F3A4D。
+ */
+.result-card {
+  display: flex;
+  flex-direction: column;
+  padding: 3.2vw;
+  background-color: #F8FBFF;
+  border-width: 1rpx;
+  border-style: solid;
+  border-color: #D7E6FA;
+  border-radius: 1.07vw;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.result-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 3.2vw;
+}
+
+.result-mark,
+.row-mark {
+  flex-shrink: 0;
+  border-radius: 1.07vw;
+  background-color: #E9F8F1;
+  color: #18A66A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.result-mark {
+  width: 11.73vw;
+  height: 11.73vw;
+  font-size: 4vw;
+  margin-right: 2.13vw;
+}
+
+.result-title-block {
+  min-width: 0;
+  flex: 1;
+}
+
+.result-title {
+  display: block;
+  font-size: 4.53vw;
+  line-height: 1.25;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+}
+
+.result-sub {
+  display: block;
+  margin-top: 1.07vw;
+  font-size: 3.2vw;
+  line-height: 1.25;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.result-summary {
+  padding: 2.13vw;
+  margin-bottom: 2.13vw;
+  background-color: #EEF7FF;
+  border-radius: 1.07vw;
+  font-size: 3.73vw;
+  line-height: 1.35;
+  color: rgba(17, 24, 39, 0.78);
+}
+
+.field-list,
+.result-list {
+  flex: 1;
+  overflow: hidden;
+}
+
+.field-row,
+.result-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 1.6vw 0;
+  border-bottom-width: 1rpx;
+  border-bottom-style: solid;
+  border-bottom-color: rgba(148, 163, 184, 0.22);
+}
+
+.field-label {
+  flex-shrink: 0;
+  width: 17.07vw;
+  font-size: 3.2vw;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.field-value {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 3.73vw;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.field-label.wide {
+  width: 24vw;
+}
+
+.moveout-panel {
+  flex: 1;
+  overflow: hidden;
+}
+
+.moveout-notice,
+.moveout-ok,
+.moveout-warning,
+.settlement-box,
+.rent-refund-box,
+.final-box {
+  border-radius: 1.6vw;
+  padding: 2.67vw;
+  margin-bottom: 2.13vw;
+}
+
+.moveout-notice {
+  background-color: #FFFBEB;
+  color: #92400E;
+  font-size: 3.73vw;
+  line-height: 1.35;
+}
+
+.notice-strong {
+  font-weight: 600;
+}
+
+.moveout-fields {
+  margin-bottom: 2.13vw;
+}
+
+.moveout-ok {
+  background-color: #ECFDF5;
+  color: #047857;
+  font-size: 3.73vw;
+  line-height: 1.35;
+}
+
+.moveout-warning {
+  background-color: #FEF2F2;
+  color: #991B1B;
+  font-size: 3.73vw;
+  line-height: 1.35;
+}
+
+.settlement-box {
+  background-color: #F8FAFC;
+}
+
+.compact-box {
+  margin-bottom: 1.6vw;
+}
+
+.rent-refund-box {
+  background-color: #F0FDF4;
+}
+
+.final-box {
+  background-color: #EFF6FF;
+}
+
+.box-title {
+  display: block;
+  margin-bottom: 1.6vw;
+  font-size: 3.73vw;
+  line-height: 1.25;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+}
+
+.settlement-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.07vw 0;
+  font-size: 3.47vw;
+  line-height: 1.25;
+  color: rgba(17, 24, 39, 0.58);
+}
+
+.settlement-row.strong {
+  font-weight: 600;
+}
+
+.settlement-row.small {
+  font-size: 3.2vw;
+}
+
+.damage-box {
+  margin-top: 1.6vw;
+  padding: 1.6vw;
+  border-radius: 1.07vw;
+  background-color: #FEF2F2;
+}
+
+.green,
+.green-text,
+.settlement-row.green,
+.settlement-row.green text {
+  color: #047857;
+}
+
+.danger,
+.danger-text,
+.settlement-row.danger,
+.settlement-row.danger text {
+  color: #991B1B;
+}
+
+.refund-line,
+.refund-detail,
+.refund-total {
+  display: block;
+  font-size: 3.2vw;
+  line-height: 1.35;
+  color: rgba(17, 24, 39, 0.58);
+  margin-top: 1.07vw;
+}
+
+.refund-detail {
+  padding-left: 2.13vw;
+}
+
+.refund-total {
+  color: #047857;
+  font-weight: 600;
+}
+
+.final-row {
+  margin-top: 1.07vw;
+  padding-top: 1.6vw;
+  border-top-width: 1rpx;
+  border-top-style: solid;
+  border-top-color: #BFDBFE;
+  font-weight: 700;
+}
+
+.final-row text {
+  font-size: 4.27vw;
+  font-weight: 700;
+}
+
+.detail-btn {
+  height: 9.6vw;
+  line-height: 9.6vw;
+  margin-bottom: 1.6vw;
+  border-radius: 1.07vw;
+  background-color: #EFF6FF;
+  color: #1677FF;
+  font-size: 3.73vw;
+  font-weight: 600;
+  text-align: center;
+}
+
+.row-mark {
+  width: 8.53vw;
+  height: 8.53vw;
+  font-size: 3.2vw;
+  margin-right: 2.13vw;
+}
+
+.row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-title {
+  display: block;
+  font-size: 3.73vw;
+  line-height: 1.25;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.9);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.row-message {
+  display: block;
+  margin-top: 0.8vw;
+  font-size: 3.2vw;
+  line-height: 1.25;
+  color: rgba(17, 24, 39, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.result-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  margin-top: 2.13vw;
+}
+
+.secondary-btn,
+.primary-btn {
+  height: 10.67vw;
+  line-height: 10.67vw;
+  padding: 0 4.27vw;
+  border-radius: 1.07vw;
+  font-size: 4vw;
+  font-weight: 600;
+  text-align: center;
+}
+
+.secondary-btn {
+  background-color: #EEF2F7;
+  color: rgba(17, 24, 39, 0.55);
+}
+
+.primary-btn {
+  margin-left: 2.13vw;
+  background-color: #1677FF;
+  color: #FFFFFF;
+}
+
+.secondary-btn-hover,
+.primary-btn-hover {
+  opacity: 0.86;
+}
+
+@media (prefers-color-scheme: dark) {
+  .result-card {
+    background-color: #111927;
+    border-color: #2F3A4D;
+  }
+  .result-title,
+  .field-value,
+  .row-title {
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .result-sub,
+  .field-label,
+  .row-message {
+    color: rgba(255, 255, 255, 0.45);
+  }
+  .result-summary {
+    background-color: #172C4A;
+    color: rgba(255, 255, 255, 0.78);
+  }
+  .settlement-box {
+    background-color: #17202E;
+  }
+  .final-box {
+    background-color: #172C4A;
+  }
+  .box-title {
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .settlement-row,
+  .refund-line,
+  .refund-detail {
+    color: rgba(255, 255, 255, 0.58);
+  }
+  .field-row,
+  .result-row {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+  .result-mark,
+  .row-mark {
+    background-color: #153126;
+  }
+  .secondary-btn {
+    background-color: #202B3C;
+    color: rgba(255, 255, 255, 0.55);
+  }
+}

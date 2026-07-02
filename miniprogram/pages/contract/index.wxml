@@ -1,128 +1,172 @@
 <view class="page-container">
-  <!-- 返回按钮 -->
   <view style="margin-bottom:20rpx;">
-    <navigator open-type="navigateBack" style="font-size:26rpx;color:var(--primary);">‹ 返回</navigator>
+    <navigator open-type="navigateBack" style="font-size:26rpx;color:var(--primary);">返回</navigator>
   </view>
 
-  <!-- 加载 -->
-  <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载合同信息中...</text></view>
-
-  <!-- 未找到 -->
-  <view wx:elif="{{!contract}}" class="empty-state">
-    <text class="empty-text">未找到合同信息</text>
+  <view wx:if="{{loading}}" class="loading">
+    <text class="loading-text">加载合同数据中...</text>
   </view>
 
-  <!-- 合同内容 -->
-  <view wx:else class="card">
-    <!-- 合同标题 -->
-    <view class="text-center" style="margin-bottom:48rpx;">
-      <text style="font-size:40rpx;font-weight:700;color:var(--gray-900);display:block;margin-bottom:8rpx;">房屋租赁合同</text>
-      <text style="font-size:24rpx;color:var(--gray-400);display:block;">合同编号: {{contract.contractNo}}</text>
-      <text style="font-size:24rpx;color:var(--gray-400);display:block;">签订日期: {{contract.signDate}}</text>
-    </view>
+  <block wx:elif="{{mode === 'list'}}">
+    <view class="card">
+      <view class="card-header">
+        <text class="card-title">合同查询</text>
+      </view>
 
-    <!-- 双方信息 -->
-    <view style="margin-bottom:40rpx;">
-      <text style="font-size:30rpx;font-weight:600;display:block;margin-bottom:16rpx;border-bottom:4rpx solid var(--gray-300);padding-bottom:8rpx;">合同双方信息</text>
-      <view class="flex-row" style="gap:16rpx;">
-        <view style="flex:1;background:#EFF6FF;border-radius:12rpx;padding:20rpx;">
-          <text style="color:#1D4ED8;font-weight:600;display:block;margin-bottom:12rpx;">甲方（出租方）</text>
-          <text style="font-size:24rpx;display:block;margin-bottom:8rpx;">姓名：{{contract.landlord.name}}</text>
-          <text style="font-size:24rpx;display:block;">联系电话：{{contract.landlord.phone}}</text>
-        </view>
-        <view style="flex:1;background:#F0FDF4;border-radius:12rpx;padding:20rpx;">
-          <text style="color:#15803D;font-weight:600;display:block;margin-bottom:12rpx;">乙方（承租方）</text>
-          <text style="font-size:24rpx;display:block;margin-bottom:8rpx;">姓名：{{contract.tenant.name}}</text>
-          <text style="font-size:24rpx;display:block;margin-bottom:8rpx;">身份证号：{{contract.tenant.idCard}}</text>
-          <text style="font-size:24rpx;display:block;">联系电话：{{contract.tenant.phone}}</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 房屋信息 -->
-    <view style="margin-bottom:40rpx;">
-      <text style="font-size:30rpx;font-weight:600;display:block;margin-bottom:16rpx;border-bottom:4rpx solid var(--gray-300);padding-bottom:8rpx;">租赁房屋信息</text>
-      <view style="border:2rpx solid var(--gray-200);border-radius:8rpx;overflow:hidden;">
-        <view class="flex-row" style="border-bottom:2rpx solid var(--gray-100);">
-          <text style="width:160rpx;padding:16rpx;background:var(--gray-50);font-size:24rpx;font-weight:500;">房屋编号</text>
-          <text style="flex:1;padding:16rpx;font-size:24rpx;">{{contract.houseCode}}</text>
-        </view>
-        <view class="flex-row" style="border-bottom:2rpx solid var(--gray-100);">
-          <text style="width:160rpx;padding:16rpx;background:var(--gray-50);font-size:24rpx;font-weight:500;">房屋地址</text>
-          <text style="flex:1;padding:16rpx;font-size:24rpx;">{{contract.houseAddress}}</text>
-        </view>
-        <view class="flex-row">
-          <text style="width:160rpx;padding:16rpx;background:var(--gray-50);font-size:24rpx;font-weight:500;">入住日期</text>
-          <text style="flex:1;padding:16rpx;font-size:24rpx;">{{contract.moveInDate}}</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 租金及支付方式 -->
-    <view style="margin-bottom:40rpx;">
-      <text style="font-size:30rpx;font-weight:600;display:block;margin-bottom:16rpx;border-bottom:4rpx solid var(--gray-300);padding-bottom:8rpx;">租金及支付方式</text>
-      <view style="border:2rpx solid var(--gray-200);border-radius:8rpx;overflow:hidden;">
-        <view class="flex-row" style="border-bottom:2rpx solid var(--gray-100);">
-          <text style="width:160rpx;padding:16rpx;background:var(--gray-50);font-size:24rpx;font-weight:500;">月租金</text>
-          <text style="flex:1;padding:16rpx;font-size:24rpx;font-weight:700;">¥{{contract.monthlyRent}} 元/月</text>
-        </view>
-        <view class="flex-row" style="border-bottom:2rpx solid var(--gray-100);">
-          <text style="width:160rpx;padding:16rpx;background:var(--gray-50);font-size:24rpx;font-weight:500;">支付方式</text>
-          <text style="flex:1;padding:16rpx;font-size:24rpx;">
-            <text class="badge badge-info">{{contract.paymentCycleLabel}}</text>
-            <text style="font-size:22rpx;color:var(--gray-400);">（每次支付 {{contract.paymentMonths}} 个月租金）</text>
-          </text>
-        </view>
-        <view class="flex-row" style="border-bottom:2rpx solid var(--gray-100);">
-          <text style="width:160rpx;padding:16rpx;background:var(--gray-50);font-size:24rpx;font-weight:500;">押金</text>
-          <text style="flex:1;padding:16rpx;font-size:24rpx;font-weight:700;">¥{{contract.deposit}} 元</text>
-        </view>
-        <view class="flex-row">
-          <text style="width:160rpx;padding:16rpx;background:var(--gray-50);font-size:24rpx;font-weight:500;">首次应缴合计</text>
-          <text style="flex:1;padding:16rpx;font-size:28rpx;font-weight:700;color:var(--danger);">
-            ¥{{contract.firstPaymentTotal}} 元
-          </text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 合同条款 -->
-    <view style="margin-bottom:40rpx;">
-      <text style="font-size:30rpx;font-weight:600;display:block;margin-bottom:16rpx;border-bottom:4rpx solid var(--gray-300);padding-bottom:8rpx;">合同条款</text>
-      <view style="background:var(--gray-50);border-radius:8rpx;padding:16rpx;margin-bottom:12rpx;">
-        <text style="font-weight:500;display:block;margin-bottom:4rpx;">第一条 租赁期限</text>
-        <text style="font-size:24rpx;color:var(--gray-500);">本合同为定期租赁合同，租赁期限自 {{contract.moveInDate}} 起算。双方如需提前终止合同，应提前30天书面通知对方。</text>
-      </view>
-      <view style="background:var(--gray-50);border-radius:8rpx;padding:16rpx;margin-bottom:12rpx;">
-        <text style="font-weight:500;display:block;margin-bottom:4rpx;">第二条 租金及支付</text>
-        <text style="font-size:24rpx;color:var(--gray-500);">乙方应按照{{contract.paymentCycleLabel}}方式支付租金，每次支付 ¥{{contract.paymentAmount}} 元。租金应于每期开始前5日内支付。如逾期支付，每逾期一日应按应付租金的5‰支付违约金。</text>
-      </view>
-      <view style="background:var(--gray-50);border-radius:8rpx;padding:16rpx;margin-bottom:12rpx;">
-        <text style="font-weight:500;display:block;margin-bottom:4rpx;">第三条 押金</text>
-        <text style="font-size:24rpx;color:var(--gray-500);">乙方于签订本合同时向甲方支付押金 ¥{{contract.deposit}} 元。合同期满，乙方无违约行为且房屋及设施无人为损坏的，甲方应在乙方退租后7日内无息退还押金。</text>
-      </view>
-      <view style="background:var(--gray-50);border-radius:8rpx;padding:16rpx;margin-bottom:12rpx;">
-        <text style="font-weight:500;display:block;margin-bottom:4rpx;">第四条 房屋使用</text>
-        <text style="font-size:24rpx;color:var(--gray-500);">乙方应合理使用并爱护房屋及附属设施，不得擅自改变房屋结构或用途。因乙方使用不当造成房屋或设施损坏的，乙方应负责维修或赔偿。</text>
-      </view>
-      <view style="background:var(--gray-50);border-radius:8rpx;padding:16rpx;">
-        <text style="font-weight:500;display:block;margin-bottom:4rpx;">第五条 水电费用</text>
-        <text style="font-size:24rpx;color:var(--gray-500);">租赁期间的水费、电费由乙方承担，按实际用量及当地收费标准计算缴纳。</text>
-      </view>
-    </view>
-
-    <!-- 签字区 -->
-    <view style="border-top:4rpx solid var(--gray-300);padding-top:40rpx;">
-      <view class="flex-row text-center" style="gap:48rpx;">
+      <view class="flex-row" style="gap:16rpx;margin-bottom:20rpx;">
         <view style="flex:1;">
-          <text style="font-weight:600;display:block;margin-bottom:40rpx;">甲方（出租方）签字：</text>
-          <text style="font-size:24rpx;color:var(--gray-400);">日期：{{contract.signDate}}</text>
+          <text class="form-label">年份范围</text>
+          <picker mode="selector" range="{{periodOptions}}" value="{{periodIndex}}" bindchange="onPeriodChange">
+            <view class="form-input">{{periodOptions[periodIndex]}}</view>
+          </picker>
         </view>
         <view style="flex:1;">
-          <text style="font-weight:600;display:block;margin-bottom:40rpx;">乙方（承租方）签字：</text>
-          <text style="font-size:24rpx;color:var(--gray-400);">日期：{{contract.signDate}}</text>
+          <text class="form-label">合同状态</text>
+          <picker mode="selector" range="{{statusOptions}}" value="{{statusIndex}}" bindchange="onStatusChange">
+            <view class="form-input">{{statusOptions[statusIndex]}}</view>
+          </picker>
         </view>
       </view>
+
+      <view wx:if="{{periodIndex === 3}}" class="form-group">
+        <text class="form-label">指定年份</text>
+        <input class="form-input" type="number" placeholder="例如 2025" value="{{yearInput}}" bindinput="onYearInput" />
+      </view>
+
+      <view class="stats-grid">
+        <view class="stat-card" style="background:#EFF6FF;border:2rpx solid #BFDBFE;">
+          <view class="stat-label">合同数</view>
+          <view class="stat-value blue">{{stats.count}}</view>
+        </view>
+        <view class="stat-card" style="background:#F0FDF4;border:2rpx solid #BBF7D0;">
+          <view class="stat-label">实收合计</view>
+          <view class="stat-value green">￥{{stats.paymentIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#FFF7ED;border:2rpx solid #FED7AA;">
+          <view class="stat-label">租金实收</view>
+          <view class="stat-value orange">￥{{stats.rentIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#ECFDF5;border:2rpx solid #A7F3D0;">
+          <view class="stat-label">水电费实收</view>
+          <view class="stat-value green">￥{{stats.utilityIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#FFF7ED;border:2rpx solid #FDBA74;">
+          <view class="stat-label">损失费实收</view>
+          <view class="stat-value orange">￥{{stats.lossIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#FEF2F2;border:2rpx solid #FECACA;">
+          <view class="stat-label">账单欠款</view>
+          <view class="stat-value red">￥{{stats.billOutstanding}}</view>
+        </view>
+      </view>
+
+      <text style="font-size:22rpx;color:var(--gray-400);display:block;margin-top:16rpx;">
+        实收合计=租金实收+水电费实收+损失费实收；押金收退单独作为在管押金/退款流水查看。
+      </text>
     </view>
-  </view>
+
+    <view wx:if="{{filteredLeases.length === 0}}" class="empty-state">
+      <text class="empty-text">暂无符合条件的合同</text>
+    </view>
+
+    <view wx:for="{{filteredLeases}}" wx:key="_id" class="list-item" bindtap="viewContract" data-id="{{item._id}}" style="border-left-color:{{item.status === 'active' ? 'var(--success)' : 'var(--gray-300)'}};">
+      <view class="flex-row justify-between align-start">
+        <view style="flex:1;min-width:0;">
+          <view class="flex-row align-center" style="gap:12rpx;margin-bottom:8rpx;">
+            <text style="font-size:30rpx;font-weight:600;color:var(--gray-900);">{{item.houseCode || '未命名房屋'}}</text>
+            <text class="badge {{item.status === 'active' ? 'badge-success' : 'badge-info'}}">{{item.statusText}}</text>
+          </view>
+          <text style="font-size:24rpx;color:var(--gray-500);display:block;">{{item.tenantName || '未知租客'}} · {{item.houseAddress}}</text>
+          <text style="font-size:22rpx;color:var(--gray-400);display:block;margin-top:6rpx;">{{item.startDateText}} 至 {{item.endDateText}} · {{item.paymentCycleText}}</text>
+        </view>
+        <view style="text-align:right;">
+          <text style="font-size:28rpx;font-weight:700;color:var(--success);display:block;">￥{{item.paymentIncome}}</text>
+          <text style="font-size:22rpx;color:var(--gray-400);">实收</text>
+        </view>
+      </view>
+
+      <view class="flex-row" style="gap:12rpx;margin-top:16rpx;flex-wrap:wrap;">
+        <text class="badge badge-info">租金 ￥{{item.rentIncome}}</text>
+        <text class="badge badge-info">水电 ￥{{item.utilityIncome}}</text>
+        <text wx:if="{{item.lossIncome > 0}}" class="badge badge-info">损失费 ￥{{item.lossIncome}}</text>
+        <text wx:if="{{item.refundAmount > 0}}" class="badge badge-danger">退款 ￥{{item.refundAmount}}</text>
+        <text class="badge badge-info">账单 {{item.billCount}} 条</text>
+        <text wx:if="{{item.billOutstanding > 0}}" class="badge badge-danger">欠 ￥{{item.billOutstanding}}</text>
+      </view>
+      <view class="contract-actions">
+        <button class="delete-button" size="mini" catchtap="deleteContract" data-id="{{item._id}}" loading="{{deleting}}">删除合同</button>
+      </view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view wx:if="{{!contract}}" class="empty-state">
+      <text class="empty-text">未找到合同信息</text>
+    </view>
+
+    <view wx:else class="card">
+      <view class="text-center" style="margin-bottom:32rpx;">
+        <text style="font-size:38rpx;font-weight:700;color:var(--gray-900);display:block;margin-bottom:8rpx;">房屋租赁合同</text>
+        <text style="font-size:24rpx;color:var(--gray-400);display:block;">合同编号: {{contract.contractNo}}</text>
+        <text class="badge badge-info" style="margin-top:12rpx;">{{contract.statusText}}</text>
+      </view>
+
+      <view class="stats-grid" style="margin-bottom:28rpx;">
+        <view class="stat-card" style="background:#F0FDF4;border:2rpx solid #BBF7D0;">
+          <view class="stat-label">实收合计</view>
+          <view class="stat-value green">￥{{contract.paymentIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#EFF6FF;border:2rpx solid #BFDBFE;">
+          <view class="stat-label">租金实收</view>
+          <view class="stat-value blue">￥{{contract.rentIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#ECFDF5;border:2rpx solid #A7F3D0;">
+          <view class="stat-label">水电费实收</view>
+          <view class="stat-value green">￥{{contract.utilityIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#FFF7ED;border:2rpx solid #FDBA74;">
+          <view class="stat-label">损失费实收</view>
+          <view class="stat-value orange">￥{{contract.lossIncome}}</view>
+        </view>
+        <view class="stat-card" style="background:#FFF7ED;border:2rpx solid #FED7AA;">
+          <view class="stat-label">账单数</view>
+          <view class="stat-value orange">{{contract.billCount}}</view>
+        </view>
+        <view class="stat-card" style="background:#FEF2F2;border:2rpx solid #FECACA;">
+          <view class="stat-label">退款流水</view>
+          <view class="stat-value red">￥{{contract.refundAmount}}</view>
+        </view>
+      </view>
+
+      <view style="margin-bottom:32rpx;">
+        <text class="section-title">合同双方</text>
+        <view style="background:#F8FAFC;border-radius:8rpx;padding:18rpx;">
+          <text style="font-size:26rpx;display:block;margin-bottom:8rpx;">租客：{{contract.tenant.name}}</text>
+          <text style="font-size:24rpx;color:var(--gray-500);display:block;margin-bottom:8rpx;">电话：{{contract.tenant.phone}}</text>
+          <text style="font-size:24rpx;color:var(--gray-500);display:block;">身份证：{{contract.tenant.idCard}}</text>
+        </view>
+      </view>
+
+      <view style="margin-bottom:32rpx;">
+        <text class="section-title">房屋与租期</text>
+        <view style="background:#F8FAFC;border-radius:8rpx;padding:18rpx;">
+          <text style="font-size:26rpx;display:block;margin-bottom:8rpx;">{{contract.houseCode}} · {{contract.houseAddress}}</text>
+          <text style="font-size:24rpx;color:var(--gray-500);display:block;">{{contract.moveInDate}} 至 {{contract.endDate}}</text>
+        </view>
+      </view>
+
+      <view>
+        <text class="section-title">租金条款</text>
+        <view style="background:#F8FAFC;border-radius:8rpx;padding:18rpx;">
+          <text style="font-size:24rpx;display:block;margin-bottom:8rpx;">月租金：￥{{contract.monthlyRent}}</text>
+          <text style="font-size:24rpx;display:block;margin-bottom:8rpx;">付款方式：{{contract.paymentCycleLabel}}，每次 ￥{{contract.paymentAmount}}</text>
+          <text style="font-size:24rpx;display:block;">押金：￥{{contract.deposit}}</text>
+        </view>
+      </view>
+
+      <view class="contract-actions detail-actions">
+        <button class="delete-button" catchtap="deleteContract" data-id="{{contract.id}}" loading="{{deleting}}">删除合同</button>
+      </view>
+    </view>
+  </block>
 </view>
