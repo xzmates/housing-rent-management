@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx skills *)",
+      "Bash(tcb access *)",
+      "mcp__cloudbase__readNoSqlDatabaseContent",
+      "mcp__cloudbase__writeNoSqlDatabaseContent",
+      "mcp__cloudbase__manageFunctions"
+    ]
+  },
+  "enableAllProjectMcpServers": true
+}

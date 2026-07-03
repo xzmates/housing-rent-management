@@ -40,13 +40,13 @@ project.private.config.json
 
 # AI Editor config files
 .agent/
-.agents/
-.rules/
+.agents/*
+.rules/*
 .augment-guidelines
-.claude/
+.claude/*
 .clinerules/
 .codebuddy/
-.codex/
+.codex/*
 .comate/
 .cursor/
 .gemini/
@@ -67,7 +67,6 @@ CLAUDE.md
 CODEBUDDY.md
 IFLOW.md
 codebuddy-plugin/
-/rules/
 skills-lock.json
 /skills/
 
@@ -90,8 +89,9 @@ test-report-*.md
 # 以下豁免供多机协作
 !AGENTS.md
 !CLAUDE.md
-!.rules/
 !.agents/
+!.agents/**
 !.mcp.json
 !.codex/
+!.codex/**
 !.claude/settings.local.json
