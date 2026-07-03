@@ -86,3 +86,12 @@ tmp-*.json
 /*.png
 summary-*.md
 test-report-*.md
+
+# 以下豁免供多机协作
+!AGENTS.md
+!CLAUDE.md
+!.rules/
+!.agents/
+!.mcp.json
+!.codex/
+!.claude/settings.local.json

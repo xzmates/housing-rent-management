@@ -1,0 +1,29 @@
+[mcp_servers.cloudbase]
+command = "npx"
+args = [
+    "npm-global-exec@latest",
+    "@cloudbase/cloudbase-mcp@latest",
+]
+
+[mcp_servers.cloudbase.env]
+INTEGRATION_IDE = "CodeX"
+
+[mcp_servers.weapp-devtools]
+command = "npx"
+args = [
+    "-y",
+    "@birchcraft/mcp-weapp-cli",
+]
+
+[mcp_servers.weapp-devtools.env]
+WEAPP_CLI_PATH = 'D:\微信开发者工具\AI版本\微信web开发者工具\cli.bat'
+WEAPP_PORT = "9420"
+WEAPP_LANG = "zh"
+
+[mcp_servers.wechat-devtools]
+command = "uvx"
+args = ["wechat-devtools-mcp"]
+
+[mcp_servers.wechat-devtools.env]
+WECHAT_DEVTOOLS_CLI = 'D:\微信开发者工具\AI版本\微信web开发者工具\cli.bat'
+WECHAT_PROJECT_PATH = 'D:\VScode\Project\web-cloudbase-vue-template-transto-miniprogram'

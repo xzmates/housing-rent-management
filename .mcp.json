@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": [
+        "@cloudbase/cloudbase-mcp@latest"
+      ],
+      "env": {
+        "INTEGRATION_IDE": "Claude"
+      }
+    },
+    "wechat-devtools": {
+      "command": "uvx",
+      "args": ["wechat-devtools-mcp"],
+      "env": {
+        "WECHAT_DEVTOOLS_CLI": "D:\\微信开发者工具\\微信web开发者工具\\cli.bat",
+        "WECHAT_PROJECT_PATH": "D:\\VScode\\Project\\web-cloudbase-vue-template-transto-miniprogram"
+      }
+    },
+    "weapp-devtools": {
+      "command": "npx",
+      "args": ["-y", "@birchcraft/mcp-weapp-cli"],
+      "env": {
+        "WEAPP_PORT": "9420",
+        "WEAPP_LANG": "zh"
+      }
+    },
+    "weixin-devtools-mcp": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\hikadmin\\npm-global\\node_modules\\weixin-devtools-mcp\\build\\server.js",
+        "--tools-profile=full"
+      ]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "微信开发者工具稳定测试"
+  short_description: "稳定执行微信小程序编译、模拟器、自动化与原生 automator 兜底验证"
+  default_prompt: "请使用微信开发者工具稳定测试流程，对当前小程序进行编译和运行态页面数据验证。"
