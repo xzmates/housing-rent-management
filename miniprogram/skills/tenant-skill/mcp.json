@@ -1,0 +1,140 @@
+{
+  "apis": [
+    {
+      "name": "searchTenants",
+      "description": "搜索租客列表（业务对象：租客结果卡片）。按关键字（姓名/电话）和状态筛选租客。调用前置条件：用户表达查租客诉求。【严禁场景】不要用于房屋查询、合同查询。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/tenant-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "搜索关键字，匹配姓名或电话"
+          },
+          "status": {
+            "type": "string",
+            "description": "筛选状态：active/inactive"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "getTenantDetail",
+      "description": "查看单个租客详情（业务对象：租客结果卡片）。按租客 ID 获取基本信息及名下所有合同。调用前置条件：用户已明确具体租客。【严禁场景】缺少 tenantId 时不要调用。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/tenant-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "租客唯一标识"
+          }
+        },
+        "required": [
+          "tenantId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "previewCreateTenant",
+      "description": "预览新增租客并生成确认记录（业务对象：租客结果卡片）。调用前置条件：用户已提供租客姓名。【严禁场景】不要直接当成最终新增。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/tenant-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "租客姓名"
+          },
+          "phone": {
+            "type": "string",
+            "description": "手机号"
+          },
+          "idCard": {
+            "type": "string",
+            "description": "身份证号"
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "confirmCreateTenant",
+      "description": "确认新增租客（业务对象：租客结果卡片）。调用前置条件：用户已确认新增租客信息，优先使用确认编号。【严禁场景】不要用于编辑已有租客。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/tenant-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "confirmationId": {
+            "type": "string",
+            "description": "预览接口返回的确认编号"
+          },
+          "name": {
+            "type": "string",
+            "description": "租客姓名"
+          },
+          "phone": {
+            "type": "string",
+            "description": "手机号"
+          },
+          "idCard": {
+            "type": "string",
+            "description": "身份证号"
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  ],
+  "components": [
+    {
+      "path": "components/tenant-result/index",
+      "relatedPage": "/pages/tenants/index"
+    }
+  ]
+}

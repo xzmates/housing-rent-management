@@ -1,9 +1,0 @@
-{
-  "name": "aiParse",
-  "version": "1.0.0",
-  "description": "AI智能解析房屋租赁信息",
-  "main": "index.js",
-  "dependencies": {
-    "wx-server-sdk": "~2.6.3"
-  }
-}

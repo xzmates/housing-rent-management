@@ -7,7 +7,7 @@ Page({
     editingHouse: null, houses: [],
     filters: { status: '', code: '' },
     form: { code: '', address: '', rent: 0, status: 'available' },
-    addressOptions: ['东楼北', '东楼南', '里召'],
+    addressOptions: ['东楼', '里召'],
     addressIndex: -1,
     statusOptions: ['可租', '已租'],
     statusIndex: 0
@@ -33,7 +33,7 @@ Page({
       });
 
       // 按地址+编号排序
-      const addrOrder = { '东楼北': 1, '东楼南': 2, '里召': 3 };
+      const addrOrder = { '东楼': 1, '里召': 2 };
       houses.sort((a, b) => {
         const aa = addrOrder[a.address] ?? 99, bb = addrOrder[b.address] ?? 99;
         if (aa !== bb) return aa - bb;

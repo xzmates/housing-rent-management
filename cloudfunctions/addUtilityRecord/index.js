@@ -112,6 +112,7 @@ exports.main = async (event) => {
       waterCost,
       totalCost,
       calculationDate: calcDate,
+      recordType: 'regular',
       remark,
       createdAt: now
     });

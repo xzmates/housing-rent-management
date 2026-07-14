@@ -46,28 +46,60 @@ async function _callCloud(name, data = {}) {
   }
 }
 
+async function callRentalDomain(action, params = {}) {
+  return _callCloud('rentalDomain', { action, params });
+}
+
 /** 创建租赁合同（自动生成租金账单） */
 async function createLease(params) {
   await assertLeaseCreatable(params.houseId, params.tenantId);
-  return _callCloud('createLeaseAgreement', params);
+  return callRentalDomain('confirmCreateLease', params);
 }
 
 /** 添加水电抄表记录（自动生成水电账单） */
 async function addMeterReading(params) {
-  return _callCloud('addUtilityRecord', params);
+  return callRentalDomain('confirmMeterReading', params);
 }
 
 /** 缴费（更新账单状态） */
 async function payBill(billId, amount, paymentDate, paymentMethod) {
-  return _callCloud('payBill', { billId, amount, paymentDate, paymentMethod });
+  return callRentalDomain('confirmCollectRent', { billId, amount, paymentDate, paymentMethod });
 }
 
 /** 退租结算 */
 async function terminateLease(paramsOrLeaseId, endDate, damageDeduction) {
   if (typeof paramsOrLeaseId === 'object') {
-    return _callCloud('terminateLease', paramsOrLeaseId);
+    return callRentalDomain('settleMoveOut', paramsOrLeaseId);
   }
-  return _callCloud('terminateLease', { leaseId: paramsOrLeaseId, endDate, damageDeduction });
+  return callRentalDomain('settleMoveOut', { leaseId: paramsOrLeaseId, endDate, damageDeduction });
+}
+
+async function previewCollectRent(params) {
+  return callRentalDomain('previewCollectRent', params);
+}
+
+async function previewCreateHouse(params) {
+  return callRentalDomain('previewCreateHouse', params);
+}
+
+async function previewCreateTenant(params) {
+  return callRentalDomain('previewCreateTenant', params);
+}
+
+async function previewCreateLease(params) {
+  return callRentalDomain('previewCreateLease', params);
+}
+
+async function previewRenewLease(params) {
+  return callRentalDomain('previewRenewLease', params);
+}
+
+async function previewMeterReading(params) {
+  return callRentalDomain('previewMeterReading', params);
+}
+
+async function previewMoveOutSettlement(params) {
+  return callRentalDomain('previewMoveOutSettlement', params);
 }
 
 /** 删除合同，并同步删除该合同对应的账单、流水和水电记录 */
@@ -82,7 +114,7 @@ async function generateMonthlyBills(targetMonth) {
 
 /** 为生效合同生成下一期租金账单，可用于提前收租 */
 async function createNextRentBill(leaseId, options = {}) {
-  return _callCloud('createNextRentBill', { leaseId, ...options });
+  return callRentalDomain('confirmRenewLease', { leaseId, ...options });
 }
 
 /** 获取房屋当前租客信息 */
@@ -113,20 +145,6 @@ async function voiceDialogueTurn(params = {}) {
 
 async function voiceSynthesize(params = {}) {
   return _callCloud('voiceSynthesize', params);
-}
-
-async function executeVoiceScenario(intent = {}) {
-  const plan = intent.executionPlan && intent.executionPlan[0];
-  return _callCloud('executeVoiceScenario', {
-    scene: intent.scene,
-    operation: intent.operation,
-    variant: intent.variant,
-    slots: intent.slots,
-    executionPlan: intent.executionPlan,
-    transcript: intent.transcript,
-    normalizedText: intent.normalizedText,
-    ...(plan || {})
-  });
 }
 
 async function importLeaseSnapshot(params = {}) {
@@ -190,9 +208,7 @@ async function getHouseById(id) {
 }
 
 async function addHouse(data) {
-  return db().collection('houses').add({
-    data: { ...data, createdAt: db().serverDate(), updatedAt: db().serverDate(), status: data.status || 'available' }
-  });
+  return callRentalDomain('confirmCreateHouse', data);
 }
 
 async function updateHouse(id, data) {
@@ -241,17 +257,7 @@ async function getTenantById(id) {
 }
 
 async function addTenant(data) {
-  return db().collection('tenants').add({
-    data: {
-      name: data.name,
-      idCard: data.idCard || '',
-      phone: data.phone || '',
-      remark: data.remark || '',
-      status: data.status || 'inactive',
-      createdAt: db().serverDate(),
-      updatedAt: db().serverDate()
-    }
-  });
+  return callRentalDomain('confirmCreateTenant', data);
 }
 
 async function updateTenant(id, data) {
@@ -418,8 +424,15 @@ module.exports = {
   voicePlanCommand,
   voiceDialogueTurn,
   voiceSynthesize,
-  executeVoiceScenario,
   importLeaseSnapshot,
+  callRentalDomain,
+  previewCreateHouse,
+  previewCreateTenant,
+  previewCreateLease,
+  previewRenewLease,
+  previewCollectRent,
+  previewMeterReading,
+  previewMoveOutSettlement,
   // 房屋
   getHouses, getHousesWithOccupancy, getHouseById, addHouse, updateHouse, deleteHouse,
   // 租客

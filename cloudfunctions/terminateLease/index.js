@@ -235,6 +235,7 @@ exports.main = async (event = {}) => {
         waterCost,
         totalCost: utilityCost,
         calculationDate: actualEndDate,
+        recordType: 'move_out',
         remark: remark || '退租抄表',
         createdAt: now
       });

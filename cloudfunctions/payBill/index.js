@@ -72,7 +72,7 @@ exports.main = async (event) => {
       return { code: 400, message: '该账单已全额支付' };
     }
 
-    const newPaidAmount = Number(bill.paidAmount || 0) + Number(amount);
+    const newPaidAmount = Math.round((Number(bill.paidAmount || 0) + Number(amount)) * 100) / 100;
     if (newPaidAmount > Number(bill.amount || 0)) {
       await transaction.rollback();
       return { code: 400, message: `缴费金额超出应缴金额，最多可缴 ${Number(bill.amount || 0) - Number(bill.paidAmount || 0)} 元` };

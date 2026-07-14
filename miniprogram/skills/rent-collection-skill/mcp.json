@@ -1,0 +1,137 @@
+{
+  "apis": [
+    {
+      "name": "getUnpaidBills",
+      "description": "查询待收租金账单列表（业务对象：收租结果卡片）。调用前置条件：用户表达收租或查欠租诉求。【严禁场景】不要用于水电费抄表。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "房屋或租客关键词"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "previewCollectRent",
+      "description": "预览收租金额并生成确认记录（业务对象：收租确认卡片）。调用前置条件：已明确待收账单和收款金额。【严禁场景】不要直接替代最终确认。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "billId": {
+            "type": "string",
+            "description": "账单 ID"
+          },
+          "amount": {
+            "type": "number",
+            "description": "收款金额"
+          },
+          "paymentDate": {
+            "type": "string",
+            "description": "收款日期"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "收款方式"
+          }
+        },
+        "required": [
+          "billId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "confirmCollectRent",
+      "description": "确认收租并更新账单状态（业务对象：收租结果卡片）。调用前置条件：用户已确认收款信息，优先使用确认编号。【严禁场景】不要用于退租结算。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "confirmationId": {
+            "type": "string",
+            "description": "预览接口返回的确认编号"
+          },
+          "billId": {
+            "type": "string",
+            "description": "账单 ID"
+          },
+          "amount": {
+            "type": "number",
+            "description": "收款金额"
+          },
+          "paymentDate": {
+            "type": "string",
+            "description": "收款日期"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "收款方式"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "getPaymentHistory",
+      "description": "查询合同或账单的付款记录（业务对象：收租结果卡片）。调用前置条件：用户想查看付款流水。【严禁场景】不要用于新增收款。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/rent-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "leaseId": {
+            "type": "string",
+            "description": "合同 ID"
+          },
+          "billId": {
+            "type": "string",
+            "description": "账单 ID"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  ],
+  "components": [
+    {
+      "path": "components/rent-result/index",
+      "relatedPage": "/pages/payments/index"
+    }
+  ]
+}

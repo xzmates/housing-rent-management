@@ -11,8 +11,7 @@
     "pages/import/index",
     "pages/settings/index",
     "pages/contract/index",
-    "pages/create-lease/index",
-    "pages/ai-moveout-detail/index"
+    "pages/create-lease/index"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -64,23 +63,15 @@
   "lazyCodeLoading": "requiredComponents",
   "agent": {
     "skills": [
-      {
-        "name": "rent-bill",
-        "description": "租金账单与收租 - 查询待收租金、确认收款、完成收租和查看收租记录。用户提到收租、租金账单、租客缴租、欠租、查租金时触发，MVP 仅处理租金，不处理水电燃气物业费。",
-        "path": "skills/rent-bill-skill"
-      },
-      {
-        "name": "rental-assistant",
-        "description": "租赁办理助手 - 覆盖新增房屋、新增租客、新建合同、缴费确认、单次抄表、提前收租、退租结算。所有最终写入操作必须先展示确认卡，由用户点击确认办理后才执行。",
-        "path": "skills/rental-assistant-skill"
-      }
+      { "name": "house", "description": "房屋管理：查询房屋、查看详情和新增房屋。", "path": "skills/house-skill" },
+      { "name": "tenant", "description": "租客管理：查询租客、查看详情和新增租客。", "path": "skills/tenant-skill" },
+      { "name": "lease", "description": "租赁合同：查询有效合同、新建合同和续租。", "path": "skills/lease-skill" },
+      { "name": "rent-collection", "description": "收租：查询待收租金、预览收租、确认收款和查看记录。", "path": "skills/rent-collection-skill" },
+      { "name": "meter-reading", "description": "水电抄表：查询对象、预览费用并确认抄表。", "path": "skills/meter-reading-skill" },
+      { "name": "move-out", "description": "退租办理：查找合同、预览结算并确认退租。", "path": "skills/move-out-skill" }
     ]
   },
   "subPackages": [
-    {
-      "root": "skills",
-      "independent": true,
-      "pages": []
-    }
+    { "root": "skills", "name": "skills", "independent": true, "pages": [] }
   ]
 }

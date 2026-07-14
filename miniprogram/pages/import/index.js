@@ -323,38 +323,10 @@ Page({
     }
 
     wx.showModal({
-      title: '确认执行',
-      content: `将执行：${intent.sceneLabel}。请确认信息无误。`,
-      confirmText: '确认执行',
-      success: async (res) => {
-        if (!res.confirm) return;
-        this.setData({ executing: true });
-        try {
-          const result = await api.executeVoiceScenario(intent);
-          this.setData({
-            result,
-            intent: null,
-            reviewVisible: false,
-            showReviewSheet: false,
-            showReviewFab: false,
-            currentDraft: { slots: {} }
-          });
-          this.appendMessage({ role: 'assistant', text: result.summary || '办理完成' });
-          wx.showToast({ title: '办理完成', icon: 'success' });
-        } catch (error) {
-          const result = {
-            success: 0,
-            failed: 1,
-            summary: error.message || '执行失败',
-            details: [{ title: '执行失败', status: 'failed', message: error.message || '执行失败' }]
-          };
-          this.setData({ result });
-          this.appendMessage({ role: 'assistant', text: result.summary });
-          wx.showToast({ title: error.message || '执行失败', icon: 'none' });
-        } finally {
-          this.setData({ executing: false });
-        }
-      }
+      title: '请使用小程序 AI 办理',
+      content: `${intent.sceneLabel} 已迁移到小程序内部 Skill，请在小程序 AI 对话中确认办理。`,
+      showCancel: false,
+      confirmText: '我知道了'
     });
   },
 

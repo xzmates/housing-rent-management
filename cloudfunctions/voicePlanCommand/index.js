@@ -720,7 +720,7 @@ function normalizeModelIntent(modelPayload, ruleIntent) {
   merged.candidates = Array.isArray(merged.candidates) ? merged.candidates : ruleIntent.candidates;
   merged.reviewCards = Array.isArray(merged.reviewCards) && merged.reviewCards.length > 0 ? merged.reviewCards : ruleIntent.reviewCards;
   merged.executionPlan = merged.canExecute ? [{
-    action: 'executeVoiceScenario',
+    action: 'routeToSkill',
     scene: merged.scene,
     operation: merged.operation,
     variant: merged.variant,
@@ -767,7 +767,7 @@ async function enforceIntentSafety(intent) {
     reviewCards: buildReviewCards(scene, slots, missing),
     canExecute,
     executionPlan: canExecute ? [{
-      action: 'executeVoiceScenario',
+      action: 'routeToSkill',
       scene,
       operation,
       variant,
@@ -850,7 +850,7 @@ exports.main = async (event = {}) => {
     candidates: matchHints.candidates,
     reviewCards,
     executionPlan: canExecute ? [{
-      action: 'executeVoiceScenario',
+      action: 'routeToSkill',
       scene,
       operation,
       variant,

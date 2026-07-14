@@ -1,0 +1,120 @@
+{
+  "apis": [
+    {
+      "name": "getMeterTargets",
+      "description": "查询当前可抄表的有效合同对象（业务对象：抄表结果卡片）。调用前置条件：用户表达抄表诉求但未明确合同。【严禁场景】不要用于退租结算。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/meter-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "房屋或租客关键词"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "previewMeterReading",
+      "description": "预览抄表产生的水电用量和费用，并生成确认记录（业务对象：抄表确认卡片）。调用前置条件：已明确合同和当前水电表读数。【严禁场景】不要直接替代最终确认。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/meter-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "leaseId": {
+            "type": "string",
+            "description": "合同 ID"
+          },
+          "electricityReading": {
+            "type": "number",
+            "description": "当前电表读数"
+          },
+          "waterReading": {
+            "type": "number",
+            "description": "当前水表读数"
+          },
+          "calculationDate": {
+            "type": "string",
+            "description": "抄表日期"
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注"
+          }
+        },
+        "required": [
+          "leaseId",
+          "electricityReading",
+          "waterReading"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "confirmMeterReading",
+      "description": "确认保存抄表记录，并在有费用时生成水电账单（业务对象：抄表结果卡片）。调用前置条件：用户已确认抄表读数，优先使用确认编号。【严禁场景】不要用于收租。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/meter-result/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "confirmationId": {
+            "type": "string",
+            "description": "预览接口返回的确认编号"
+          },
+          "leaseId": {
+            "type": "string",
+            "description": "合同 ID"
+          },
+          "electricityReading": {
+            "type": "number",
+            "description": "当前电表读数"
+          },
+          "waterReading": {
+            "type": "number",
+            "description": "当前水表读数"
+          },
+          "calculationDate": {
+            "type": "string",
+            "description": "抄表日期"
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  ],
+  "components": [
+    {
+      "path": "components/meter-result/index",
+      "relatedPage": "/pages/utility/index"
+    }
+  ]
+}

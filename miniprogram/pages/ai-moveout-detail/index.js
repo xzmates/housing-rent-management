@@ -252,42 +252,7 @@ Page({
     })
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'executeVoiceScenario',
-        data: {
-          scene: 'move_out',
-          variant: 'daily',
-          slots,
-          createdBy: 'ai_detail_page'
-        }
-      })
-      const raw = res.result || {}
-      if (raw.code && raw.code !== 200 && raw.code !== 0) {
-        throw new Error(raw.message || '退租办理失败')
-      }
-      const data = Object.prototype.hasOwnProperty.call(raw, 'data') ? raw.data : raw
-      const details = Array.isArray(data.details) ? data.details : []
-      const summary = data.summary || details.map((item) => item.message).filter(Boolean).join('；') || '退租结算成功'
-      if (pending) this.removePendingConfirm()
-
-      this.setData({
-        processing: false,
-        canConfirm: false,
-        confirmDisabled: true,
-        confirmText: '已完成',
-        resultStatus: 'success',
-        resultText: summary
-      })
-
-      try {
-        wx.modelContext.getContext().sendFollowUpMessage({
-          content: [
-            { type: 'text', text: `退租结算已完成：${summary}` }
-          ]
-        })
-      } catch (notifyErr) {
-        console.info('[ai-mode] ai-moveout-detail notify skipped:', notifyErr.message)
-      }
+      throw new Error('旧退租确认链路已停用，请通过 move-out Skill 重新发起')
     } catch (err) {
       console.error('[ai-mode] ai-moveout-detail direct confirm failed:', err.message)
       this.setData({
