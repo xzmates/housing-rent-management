@@ -25,20 +25,20 @@ describe('terminateLease 退租结算场景', () => {
     it('入住1个月退租，无损坏，押金全额退还', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000
+        startDate: '2026-06-01', rent: 1000, deposit: 1000
       });
       const leaseId = leaseResult.leaseId;
 
-      // 退租：入住2个月，首期付了1个月租金
+      // 退租：入住1个月，首期付了1个月租金
       const result = await api.terminateLease({
         leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 0,
         electricityReading: 0,
         waterReading: 0
       });
 
-      // 已付租金1000，入住2个月应付2000，无多付
+      // 已付租金1000，入住1个月应付1000，无多付
       expect(result.rentRefund.overpaidRent).toBe(0);
       // 无损坏，押金全额退还
       expect(result.refundAmount).toBe(1000);
@@ -58,13 +58,13 @@ describe('terminateLease 退租结算场景', () => {
     it('退租时水电费由押金抵扣', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000,
+        startDate: '2026-06-01', rent: 1000, deposit: 1000,
         moveInElectricity: 100, moveInWater: 50
       });
 
       const result = await api.terminateLease({
         leaseId: leaseResult.leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 0,
         electricityReading: 110,
         waterReading: 60
@@ -80,13 +80,13 @@ describe('terminateLease 退租结算场景', () => {
     it('水电费超过押金，需补缴差额', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 100,
+        startDate: '2026-06-01', rent: 1000, deposit: 100,
         moveInElectricity: 0, moveInWater: 0
       });
 
       const result = await api.terminateLease({
         leaseId: leaseResult.leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 0,
         electricityReading: 100,
         waterReading: 100
@@ -107,19 +107,19 @@ describe('terminateLease 退租结算场景', () => {
     it('损坏2000，押金1000，需补缴1000', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000
+        startDate: '2026-06-01', rent: 1000, deposit: 1000
       });
 
       const result = await api.terminateLease({
         leaseId: leaseResult.leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 2000,
         electricityReading: 0,
         waterReading: 0
       });
 
       expect(result.damageAmount).toBe(2000);
-      expect(result.depositOffsetAmount).toBe(1000);
+      expect(result.depositOffsetAmount).toBe(0);
       expect(result.refundAmount).toBe(0);
       expect(result.extraPayment).toBe(1000);
       expect(result.cashSettlementAmount).toBe(1000);
@@ -131,12 +131,12 @@ describe('terminateLease 退租结算场景', () => {
     it('损坏500，押金1000，退还500', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000
+        startDate: '2026-06-01', rent: 1000, deposit: 1000
       });
 
       const result = await api.terminateLease({
         leaseId: leaseResult.leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 500,
         electricityReading: 0,
         waterReading: 0
@@ -156,19 +156,19 @@ describe('terminateLease 退租结算场景', () => {
     it('预付3个月租金，入住1个月退租，退还多付租金', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000
+        startDate: '2026-06-01', rent: 1000, deposit: 1000
       });
       const leaseId = leaseResult.leaseId;
 
       // 提前交3个月租金
-      await api.createNextRentBill({ leaseId, amount: 3000, coverageMonths: 3 });
+      await api.createNextRentBill(leaseId, { amount: 3000, coverageMonths: 3 });
       const bills = await api.getBills({ leaseId });
       const prepaidBill = bills.data.find(b => b.type === 'rent' && b.status === 'unpaid');
-      await api.payBill(prepaidBill._id, 3000, '2026-01-15', 'cash');
+      await api.payBill(prepaidBill._id, 3000, '2026-06-15', 'cash');
 
       const result = await api.terminateLease({
         leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 0,
         electricityReading: 0,
         waterReading: 0
@@ -185,18 +185,18 @@ describe('terminateLease 退租结算场景', () => {
     it('预付租金+损坏，退款抵扣损坏后退还余额', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000
+        startDate: '2026-06-01', rent: 1000, deposit: 1000
       });
       const leaseId = leaseResult.leaseId;
 
-      await api.createNextRentBill({ leaseId, amount: 2000, coverageMonths: 2 });
+      await api.createNextRentBill(leaseId, { amount: 2000, coverageMonths: 2 });
       const bills = await api.getBills({ leaseId });
       const prepaidBill = bills.data.find(b => b.type === 'rent' && b.status === 'unpaid');
-      await api.payBill(prepaidBill._id, 2000, '2026-01-15', 'cash');
+      await api.payBill(prepaidBill._id, 2000, '2026-06-15', 'cash');
 
       const result = await api.terminateLease({
         leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 1500,
         electricityReading: 0,
         waterReading: 0
@@ -218,20 +218,20 @@ describe('terminateLease 退租结算场景', () => {
     it('损坏+水电+预付租金，完整结算', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 2000,
+        startDate: '2026-06-01', rent: 1000, deposit: 2000,
         moveInElectricity: 0, moveInWater: 0
       });
       const leaseId = leaseResult.leaseId;
 
       // 提前交2个月租金
-      await api.createNextRentBill({ leaseId, amount: 2000, coverageMonths: 2 });
+      await api.createNextRentBill(leaseId, { amount: 2000, coverageMonths: 2 });
       const bills = await api.getBills({ leaseId });
       const prepaidBill = bills.data.find(b => b.type === 'rent' && b.status === 'unpaid');
-      await api.payBill(prepaidBill._id, 2000, '2026-01-15', 'cash');
+      await api.payBill(prepaidBill._id, 2000, '2026-06-15', 'cash');
 
       const result = await api.terminateLease({
         leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 500,
         electricityReading: 50,
         waterReading: 160
@@ -241,8 +241,8 @@ describe('terminateLease 退租结算场景', () => {
       expect(result.utilityCost).toBe(600);
       expect(result.damageAmount).toBe(500);
       expect(result.rentRefund.overpaidRent).toBe(2000);
-      // 押金2000抵扣：水电600 + 损坏500 = 1100，剩余900退还
-      expect(result.depositOffsetAmount).toBe(1100);
+      // 押金2000先扣损坏500，剩余1500抵扣水电600，剩余900退还
+      expect(result.depositOffsetAmount).toBe(600);
       expect(result.refundAmount).toBe(900);
       expect(result.totalRefund).toBe(2900);
     });
@@ -286,21 +286,21 @@ describe('terminateLease 退租结算场景', () => {
     it('退租后每笔账单都有对应流水，金额一致', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000,
+        startDate: '2026-06-01', rent: 1000, deposit: 1000,
         moveInElectricity: 0, moveInWater: 0
       });
       const leaseId = leaseResult.leaseId;
 
       // 提前交1个月租金
-      await api.createNextRentBill({ leaseId, amount: 1000, coverageMonths: 1 });
+      await api.createNextRentBill(leaseId, { amount: 1000, coverageMonths: 1 });
       const bills = await api.getBills({ leaseId });
       const prepaidBill = bills.data.find(b => b.type === 'rent' && b.status === 'unpaid');
-      await api.payBill(prepaidBill._id, 1000, '2026-01-15', 'cash');
+      await api.payBill(prepaidBill._id, 1000, '2026-06-15', 'cash');
 
       // 退租：损坏2000，水电430
       const result = await api.terminateLease({
         leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 2000,
         electricityReading: 100,
         waterReading: 100
@@ -331,8 +331,8 @@ describe('terminateLease 退租结算场景', () => {
         .reduce((sum, p) => sum + p.amount, 0);
       const netCash = totalIncome - totalExpense;
 
-      // 净收款 = 首期租1000 + 押金1000 + 预付1000 + 水电430 + 赔偿1000 - 退租金2000
-      expect(netCash).toBe(2430);
+      // 净收款 = 首期租1000 + 押金1000 + 预付1000 + 水电430 + 额外赔偿1000 - 退租金1000
+      expect(netCash).toBe(3430);
 
       // 验证合同记录的damageAmount是总额2000
       const lease = await api.getLeaseById(leaseId);
@@ -347,13 +347,13 @@ describe('terminateLease 退租结算场景', () => {
     it('季付入住1个月退租，退还多付2个月租金', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
-        startDate: '2026-01-01', rent: 1000, deposit: 1000,
+        startDate: '2026-06-01', rent: 1000, deposit: 1000,
         paymentCycle: 'quarter'
       });
 
       const result = await api.terminateLease({
         leaseId: leaseResult.leaseId,
-        endDate: '2026-02-01',
+        endDate: '2026-06-30',
         damageAmount: 0,
         electricityReading: 0,
         waterReading: 0

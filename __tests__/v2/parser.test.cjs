@@ -172,9 +172,11 @@ describe('resolveOperations 操作解析', () => {
     // 先创建合同
     const houses = await api.getHouses();
     const tenants = await api.getTenants();
+    const house = houses.data.find(h => h.code === 'A101');
+    const tenant = tenants.data.find(t => t.name === '张三');
     await api.createLease({
-      houseId: houses.data[0]._id,
-      tenantId: tenants.data[0]._id,
+      houseId: house._id,
+      tenantId: tenant._id,
       startDate: '2026-01-01', rent: 2000
     });
 
@@ -192,9 +194,11 @@ describe('resolveOperations 操作解析', () => {
   it('create_lease 匹配已有活跃合同 → 标记 _skip', async () => {
     const houses = await api.getHouses();
     const tenants = await api.getTenants();
+    const house = houses.data.find(h => h.code === 'A101');
+    const tenant = tenants.data.find(t => t.name === '张三');
     await api.createLease({
-      houseId: houses.data[0]._id,
-      tenantId: tenants.data[0]._id,
+      houseId: house._id,
+      tenantId: tenant._id,
       startDate: '2026-01-01', rent: 2000
     });
 

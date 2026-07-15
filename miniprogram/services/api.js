@@ -213,8 +213,25 @@ async function getHouseById(id) {
   return res.data;
 }
 
+function normalizeCreatedHouseResult(result = {}) {
+  const houseId = result.houseId || result._id || result.id || (result.house && result.house._id);
+  const house = {
+    ...(result.house || {}),
+    ...(houseId ? { _id: houseId, id: houseId } : {})
+  };
+  return {
+    ...result,
+    ...house,
+    _id: houseId,
+    id: houseId,
+    houseId,
+    house
+  };
+}
+
 async function addHouse(data) {
-  return callRentalDomain('confirmCreateHouse', data);
+  const result = await callRentalDomain('confirmCreateHouse', data);
+  return normalizeCreatedHouseResult(result);
 }
 
 async function updateHouse(id, data) {
@@ -262,8 +279,25 @@ async function getTenantById(id) {
   return res.data;
 }
 
+function normalizeCreatedTenantResult(result = {}) {
+  const tenantId = result.tenantId || result._id || result.id || (result.tenant && result.tenant._id);
+  const tenant = {
+    ...(result.tenant || {}),
+    ...(tenantId ? { _id: tenantId, id: tenantId } : {})
+  };
+  return {
+    ...result,
+    ...tenant,
+    _id: tenantId,
+    id: tenantId,
+    tenantId,
+    tenant
+  };
+}
+
 async function addTenant(data) {
-  return callRentalDomain('confirmCreateTenant', data);
+  const result = await callRentalDomain('confirmCreateTenant', data);
+  return normalizeCreatedTenantResult(result);
 }
 
 async function updateTenant(id, data) {

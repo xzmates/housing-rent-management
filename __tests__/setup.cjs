@@ -4,6 +4,7 @@
  */
 const store = new Map();
 let mockClock = 0;
+const FIXED_TEST_NOW = new Date('2026-06-24T08:00:00+08:00').getTime();
 const DEFAULT_OPENID = 'test-openid';
 const OWNED_COLLECTIONS = new Set([
   'houses',
@@ -20,7 +21,7 @@ const OWNED_COLLECTIONS = new Set([
 
 function nextDate() {
   mockClock += 1;
-  return new Date(Date.now() + mockClock);
+  return new Date(FIXED_TEST_NOW + mockClock);
 }
 
 function withDefaultOwner(name, item) {
@@ -195,7 +196,7 @@ global.wx = {
       return {
         collection(name) { return collectionAPI(name); },
         command: mockCommand,
-        serverDate() { return new Date(); },
+        serverDate() { return nextDate(); },
         RegExp({ regexp, options }) {
           return new RegExp(regexp, options || 'i');
         }
@@ -806,6 +807,7 @@ registerCloudFunction('terminateLease', ({ leaseId, endDate, damageDeduction, re
     data: {
       refundAmount,
       extraPayment,
+      damageAmount,
       cashSettlementAmount,
       depositOffsetAmount,
       utilityCost,
