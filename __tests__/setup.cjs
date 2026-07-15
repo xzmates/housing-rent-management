@@ -181,12 +181,37 @@ const collectionAPI = (name) => {
       return Promise.resolve({ data: copyObj(slice), errMsg: 'collection.get:ok' });
     },
 
+    update(patch) {
+      const data = patch && Object.prototype.hasOwnProperty.call(patch, 'data') ? patch.data : patch;
+      const rows = dataSource();
+      rows.forEach(item => {
+        for (const [key, val] of Object.entries(data)) {
+          if (val && typeof val === 'object' && val._inc !== undefined) {
+            item[key] = (item[key] || 0) + val._inc;
+          } else if (val && typeof val === 'object' && val._set !== undefined) {
+            item[key] = val._set;
+          } else {
+            item[key] = val;
+          }
+        }
+      });
+      return Promise.resolve({ stats: { updated: rows.length }, errMsg: 'collection.update:ok' });
+    },
+
     count() {
       const source = dataSource();
       return Promise.resolve({ total: source.length, errMsg: 'collection.count:ok' });
     }
   };
 };
+
+async function startMockTransaction() {
+  return {
+    collection(name) { return collectionAPI(name); },
+    async commit() {},
+    async rollback() {}
+  };
+}
 
 // Mock wx global
 global.wx = {
@@ -195,6 +220,7 @@ global.wx = {
     database() {
       return {
         collection(name) { return collectionAPI(name); },
+        startTransaction: startMockTransaction,
         command: mockCommand,
         serverDate() { return nextDate(); },
         RegExp({ regexp, options }) {
@@ -1059,6 +1085,7 @@ const { safeAudit } = require('../cloudfunctions/rentalDomain/infrastructure/aud
 
 const mockDb = {
   collection(name) { return collectionAPI(name); },
+  startTransaction: startMockTransaction,
   command: mockCommand
 };
 
@@ -1071,9 +1098,9 @@ const mockRentalApp = {
 const rentalRepo = createRepository(mockDb);
 const rentalCommand = createCommandService(mockRentalApp, mockDb);
 const auditableRentalActions = new Set([
-  'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease',
+  'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease', 'previewPrepayRent',
   'previewCollectRent', 'previewMeterReading', 'previewMoveOutSettlement',
-  'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease',
+  'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease', 'confirmPrepayRent',
   'confirmCollectRent', 'confirmMeterReading', 'settleMoveOut'
 ]);
 
@@ -1121,6 +1148,7 @@ function createRentalActions(caller) {
     previewCreateTenant: preview.previewCreateTenant,
     previewCreateLease: preview.previewCreateLease,
     previewRenewLease: preview.previewRenewLease,
+    previewPrepayRent: preview.previewPrepayRent,
     previewCollectRent: preview.previewCollectRent,
     previewMeterReading: preview.previewMeterReading,
     previewMoveOutSettlement: preview.previewMoveOutSettlement,
@@ -1128,6 +1156,7 @@ function createRentalActions(caller) {
     confirmCreateTenant: rentalCommand.confirmCreateTenant,
     confirmCreateLease: rentalCommand.confirmCreateLease,
     confirmRenewLease: rentalCommand.confirmRenewLease,
+    confirmPrepayRent: rentalCommand.confirmPrepayRent,
     confirmCollectRent: rentalCommand.confirmCollectRent,
     confirmMeterReading: rentalCommand.confirmMeterReading,
     settleMoveOut: rentalCommand.settleMoveOut

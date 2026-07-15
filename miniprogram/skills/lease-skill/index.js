@@ -7,7 +7,7 @@ skill.use(createSkillMiddleware('lease-skill'))
 skill.registerAPI('getActiveLeases', apis.getActiveLeases)
 skill.registerAPI('previewCreateLease', apis.previewCreateLease)
 skill.registerAPI('confirmCreateLease', apis.confirmCreateLease)
+skill.registerAPI('previewPrepayRent', apis.previewPrepayRent)
 skill.registerAPI('previewRenewLease', apis.previewRenewLease)
-skill.registerAPI('confirmRenewLease', apis.confirmRenewLease)
 
 console.info('[ai-mode] lease-skill APIs registered')

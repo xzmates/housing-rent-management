@@ -54,6 +54,7 @@ function createActions(caller) {
     previewCreateTenant: preview.previewCreateTenant,
     previewCreateLease: preview.previewCreateLease,
     previewRenewLease: preview.previewRenewLease,
+    previewPrepayRent: preview.previewPrepayRent,
     previewCollectRent: preview.previewCollectRent,
     previewMeterReading: preview.previewMeterReading,
     previewMoveOutSettlement: preview.previewMoveOutSettlement,
@@ -61,15 +62,16 @@ function createActions(caller) {
     confirmCreateTenant: command.confirmCreateTenant,
     confirmCreateLease: command.confirmCreateLease,
     confirmRenewLease: command.confirmRenewLease,
+    confirmPrepayRent: command.confirmPrepayRent,
     confirmCollectRent: command.confirmCollectRent,
     confirmMeterReading: command.confirmMeterReading,
     settleMoveOut: command.settleMoveOut
   }
 }
 const auditableActions = new Set([
-  'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease',
+  'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease', 'previewPrepayRent',
   'previewCollectRent', 'previewMeterReading', 'previewMoveOutSettlement',
-  'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease',
+  'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease', 'confirmPrepayRent',
   'confirmCollectRent', 'confirmMeterReading', 'settleMoveOut'
 ])
 

@@ -4,6 +4,11 @@
       "path": "pages/ai-moveout-detail/index",
       "name": "退租结算确认页",
       "description": "展示退租合同、房屋、租客、水电读数、押金抵扣、欠租和应退应补金额，并由用户最终确认退租"
+    },
+    {
+      "path": "pages/prepay-rent/index",
+      "name": "提前收租确认页",
+      "description": "展示提前收租的合同、房屋、租客、预收周期、应收金额和线下收款方式，并由房东确认已收款后入账"
     }
   ]
 }

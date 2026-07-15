@@ -1,5 +1,12 @@
 const { callRentalDomain, successResult, errorResult } = require('../../_shared/domain-client')
 
+function encodeQuery(params = {}) {
+  return Object.keys(params)
+    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== '')
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(String(params[key]))}`)
+    .join('&')
+}
+
 async function getActiveLeases(params = {}) {
   console.info('[ai-mode] lease-skill getActiveLeases params=', JSON.stringify(params || {}))
   try {
@@ -17,6 +24,40 @@ async function getActiveLeases(params = {}) {
   } catch (err) {
     console.error('[ai-mode] lease-skill getActiveLeases error:', err.message)
     return errorResult('查询生效合同失败：' + err.message)
+  }
+}
+
+function prepayHandoff(data = {}, params = {}) {
+  const view = data.prepayView || {}
+  const input = data.normalizedInput || {}
+  const lease = view.lease || {}
+  return {
+    query: encodeQuery({
+      action: 'prepayRent',
+      confirmationId: data.confirmationId || '',
+      leaseId: input.leaseId || params.leaseId || lease.id || ''
+    }),
+    payload: {
+      type: 'prepayRent',
+      action: 'confirmPrepayRent',
+      confirmationId: data.confirmationId || '',
+      expiresAt: data.expiresAt || '',
+      input,
+      prepayView: view
+    }
+  }
+}
+
+async function previewPrepayRent(params = {}) {
+  console.info('[ai-mode] lease-skill previewPrepayRent params=', JSON.stringify(params || {}))
+  try {
+    const data = await callRentalDomain('previewPrepayRent', params)
+    const result = successResult('提前收租预览已生成，请点击小程序卡片进入页面核对，并在确认已线下收款后入账。', data)
+    result.handoff = prepayHandoff(data, params)
+    return result
+  } catch (err) {
+    console.error('[ai-mode] lease-skill previewPrepayRent error:', err.message)
+    return errorResult('预览提前收租失败：' + err.message)
   }
 }
 
@@ -64,4 +105,4 @@ async function confirmRenewLease(params = {}) {
   }
 }
 
-module.exports = { getActiveLeases, previewCreateLease, confirmCreateLease, previewRenewLease, confirmRenewLease }
+module.exports = { getActiveLeases, previewCreateLease, confirmCreateLease, previewPrepayRent, previewRenewLease, confirmRenewLease }

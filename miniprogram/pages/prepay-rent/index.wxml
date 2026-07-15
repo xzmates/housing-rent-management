@@ -56,10 +56,20 @@
         <text style="font-size:24rpx;color:var(--primary-dark);display:block;">预计收款 ￥{{preview.amountText}}</text>
         <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:6rpx;">覆盖：{{preview.coverageText || '-'}}</text>
         <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">从 {{preview.startText || '-'}} 开始顺延</text>
+        <text wx:if="{{preview.endText}}" style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">截至 {{preview.endText}}</text>
+        <text wx:if="{{preview.paymentNote}}" style="font-size:22rpx;color:var(--primary-dark);display:block;margin-top:8rpx;">{{preview.paymentNote}}</text>
       </view>
 
-      <button class="btn btn-primary btn-block" bindtap="submit" disabled="{{saving || !selectedLease}}">
-        {{saving ? '处理中...' : '确认提前收租'}}
+      <view wx:if="{{errorText}}" style="background:#FEF2F2;border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">
+        <text style="font-size:24rpx;color:#B91C1C;">{{errorText}}</text>
+      </view>
+
+      <view wx:if="{{resultText}}" style="background:#ECFDF5;border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">
+        <text style="font-size:24rpx;color:#047857;">{{resultText}}</text>
+      </view>
+
+      <button class="btn btn-primary btn-block" bindtap="submit" disabled="{{saving || !selectedLease || errorText || resultStatus === 'success'}}">
+        {{saving ? '入账中...' : (resultStatus === 'success' ? '已入账' : '确认已收款并入账')}}
       </button>
     </view>
   </block>

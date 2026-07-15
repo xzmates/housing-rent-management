@@ -1,7 +1,8 @@
 const { invariant } = require('../infrastructure/errors')
 const { idempotencyKey, loadPendingConfirmation, findExecutedOperation } = require('../infrastructure/idempotency')
 const { createRepository } = require('../repositories/rental-repository')
-const { buildMoveOutSettlementSnapshot } = require('./preview-service')
+const { number } = require('../domain/presenters')
+const { buildMoveOutSettlementSnapshot, buildPrepayRentSnapshot, calculatePrepayPeriod } = require('./preview-service')
 
 async function legacyCall(app, name, data) {
   const res = await app.callFunction({ name, data })
@@ -27,11 +28,11 @@ function sameValue(left, right) {
 }
 
 function assertConfirmationParamsNotOverridden(action, params, confirmation) {
-  if (action !== 'settleMoveOut') return
+  if (!['settleMoveOut', 'confirmPrepayRent'].includes(action)) return
   const supplied = cleanParams(params)
   const normalized = confirmation.normalizedInput || {}
   const changedKeys = Object.keys(supplied).filter(key => !sameValue(supplied[key], normalized[key]))
-  invariant(changedKeys.length === 0, 'VALIDATION_ERROR', '确认参数与预览记录不一致，请重新生成退租预览')
+  invariant(changedKeys.length === 0, 'VALIDATION_ERROR', '确认参数与预览记录不一致，请重新生成预览')
 }
 
 function normalizeMoveOutParams(params) {
@@ -40,6 +41,20 @@ function normalizeMoveOutParams(params) {
   if (out.moveOutElectricity !== undefined && out.electricityReading === undefined) out.electricityReading = out.moveOutElectricity
   if (out.moveOutWater !== undefined && out.waterReading === undefined) out.waterReading = out.moveOutWater
   return out
+}
+
+function parseDateInput(value) {
+  if (value instanceof Date) return value
+  if (typeof value === 'string') {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  }
+  if (value && value.$date) return new Date(value.$date)
+  return value ? new Date(value) : new Date()
+}
+
+function addDays(date, days) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
 }
 
 function createCommandService(app, db) {
@@ -84,6 +99,127 @@ function createCommandService(app, db) {
     invariant(confirmation.sourceDigest, 'STALE_CONFIRMATION', '退租预览已过期，请重新生成预览')
     const snapshot = await buildMoveOutSettlementSnapshot(repo.forOwner(caller.openId), input)
     invariant(snapshot.sourceDigest === confirmation.sourceDigest, 'STALE_CONFIRMATION', '退租数据已变化，请重新生成预览')
+  }
+
+  async function assertPrepayConfirmationFresh(input, caller, confirmation) {
+    invariant(confirmation, 'VALIDATION_ERROR', '提前收租必须先生成预览确认记录')
+    invariant(confirmation.targetId === input.leaseId, 'VALIDATION_ERROR', '确认记录与合同不匹配')
+    invariant(confirmation.sourceDigest, 'STALE_CONFIRMATION', '提前收租预览已过期，请重新生成预览')
+    const snapshot = await buildPrepayRentSnapshot(repo.forOwner(caller.openId), input)
+    invariant(snapshot.sourceDigest === confirmation.sourceDigest, 'STALE_CONFIRMATION', '提前收租数据已变化，请重新生成预览')
+  }
+
+  async function executePrepayRent(input, caller) {
+    const transaction = await db.startTransaction()
+    try {
+      const leaseRes = await transaction.collection('lease_agreements')
+        .where({ _id: input.leaseId, _openid: caller.openId })
+        .get()
+      const lease = leaseRes.data && leaseRes.data[0]
+      invariant(lease, 'FORBIDDEN', '不能操作其他用户的合同')
+      invariant(lease.status === 'active', 'CONFLICT', '合同不是生效状态')
+
+      const calc = calculatePrepayPeriod(lease, input)
+      const existingRes = await transaction.collection('bills')
+        .where({ leaseId: input.leaseId, type: 'rent', period: calc.period, _openid: caller.openId })
+        .get()
+      const existingBill = existingRes.data && existingRes.data[0]
+      invariant(!existingBill || existingBill.status !== 'paid', 'CONFLICT', '该周期租金账单已全额支付')
+
+      const now = new Date()
+      let bill = existingBill
+      let billCreated = false
+      if (!bill) {
+        const billData = {
+          _openid: caller.openId,
+          leaseId: input.leaseId,
+          houseId: lease.houseId,
+          tenantId: lease.tenantId,
+          type: 'rent',
+          period: calc.period,
+          amount: calc.amount,
+          paidAmount: 0,
+          status: 'unpaid',
+          dueDate: calc.coverageStart,
+          rentCoverageStart: calc.coverageStart,
+          rentCoverageEnd: calc.coverageEnd,
+          coverageMonths: calc.coverageMonths,
+          coverageDays: calc.coverageDays,
+          remark: '提前收租',
+          createdAt: now,
+          updatedAt: now
+        }
+        const billRes = await transaction.collection('bills').add(billData)
+        bill = { ...billData, _id: billRes.id || billRes._id }
+        billCreated = true
+      }
+
+      const billAmount = number(bill.amount)
+      const oldPaidAmount = number(bill.paidAmount)
+      const paymentAmount = number(billAmount - oldPaidAmount)
+      invariant(paymentAmount > 0, 'CONFLICT', '该周期租金已结清')
+      const newPaidAmount = number(oldPaidAmount + paymentAmount)
+      invariant(newPaidAmount <= billAmount, 'VALIDATION_ERROR', '缴费金额超出应缴金额')
+      const newStatus = newPaidAmount >= billAmount ? 'paid' : 'partial'
+
+      const paymentData = {
+        _openid: caller.openId,
+        billId: bill._id,
+        leaseId: bill.leaseId,
+        houseId: bill.houseId,
+        tenantId: bill.tenantId,
+        amount: paymentAmount,
+        direction: 'in',
+        paymentDate: input.paymentDate ? parseDateInput(input.paymentDate) : now,
+        paymentMethod: input.paymentMethod || 'cash',
+        remark: input.paymentMethod === 'wechat' ? '线下微信收款记账' : '提前收租',
+        createdAt: now
+      }
+      const paymentRes = await transaction.collection('payments').add(paymentData)
+
+      await transaction.collection('bills').where({ _id: bill._id, _openid: caller.openId }).update({
+        paidAmount: newPaidAmount,
+        status: newStatus,
+        paidAt: newStatus === 'paid' ? now : bill.paidAt,
+        updatedAt: now
+      })
+
+      if (newStatus === 'paid') {
+        const coveredUntil = bill.rentCoverageEnd ? parseDateInput(bill.rentCoverageEnd) : calc.coverageEnd
+        const oldCoveredUntil = lease.rentCoveredUntil ? parseDateInput(lease.rentCoveredUntil) : null
+        if (!oldCoveredUntil || oldCoveredUntil.getTime() <= coveredUntil.getTime()) {
+          await transaction.collection('lease_agreements').where({ _id: input.leaseId, _openid: caller.openId }).update({
+            rentCoveredUntil: coveredUntil,
+            nextRentDueDate: addDays(coveredUntil, 1),
+            updatedAt: now
+          })
+        }
+      }
+
+      await transaction.commit()
+      return {
+        billId: bill._id,
+        paymentId: paymentRes.id || paymentRes._id,
+        bill: {
+          ...bill,
+          paidAmount: newPaidAmount,
+          status: newStatus,
+          paidAt: newStatus === 'paid' ? now : bill.paidAt,
+          updatedAt: now
+        },
+        payment: { ...paymentData, _id: paymentRes.id || paymentRes._id },
+        billCreated,
+        paidAmount: newPaidAmount,
+        totalAmount: billAmount,
+        status: newStatus,
+        remaining: number(billAmount - newPaidAmount),
+        paymentMethod: input.paymentMethod || 'cash',
+        paymentDate: input.paymentDate || ''
+      }
+    } catch (err) {
+      await transaction.rollback()
+      throw err
+    }
   }
 
   async function runLegacy(params, caller, action, legacyName, mapParams = cleanParams) {
@@ -140,6 +276,23 @@ function createCommandService(app, db) {
     return { ...result, confirmationId: params && params.confirmationId, idempotencyKey: resolved.key }
   }
 
+  async function confirmPrepayRent(params, caller) {
+    invariant(params && params.confirmationId, 'VALIDATION_ERROR', '提前收租必须从页面确认记录执行')
+    invariant(caller && caller.openId, 'FORBIDDEN', '缺少调用者身份')
+    const resolved = await resolveParams(params, caller, 'confirmPrepayRent')
+    if (resolved.replay) return { replayed: true, idempotencyKey: resolved.key, result: resolved.result }
+    await assertPrepayConfirmationFresh(resolved.input, caller, resolved.confirmation)
+    await markExecuting(params.confirmationId)
+    try {
+      const result = await executePrepayRent(resolved.input, caller)
+      await markExecuted(params.confirmationId, result)
+      return { ...result, confirmationId: params.confirmationId, idempotencyKey: resolved.key }
+    } catch (err) {
+      await markPendingAfterFailure(params.confirmationId)
+      throw err
+    }
+  }
+
   async function createHouse(params, caller) {
     invariant(params.code, 'VALIDATION_ERROR', '缺少房屋编号')
     invariant(params.address, 'VALIDATION_ERROR', '缺少房屋地址')
@@ -188,6 +341,7 @@ function createCommandService(app, db) {
     confirmRenewLease(params, caller) {
       return runLegacy(params, caller, 'confirmRenewLease', 'createNextRentBill')
     },
+    confirmPrepayRent,
     confirmCollectRent(params, caller) {
       return runLegacy(params, caller, 'confirmCollectRent', 'payBill')
     },
