@@ -21,9 +21,14 @@ async function createConfirmation(db, caller, action, input, snapshot, ttlMinute
   const now = new Date()
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000)
   const payload = { action, input, snapshot }
+  const targetId = (snapshot && snapshot.targetId) || input.leaseId || input.billId || input.houseId || input.tenantId || ''
+  const sourceDigest = (snapshot && snapshot.sourceDigest) || ''
   const res = await db.collection('operation_confirmations').add({
     _openid: caller.openId,
     action,
+    actionName: action,
+    targetId,
+    sourceDigest,
     normalizedInput: input,
     snapshot,
     digest: digest(payload),

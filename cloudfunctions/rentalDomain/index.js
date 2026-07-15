@@ -16,6 +16,29 @@ function createActions(caller) {
   const scopedRepo = repo.forOwner(caller.openId)
   const query = createQueryService(scopedRepo, db.command)
   const preview = createPreviewService(db, scopedRepo)
+  async function getOperationConfirmation(params = {}) {
+    const confirmationId = params.confirmationId || ''
+    if (!confirmationId) throw new DomainError('VALIDATION_ERROR', '缺少确认记录 ID')
+    const res = await db.collection('operation_confirmations').doc(confirmationId).get()
+    const confirmation = res && res.data && (Array.isArray(res.data) ? res.data[0] : res.data)
+    if (!confirmation) throw new DomainError('NOT_FOUND', '确认记录不存在')
+    if (confirmation._openid !== caller.openId) throw new DomainError('FORBIDDEN', '不能读取他人的确认记录')
+    return {
+      confirmation: {
+        id: confirmation._id || confirmationId,
+        action: confirmation.action,
+        actionName: confirmation.actionName || confirmation.action,
+        targetId: confirmation.targetId || '',
+        sourceDigest: confirmation.sourceDigest || '',
+        normalizedInput: confirmation.normalizedInput || {},
+        snapshot: confirmation.snapshot || null,
+        status: confirmation.status,
+        expiresAt: confirmation.expiresAt,
+        createdAt: confirmation.createdAt,
+        executedAt: confirmation.executedAt
+      }
+    }
+  }
   return {
     searchHouses: query.searchHouses,
     getHouseDetail: query.getHouseDetail,
@@ -26,6 +49,7 @@ function createActions(caller) {
     getPaymentHistory: query.getPaymentHistory,
     getMeterTargets: query.getMeterTargets,
     getMoveOutTargets: query.getMoveOutTargets,
+    getOperationConfirmation,
     previewCreateHouse: preview.previewCreateHouse,
     previewCreateTenant: preview.previewCreateTenant,
     previewCreateLease: preview.previewCreateLease,

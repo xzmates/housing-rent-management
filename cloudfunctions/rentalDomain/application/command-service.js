@@ -1,5 +1,7 @@
 const { invariant } = require('../infrastructure/errors')
 const { idempotencyKey, loadPendingConfirmation, findExecutedOperation } = require('../infrastructure/idempotency')
+const { createRepository } = require('../repositories/rental-repository')
+const { buildMoveOutSettlementSnapshot } = require('./preview-service')
 
 async function legacyCall(app, name, data) {
   const res = await app.callFunction({ name, data })
@@ -18,6 +20,20 @@ function cleanParams(params) {
   return out
 }
 
+function sameValue(left, right) {
+  if (left === right) return true
+  if (left === undefined || right === undefined) return false
+  return String(left) === String(right)
+}
+
+function assertConfirmationParamsNotOverridden(action, params, confirmation) {
+  if (action !== 'settleMoveOut') return
+  const supplied = cleanParams(params)
+  const normalized = confirmation.normalizedInput || {}
+  const changedKeys = Object.keys(supplied).filter(key => !sameValue(supplied[key], normalized[key]))
+  invariant(changedKeys.length === 0, 'VALIDATION_ERROR', '确认参数与预览记录不一致，请重新生成退租预览')
+}
+
 function normalizeMoveOutParams(params) {
   const out = cleanParams(params)
   if (!out.endDate && out.moveOutDate) out.endDate = out.moveOutDate
@@ -27,6 +43,8 @@ function normalizeMoveOutParams(params) {
 }
 
 function createCommandService(app, db) {
+  const repo = createRepository(db)
+
   async function resolveParams(params, caller, action) {
     if (!params || !params.confirmationId) return { input: cleanParams(params), confirmation: null, key: '' }
 
@@ -35,16 +53,37 @@ function createCommandService(app, db) {
     if (executed) return { replay: true, key, result: executed.summary && executed.summary.result }
 
     const confirmation = await loadPendingConfirmation(db, caller, action, params.confirmationId)
-    return { input: { ...(confirmation.normalizedInput || {}), ...cleanParams(params) }, confirmation, key }
+    assertConfirmationParamsNotOverridden(action, params, confirmation)
+    return { input: { ...(confirmation.normalizedInput || {}) }, confirmation, key }
+  }
+
+  async function markConfirmation(confirmationId, patch) {
+    if (!confirmationId) return
+    await db.collection('operation_confirmations').doc(confirmationId).update(patch)
+  }
+
+  async function markExecuting(confirmationId) {
+    await markConfirmation(confirmationId, { status: 'executing', executingAt: new Date() })
+  }
+
+  async function markPendingAfterFailure(confirmationId) {
+    await markConfirmation(confirmationId, { status: 'pending', executingAt: null })
   }
 
   async function markExecuted(confirmationId, result) {
-    if (!confirmationId) return
-    await db.collection('operation_confirmations').doc(confirmationId).update({
+    await markConfirmation(confirmationId, {
       status: 'executed',
       executedAt: new Date(),
       result
     })
+  }
+
+  async function assertMoveOutConfirmationFresh(input, caller, confirmation) {
+    if (!confirmation) return
+    invariant(confirmation.targetId === input.leaseId, 'VALIDATION_ERROR', '确认记录与合同不匹配')
+    invariant(confirmation.sourceDigest, 'STALE_CONFIRMATION', '退租预览已过期，请重新生成预览')
+    const snapshot = await buildMoveOutSettlementSnapshot(repo.forOwner(caller.openId), input)
+    invariant(snapshot.sourceDigest === confirmation.sourceDigest, 'STALE_CONFIRMATION', '退租数据已变化，请重新生成预览')
   }
 
   async function runLegacy(params, caller, action, legacyName, mapParams = cleanParams) {
@@ -52,11 +91,20 @@ function createCommandService(app, db) {
     const resolved = await resolveParams(params, caller, action)
     if (resolved.replay) return { replayed: true, idempotencyKey: resolved.key, result: resolved.result }
 
+    if (action === 'settleMoveOut' && resolved.confirmation) {
+      await assertMoveOutConfirmationFresh(resolved.input, caller, resolved.confirmation)
+      await markExecuting(params.confirmationId)
+    }
     const input = mapParams(resolved.input)
-    await assertLegacyTargetOwner(action, input, caller)
-    const result = await legacyCall(app, legacyName, input)
-    if (resolved.confirmation) await markExecuted(params.confirmationId, result)
-    return { ...result, confirmationId: params && params.confirmationId, idempotencyKey: resolved.key }
+    try {
+      await assertLegacyTargetOwner(action, input, caller)
+      const result = await legacyCall(app, legacyName, input)
+      if (resolved.confirmation) await markExecuted(params.confirmationId, result)
+      return { ...result, confirmationId: params && params.confirmationId, idempotencyKey: resolved.key }
+    } catch (err) {
+      if (action === 'settleMoveOut' && resolved.confirmation) await markPendingAfterFailure(params.confirmationId)
+      throw err
+    }
   }
 
   async function assertOwned(collection, id, caller, label) {

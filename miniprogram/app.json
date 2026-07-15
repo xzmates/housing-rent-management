@@ -8,6 +8,7 @@
     "pages/prepay-rent/index",
     "pages/utility/index",
     "pages/batch-meter/index",
+    "pages/ai-moveout-detail/index",
     "pages/import/index",
     "pages/settings/index",
     "pages/contract/index",
@@ -62,6 +63,7 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
   "agent": {
+    "pageMetadata": "page-meta.json",
     "skills": [
       { "name": "house", "description": "房屋管理：查询房屋、查看详情和新增房屋。", "path": "skills/house-skill" },
       { "name": "tenant", "description": "租客管理：查询租客、查看详情和新增租客。", "path": "skills/tenant-skill" },

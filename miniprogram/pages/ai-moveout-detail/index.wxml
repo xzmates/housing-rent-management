@@ -1,6 +1,6 @@
 <view class="detail-page" style="padding-top: {{closeTop}}px;">
   <view wx:if="{{!moveOutPreview && loaded}}" class="empty-box">
-    <text>退租结算信息已失效，请重新发起退租。</text>
+    <text>{{emptyText}}</text>
   </view>
 
   <view wx:if="{{moveOutPreview}}" class="detail-content">

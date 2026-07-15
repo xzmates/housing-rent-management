@@ -28,7 +28,8 @@
       "description": "预览退租结算，计算租金、押金、水电费和应退应补金额，并生成确认记录（业务对象：退租确认卡片）。调用前置条件：已明确合同、退租日期和退租水电读数。【严禁场景】不要直接替代最终退租。",
       "_meta": {
         "ui": {
-          "componentPath": "components/moveout-result/index"
+          "componentPath": "components/moveout-result/index",
+          "pagePath": "/pages/ai-moveout-detail/index"
         }
       },
       "inputSchema": {
@@ -60,59 +61,11 @@
           }
         },
         "required": [
-          "leaseId"
+          "leaseId",
+          "moveOutDate",
+          "electricityReading",
+          "waterReading"
         ],
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "additionalProperties": true
-      }
-    },
-    {
-      "name": "settleMoveOut",
-      "description": "确认办理退租，执行结算并更新合同、账单、付款记录、房屋和租客状态（业务对象：退租结果卡片）。调用前置条件：用户已确认退租结算，优先使用确认编号。【严禁场景】不要用于普通合同创建。",
-      "_meta": {
-        "ui": {
-          "componentPath": "components/moveout-result/index"
-        }
-      },
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "confirmationId": {
-            "type": "string",
-            "description": "预览接口返回的确认编号"
-          },
-          "leaseId": {
-            "type": "string",
-            "description": "合同 ID"
-          },
-          "moveOutDate": {
-            "type": "string",
-            "description": "退租日期"
-          },
-          "endDate": {
-            "type": "string",
-            "description": "退租日期"
-          },
-          "electricityReading": {
-            "type": "number",
-            "description": "退租电表读数"
-          },
-          "waterReading": {
-            "type": "number",
-            "description": "退租水表读数"
-          },
-          "damageAmount": {
-            "type": "number",
-            "description": "赔偿或扣款金额"
-          },
-          "remark": {
-            "type": "string",
-            "description": "备注"
-          }
-        },
         "additionalProperties": false
       },
       "outputSchema": {
@@ -124,7 +77,7 @@
   "components": [
     {
       "path": "components/moveout-result/index",
-      "relatedPage": "/pages/tenants/index"
+      "relatedPage": "/pages/ai-moveout-detail/index"
     }
   ]
 }

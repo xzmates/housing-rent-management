@@ -102,6 +102,12 @@ async function previewMoveOutSettlement(params) {
   return callRentalDomain('previewMoveOutSettlement', params);
 }
 
+async function getOperationConfirmation(confirmationId) {
+  if (!confirmationId) throw new Error('缺少确认记录 ID');
+  const data = await callRentalDomain('getOperationConfirmation', { confirmationId });
+  return data.confirmation || data;
+}
+
 /** 删除合同，并同步删除该合同对应的账单、流水和水电记录 */
 async function deleteLease(leaseId) {
   return _callCloud('deleteLeaseAgreement', { leaseId });
@@ -433,6 +439,7 @@ module.exports = {
   previewCollectRent,
   previewMeterReading,
   previewMoveOutSettlement,
+  getOperationConfirmation,
   // 房屋
   getHouses, getHousesWithOccupancy, getHouseById, addHouse, updateHouse, deleteHouse,
   // 租客

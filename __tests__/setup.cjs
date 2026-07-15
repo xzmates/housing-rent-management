@@ -4,14 +4,50 @@
  */
 const store = new Map();
 let mockClock = 0;
+const DEFAULT_OPENID = 'test-openid';
+const OWNED_COLLECTIONS = new Set([
+  'houses',
+  'tenants',
+  'lease_agreements',
+  'bills',
+  'payments',
+  'utility_records',
+  'operation_confirmations',
+  'operation_logs',
+  'admins',
+  'system_settings'
+]);
 
 function nextDate() {
   mockClock += 1;
   return new Date(Date.now() + mockClock);
 }
 
+function withDefaultOwner(name, item) {
+  if (!item || typeof item !== 'object' || !OWNED_COLLECTIONS.has(name)) return item;
+  if (Object.prototype.hasOwnProperty.call(item, '_openid')) return item;
+  return { _openid: DEFAULT_OPENID, ...item };
+}
+
+function createCollectionArray(name, initial = []) {
+  const arr = [];
+  Object.defineProperty(arr, '__mockCollectionName', { value: name, enumerable: false });
+  const rawPush = Array.prototype.push;
+  Object.defineProperty(arr, 'push', {
+    value(...items) {
+      return rawPush.apply(this, items.map(item => withDefaultOwner(name, item)));
+    },
+    enumerable: false
+  });
+  if (initial.length) arr.push(...initial);
+  return arr;
+}
+
 function getCollectionData(name) {
-  if (!store.has(name)) store.set(name, []);
+  const existing = store.get(name);
+  if (!existing || existing.__mockCollectionName !== name) {
+    store.set(name, createCollectionArray(name, existing || []));
+  }
   return store.get(name);
 }
 
@@ -60,7 +96,8 @@ const collectionAPI = (name) => {
           const item = col.find(d => d._id === id) || null;
           return Promise.resolve({ data: copyObj(item), errMsg: 'document.get:ok' });
         },
-        update({ data }) {
+        update(patch) {
+          const data = patch && Object.prototype.hasOwnProperty.call(patch, 'data') ? patch.data : patch;
           const col = getCollectionData(name);
           const item = col.find(d => d._id === id);
           if (item) {
@@ -84,7 +121,8 @@ const collectionAPI = (name) => {
       };
     },
 
-    add({ data }) {
+    add(payload) {
+      const data = payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
       const col = getCollectionData(name);
       const doc = Object.assign({ _id: 'id_' + name + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) }, copyObj(data));
       col.push(doc);
@@ -152,6 +190,7 @@ const collectionAPI = (name) => {
 // Mock wx global
 global.wx = {
   cloud: {
+    init() {},
     database() {
       return {
         collection(name) { return collectionAPI(name); },
@@ -162,12 +201,12 @@ global.wx = {
         }
       };
     },
-    callFunction({ name, data }) {
+    async callFunction({ name, data }) {
       const handler = cloudFunctionHandlers[name];
       if (!handler) {
         return Promise.resolve({ result: { code: -1, message: '未注册的云函数: ' + name } });
       }
-      return Promise.resolve({ result: handler(data) });
+      return { result: await handler(data) };
     }
   },
   showToast() {},
@@ -1009,8 +1048,124 @@ registerCloudFunction('queryLeaseData', ({ action, filters = {}, id }) => {
   return { code: 400, message: '未知查询动作：' + action };
 });
 
+const { DomainError } = require('../cloudfunctions/rentalDomain/infrastructure/errors');
+const { createRepository } = require('../cloudfunctions/rentalDomain/repositories/rental-repository');
+const { createQueryService } = require('../cloudfunctions/rentalDomain/application/query-service');
+const { createPreviewService } = require('../cloudfunctions/rentalDomain/application/preview-service');
+const { createCommandService } = require('../cloudfunctions/rentalDomain/application/command-service');
+const { safeAudit } = require('../cloudfunctions/rentalDomain/infrastructure/audit');
+
+const mockDb = {
+  collection(name) { return collectionAPI(name); },
+  command: mockCommand
+};
+
+const mockRentalApp = {
+  callFunction({ name, data }) {
+    return global.wx.cloud.callFunction({ name, data });
+  }
+};
+
+const rentalRepo = createRepository(mockDb);
+const rentalCommand = createCommandService(mockRentalApp, mockDb);
+const auditableRentalActions = new Set([
+  'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease',
+  'previewCollectRent', 'previewMeterReading', 'previewMoveOutSettlement',
+  'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease',
+  'confirmCollectRent', 'confirmMeterReading', 'settleMoveOut'
+]);
+
+function createRentalActions(caller) {
+  const scopedRepo = rentalRepo.forOwner(caller.openId);
+  const query = createQueryService(scopedRepo, mockDb.command);
+  const preview = createPreviewService(mockDb, scopedRepo);
+
+  async function getOperationConfirmation(params = {}) {
+    const confirmationId = params.confirmationId || '';
+    if (!confirmationId) throw new DomainError('VALIDATION_ERROR', '缺少确认记录 ID');
+    const res = await mockDb.collection('operation_confirmations').doc(confirmationId).get();
+    const confirmation = res && res.data && (Array.isArray(res.data) ? res.data[0] : res.data);
+    if (!confirmation) throw new DomainError('NOT_FOUND', '确认记录不存在');
+    if (confirmation._openid !== caller.openId) throw new DomainError('FORBIDDEN', '不能读取他人的确认记录');
+    return {
+      confirmation: {
+        id: confirmation._id || confirmationId,
+        action: confirmation.action,
+        actionName: confirmation.actionName || confirmation.action,
+        targetId: confirmation.targetId || '',
+        sourceDigest: confirmation.sourceDigest || '',
+        normalizedInput: confirmation.normalizedInput || {},
+        snapshot: confirmation.snapshot || null,
+        status: confirmation.status,
+        expiresAt: confirmation.expiresAt,
+        createdAt: confirmation.createdAt,
+        executedAt: confirmation.executedAt
+      }
+    };
+  }
+
+  return {
+    searchHouses: query.searchHouses,
+    getHouseDetail: query.getHouseDetail,
+    searchTenants: query.searchTenants,
+    getTenantDetail: query.getTenantDetail,
+    getActiveLeases: query.getActiveLeases,
+    getUnpaidBills: query.getUnpaidBills,
+    getPaymentHistory: query.getPaymentHistory,
+    getMeterTargets: query.getMeterTargets,
+    getMoveOutTargets: query.getMoveOutTargets,
+    getOperationConfirmation,
+    previewCreateHouse: preview.previewCreateHouse,
+    previewCreateTenant: preview.previewCreateTenant,
+    previewCreateLease: preview.previewCreateLease,
+    previewRenewLease: preview.previewRenewLease,
+    previewCollectRent: preview.previewCollectRent,
+    previewMeterReading: preview.previewMeterReading,
+    previewMoveOutSettlement: preview.previewMoveOutSettlement,
+    confirmCreateHouse: rentalCommand.confirmCreateHouse,
+    confirmCreateTenant: rentalCommand.confirmCreateTenant,
+    confirmCreateLease: rentalCommand.confirmCreateLease,
+    confirmRenewLease: rentalCommand.confirmRenewLease,
+    confirmCollectRent: rentalCommand.confirmCollectRent,
+    confirmMeterReading: rentalCommand.confirmMeterReading,
+    settleMoveOut: rentalCommand.settleMoveOut
+  };
+}
+
+registerCloudFunction('rentalDomain', async (event = {}) => {
+  const action = String(event.action || '');
+  const caller = { openId: event.__openid || DEFAULT_OPENID };
+  try {
+    const actions = createRentalActions(caller);
+    if (!actions[action]) throw new DomainError('VALIDATION_ERROR', `未知业务动作：${action || '空'}`);
+    const params = event.params && typeof event.params === 'object' ? event.params : event;
+    const data = await actions[action](params, caller);
+    if (auditableRentalActions.has(action)) {
+      const phase = action.startsWith('preview') ? 'preview' : 'confirm';
+      await safeAudit(mockDb, caller, {
+        action,
+        phase,
+        status: 'success',
+        targetId: data.confirmationId || '',
+        idempotencyKey: data.idempotencyKey || '',
+        summary: { confirmationId: data.confirmationId, result: data }
+      });
+    }
+    return { code: 0, message: 'ok', data };
+  } catch (error) {
+    const errorCode = error instanceof DomainError ? error.code : 'INTERNAL_ERROR';
+    if (action && auditableRentalActions.has(action)) {
+      const phase = action.startsWith('preview') ? 'preview' : 'confirm';
+      await safeAudit(mockDb, caller, { action, phase, status: 'failed', errorCode, errorMessage: error.message });
+    }
+    return { code: -1, errorCode, message: error.message || '服务异常', data: null };
+  }
+});
+
 module.exports = {
   getCollectionData,
   clearAllData,
-  registerCloudFunction
+  registerCloudFunction,
+  mockDb,
+  DEFAULT_OPENID
 };

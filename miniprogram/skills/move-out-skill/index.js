@@ -6,6 +6,5 @@ skill.use(createSkillMiddleware('move-out-skill'))
 
 skill.registerAPI('getMoveOutTargets', apis.getMoveOutTargets)
 skill.registerAPI('previewMoveOutSettlement', apis.previewMoveOutSettlement)
-skill.registerAPI('settleMoveOut', apis.settleMoveOut)
 
 console.info('[ai-mode] move-out-skill APIs registered')
