@@ -94,7 +94,7 @@ Page({
         }
       });
 
-      let bills = (billRes.data || []).map(bill => {
+      const allBills = (billRes.data || []).map(bill => {
         const lease = leaseMap[bill.leaseId] || {};
         const house = houseMap[lease.houseId] || {};
         const tenant = tenantMap[lease.tenantId] || {};
@@ -111,6 +111,7 @@ Page({
           utilityDetail: bill.type === 'utility' ? (bill.remark || '') : ''
         };
       });
+      let bills = allBills.slice();
 
       // 筛选
       const { status, type } = this.data.filters;
@@ -135,7 +136,7 @@ Page({
       });
 
       this.setData({ bills });
-      this._calcStats(bills);
+      this._calcStats(allBills);
     } catch (e) {
       console.error('加载账单失败', e);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -144,29 +145,47 @@ Page({
     }
   },
 
-  _calcStats(bills) {
-    const unpaid = bills.filter(b => b.status !== 'paid');
-    const refundTypes = ['rent_refund', 'deposit_return'];
-    const paid = bills.filter(b => b.status === 'paid');
-    const refunds = bills.filter(b => b.status === 'paid' && refundTypes.indexOf(b.type) >= 0);
-    const rentPaid = paid.filter(b => b.type === 'rent').reduce((s, b) => s + b.paidAmount, 0) -
-      refunds.filter(b => b.type === 'rent_refund').reduce((s, b) => s + b.paidAmount, 0);
-    const utilityPaid = paid.filter(b => b.type === 'utility').reduce((s, b) => s + b.paidAmount, 0);
-    const lossPaid = (this.data.allLeases || [])
-      .filter(l => l.status === 'terminated')
-      .reduce((s, l) => s + Number(l.damageAmount || 0), 0);
+  _calcStats(allBills) {
+    const { status, type } = this.data.filters || {};
+    const scopedBills = (allBills || []).filter(b => !this.data.houseFilterId || b.houseId === this.data.houseFilterId);
+    const typeMatchedBills = scopedBills.filter(b => {
+      if (!type) return true;
+      if (type === 'rent') return b.type === 'rent' || b.type === 'rent_refund';
+      return b.type === type;
+    });
+    const visibleForStats = typeMatchedBills.filter(b => {
+      if (status === 'unpaid') return b.status === 'unpaid' || b.status === 'partial';
+      if (status) return b.status === status;
+      return true;
+    });
+    const unpaid = visibleForStats.filter(b => b.status !== 'paid');
+    const paid = status === 'unpaid' ? [] : visibleForStats.filter(b => b.status === 'paid');
+    const rentPaid = type && type !== 'rent' ? 0 : (
+      paid.filter(b => b.type === 'rent').reduce((s, b) => s + Number(b.paidAmount || 0), 0) -
+      paid.filter(b => b.type === 'rent_refund').reduce((s, b) => s + Number(b.paidAmount || 0), 0)
+    );
+    const utilityPaid = type && type !== 'utility'
+      ? 0
+      : paid.filter(b => b.type === 'utility').reduce((s, b) => s + Number(b.paidAmount || 0), 0);
+    const lossPaid = (!type && status !== 'unpaid')
+      ? (this.data.allLeases || [])
+        .filter(l => l.status === 'terminated')
+        .filter(l => !this.data.houseFilterId || l.houseId === this.data.houseFilterId)
+        .reduce((s, l) => s + Number(l.damageAmount || 0), 0)
+      : 0;
+    const activeLeases = (this.data.allLeases || [])
+      .filter(l => l.status === 'active')
+      .filter(l => !this.data.houseFilterId || l.houseId === this.data.houseFilterId);
     this.setData({
       stats: {
-        totalUnpaid: unpaid.reduce((s, b) => s + (b.amount - b.paidAmount), 0),
+        totalUnpaid: unpaid.reduce((s, b) => s + (Number(b.amount || 0) - Number(b.paidAmount || 0)), 0),
         totalPaid: rentPaid + utilityPaid + lossPaid,
         rentPaid,
         utilityPaid,
         lossPaid,
-        rentUnpaid: unpaid.filter(b => b.type === 'rent').reduce((s, b) => s + (b.amount - b.paidAmount), 0),
-        utilityUnpay: unpaid.filter(b => b.type === 'utility').reduce((s, b) => s + (b.amount - b.paidAmount), 0),
-        managedDeposit: (this.data.allLeases || [])
-          .filter(l => l.status === 'active')
-          .reduce((s, l) => s + Number(l.deposit || 0), 0)
+        rentUnpaid: type && type !== 'rent' ? 0 : unpaid.filter(b => b.type === 'rent').reduce((s, b) => s + (Number(b.amount || 0) - Number(b.paidAmount || 0)), 0),
+        utilityUnpay: type && type !== 'utility' ? 0 : unpaid.filter(b => b.type === 'utility').reduce((s, b) => s + (Number(b.amount || 0) - Number(b.paidAmount || 0)), 0),
+        managedDeposit: activeLeases.reduce((s, l) => s + Number(l.deposit || 0), 0)
       }
     });
   },

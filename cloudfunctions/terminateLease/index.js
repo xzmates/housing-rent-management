@@ -37,10 +37,13 @@ function formatMonth(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function getBillingMonths(cycle) {
+  return { month: 1, quarter: 3, half_year: 6, year: 12 }[cycle] || 1;
+}
+
 function formatRentPeriod(start, months) {
   const end = addDays(new Date(start.getFullYear(), start.getMonth() + months, start.getDate()), -1);
-  if (months === 1) return formatMonth(start);
-  return `${formatMonth(start)}~${formatMonth(end)}`;
+  return `${formatDate(start)}~${formatDate(end)}`;
 }
 
 function ceilMonthsInclusive(start, end) {
@@ -57,6 +60,13 @@ function calcOccupiedMonths(startDate, endDate) {
     return months + 1;
   }
   return months;
+}
+
+function calcOccupiedBillingMonths(startDate, endDate, paymentCycle) {
+  const occupiedMonths = calcOccupiedMonths(startDate, endDate);
+  const cycleMonths = getBillingMonths(paymentCycle);
+  if (occupiedMonths <= 0) return 0;
+  return Math.ceil(occupiedMonths / cycleMonths) * cycleMonths;
 }
 
 function billRemaining(bill) {
@@ -277,7 +287,8 @@ exports.main = async (event = {}) => {
       coverageEnd: b.rentCoverageEnd ? formatDate(parseDateInput(b.rentCoverageEnd)) : ''
     }));
     const leaseStartDate = parseDateInput(lease.startDate);
-    const actualOccupiedMonths = calcOccupiedMonths(leaseStartDate, actualEndDate);
+    const actualOccupiedMonths = calcOccupiedBillingMonths(leaseStartDate, actualEndDate, lease.paymentCycle);
+    const billingCycleMonths = getBillingMonths(lease.paymentCycle);
     const actualRentDue = Math.round(actualOccupiedMonths * Number(lease.rent || 0) * 100) / 100;
     const overpaidRent = Math.max(0, totalPaidRent - actualRentDue);
     let rentRefundBillId = null;
@@ -296,6 +307,7 @@ exports.main = async (event = {}) => {
         rentRefundDetail: {
           occupiedPeriod: `${formatDate(leaseStartDate)} 至 ${formatDate(actualEndDate)}`,
           occupiedMonths: actualOccupiedMonths,
+          billingCycleMonths,
           actualRentDue,
           paidRentDetails,
           totalPaidRent,
@@ -500,6 +512,7 @@ exports.main = async (event = {}) => {
         rentRefund: {
           occupiedPeriod: `${formatDate(leaseStartDate)} 至 ${formatDate(actualEndDate)}`,
           occupiedMonths: actualOccupiedMonths,
+          billingCycleMonths,
           actualRentDue,
           paidRentDetails,
           totalPaidRent,

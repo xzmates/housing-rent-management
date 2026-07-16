@@ -57,8 +57,7 @@ function formatMonthKey(date) {
 
 function formatRentPeriod(start, months) {
   const end = addDays(addMonths(start, months), -1);
-  if (months === 1) return formatMonthKey(start);
-  return `${formatMonthKey(start)}~${formatMonthKey(end)}`;
+  return `${formatDateKey(start)}~${formatDateKey(end)}`;
 }
 
 function buildMeta(event, source = {}) {
@@ -246,6 +245,8 @@ exports.main = async (event = {}) => {
       dueDate,
       rentCoverageStart: dueDate,
       rentCoverageEnd,
+      coverageMonths: cycleMonths,
+      coverageDays: 0,
       remark: '历史建档快照生成的当前待收租金',
       createdAt: now,
       updatedAt: now

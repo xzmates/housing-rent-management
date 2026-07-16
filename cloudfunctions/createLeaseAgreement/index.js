@@ -43,8 +43,7 @@ function formatMonthKey(date) {
 
 function formatRentPeriod(start, months) {
   const end = addDays(addMonths(start, months), -1);
-  if (months === 1) return formatMonthKey(start);
-  return `${formatMonthKey(start)}~${formatMonthKey(end)}`;
+  return `${formatDateKey(start)}~${formatDateKey(end)}`;
 }
 
 function buildMeta(event, source = {}) {
@@ -93,6 +92,10 @@ function generateInitialBills({ leaseId, houseId, tenantId, startDate, rent, dep
     period: formatRentPeriod(start, months),
     amount: firstRentAmount, paidAmount: firstRentAmount, status: 'paid',
     dueDate: firstRentDueDate, paidAt: now,
+    rentCoverageStart: start,
+    rentCoverageEnd: rentCoveredUntil,
+    coverageMonths: months,
+    coverageDays: 0,
     remark: `首期${months}个月租金，覆盖至${formatDateKey(rentCoveredUntil)}`,
     createdAt: now, updatedAt: now
   });
@@ -118,6 +121,10 @@ function generateInitialBills({ leaseId, houseId, tenantId, startDate, rent, dep
       period: formatRentPeriod(periodStart, months),
       amount: firstRentAmount, paidAmount: 0, status: 'unpaid',
       dueDate: periodStart,
+      rentCoverageStart: periodStart,
+      rentCoverageEnd: periodEnd,
+      coverageMonths: months,
+      coverageDays: 0,
       remark: `逾期租金，覆盖${formatDateKey(periodStart)}至${formatDateKey(periodEnd)}`,
       createdAt: now, updatedAt: now
     });

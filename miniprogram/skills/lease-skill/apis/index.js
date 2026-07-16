@@ -15,12 +15,30 @@ async function getActiveLeases(params = {}) {
     })
     const leases = (data && data.leases) || []
     const text = leases.length > 0
-      ? `找到 ${leases.length} 份生效合同：${leases.map(l => `${l.tenant ? l.tenant.name : ''}（${l.house ? l.house.label : ''}）`).join('、')}`
+      ? `找到 ${leases.length} 份生效合同：${leases.map(l => `${l.tenant ? l.tenant.name : ''}（${l.house ? l.house.label : ''}，合同ID：${l.id || ''}）`).join('、')}。后续办理提前收租时请使用对应的合同ID。`
       : '当前没有生效的租赁合同。'
-    return successResult(text, { title: '生效合同', subtitle: '', fields: leases.map(l => ({
-      label: l.tenant ? l.tenant.name : '—',
-      value: l.house ? l.house.label : '—'
-    })) })
+    return successResult(text, {
+      title: '生效合同',
+      subtitle: '办理提前收租时必须使用 leaseId/合同ID，不要使用租客ID或房屋展示名称。',
+      leases: leases.map(l => ({
+        id: l.id || '',
+        leaseId: l.id || '',
+        tenantId: l.tenant ? l.tenant.id || '' : '',
+        tenantName: l.tenant ? l.tenant.name || '' : '',
+        houseId: l.house ? l.house.id || '' : '',
+        houseLabel: l.house ? l.house.label || '' : '',
+        rent: l.rent,
+        paymentCycle: l.paymentCycle,
+        status: l.status,
+        startDate: l.startDate,
+        endDate: l.endDate
+      })),
+      fields: leases.map(l => ({
+        label: l.tenant ? l.tenant.name : '—',
+        value: l.house ? l.house.label : '—',
+        leaseId: l.id || ''
+      }))
+    })
   } catch (err) {
     console.error('[ai-mode] lease-skill getActiveLeases error:', err.message)
     return errorResult('查询生效合同失败：' + err.message)

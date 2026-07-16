@@ -98,6 +98,69 @@ describe('退租 Handoff 收尾验收', () => {
     expect(getCollectionData('lease_agreements').filter(item => item.status === 'terminated')).toHaveLength(1);
   });
 
+  it('已提前交租后中途退租，预览会纳入未住期间的多付租金退款', async () => {
+    seedBase();
+    const result = await api.createLease({
+      houseId: 'h1',
+      tenantId: 't1',
+      startDate: '2026-01-01',
+      rent: 1000,
+      deposit: 1000,
+      paymentCycle: 'quarter',
+      moveInElectricity: 0,
+      moveInWater: 0
+    });
+    const leaseId = result.leaseId;
+    const bills = getCollectionData('bills');
+    const aprBill = bills.find(item => item.leaseId === leaseId && item.type === 'rent' && item.status === 'unpaid');
+    Object.assign(aprBill, {
+      period: '2026-04~2026-06',
+      amount: 3000,
+      paidAmount: 0,
+      status: 'unpaid',
+      dueDate: '2026-04-01',
+      rentCoverageStart: undefined,
+      rentCoverageEnd: undefined
+    });
+    bills.push({
+      _id: 'bill_jul_sep_moveout',
+      leaseId,
+      houseId: 'h1',
+      tenantId: 't1',
+      type: 'rent',
+      period: '2026-07~2026-09',
+      amount: 3000,
+      paidAmount: 0,
+      status: 'unpaid',
+      dueDate: '2026-07-01',
+      createdAt: new Date('2026-07-01T00:00:00+08:00')
+    });
+
+    const prepay = await api.previewPrepayRent({
+      leaseId,
+      coverageMonths: 12,
+      paymentMethod: 'wechat',
+      paymentDate: '2026-07-15'
+    });
+    await api.confirmPrepayRent({ confirmationId: prepay.confirmationId });
+
+    const preview = await api.previewMoveOutSettlement({
+      leaseId,
+      moveOutDate: '2026-07-15',
+      electricityReading: 0,
+      waterReading: 0,
+      damageAmount: 0
+    });
+
+    expect(preview.settlementView.rentRefund.billingCycleMonths).toBe(3);
+    expect(preview.settlementView.rentRefund.occupiedMonths).toBe(9);
+    expect(preview.settlementView.rentRefund.actualRentDue).toBe(9000);
+    expect(preview.settlementView.rentRefund.overpaidRent).toBe(6000);
+    expect(preview.settlementView.overpaidRent).toBe(6000);
+    expect(preview.settlementView.totalRefund).toBe(7000);
+    expect(preview.settlementView.finalAmount).toBe(7000);
+  });
+
   it('其他 openid、过期 confirmation、错误 leaseId 覆盖都会被拒绝', async () => {
     const leaseId = await createLease();
     const preview = await api.previewMoveOutSettlement({

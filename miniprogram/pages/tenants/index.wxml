@@ -182,7 +182,7 @@
             <text>实际入住：{{settlementPreview.rentRefund.occupiedPeriod}}</text>
           </view>
           <view style="margin-bottom:8rpx;">
-            <text>入住月数：{{settlementPreview.rentRefund.occupiedMonths}} 个月（不满整月按整月）</text>
+            <text>计费月数：{{settlementPreview.rentRefund.occupiedMonths}} 个月（按合同缴费周期取整）</text>
           </view>
           <view style="margin-bottom:8rpx;">
             <text>实际应付租金：¥{{settlementPreview.rentRefund.actualRentDue}}</text>

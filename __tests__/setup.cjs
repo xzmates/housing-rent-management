@@ -277,8 +277,7 @@ function billingMonths(cycle) {
 
 function rentPeriod(start, months) {
   const end = addDays(addMonths(start, months), -1);
-  if (months === 1) return formatMonthKey(start);
-  return `${formatMonthKey(start)}~${formatMonthKey(end)}`;
+  return `${formatDateKey(start)}~${formatDateKey(end)}`;
 }
 
 function calcOccupiedMonths(startDate, endDate) {
@@ -287,6 +286,13 @@ function calcOccupiedMonths(startDate, endDate) {
                + endDate.getMonth() - startDate.getMonth();
   if (endDate.getDate() >= startDate.getDate()) return months + 1;
   return months;
+}
+
+function calcOccupiedBillingMonths(startDate, endDate, paymentCycle) {
+  const occupiedMonths = calcOccupiedMonths(startDate, endDate);
+  const cycleMonths = billingMonths(paymentCycle);
+  if (occupiedMonths <= 0) return 0;
+  return Math.ceil(occupiedMonths / cycleMonths) * cycleMonths;
 }
 
 function createInitialBills({ leaseId, houseId, tenantId, startDate, rent, deposit, paymentCycle, now, meta = {} }) {
@@ -303,6 +309,10 @@ function createInitialBills({ leaseId, houseId, tenantId, startDate, rent, depos
       period: rentPeriod(start, months),
       amount: cycleAmount, paidAmount: cycleAmount, status: 'paid',
       dueDate: start, paidAt: now,
+      rentCoverageStart: start,
+      rentCoverageEnd: rentCoveredUntil,
+      coverageMonths: months,
+      coverageDays: 0,
       remark: `首期${months}个月租金，覆盖至${formatDateKey(rentCoveredUntil)}`,
       createdAt: now, updatedAt: now
     },
@@ -330,6 +340,10 @@ function createInitialBills({ leaseId, houseId, tenantId, startDate, rent, depos
       period: rentPeriod(periodStart, months),
       amount: cycleAmount, paidAmount: 0, status: 'unpaid',
       dueDate: periodStart,
+      rentCoverageStart: periodStart,
+      rentCoverageEnd: periodEnd,
+      coverageMonths: months,
+      coverageDays: 0,
       remark: `逾期租金，覆盖${formatDateKey(periodStart)}至${formatDateKey(periodEnd)}`,
       createdAt: now, updatedAt: now
     });
@@ -720,7 +734,8 @@ registerCloudFunction('terminateLease', ({ leaseId, endDate, damageDeduction, re
 
   const paidRentBills = bills.filter(b => b.leaseId === leaseId && b.type === 'rent' && ['paid', 'partial'].includes(b.status));
   const totalPaidRent = Math.round(paidRentBills.reduce((sum, b) => sum + Number(b.paidAmount || 0), 0) * 100) / 100;
-  const actualOccupiedMonths = calcOccupiedMonths(parseDateInput(lease.startDate), parseDateInput(actualEndDate));
+  const actualOccupiedMonths = calcOccupiedBillingMonths(parseDateInput(lease.startDate), parseDateInput(actualEndDate), lease.paymentCycle);
+  const billingCycleMonths = billingMonths(lease.paymentCycle);
   const actualRentDue = Math.round(actualOccupiedMonths * Number(lease.rent || 0) * 100) / 100;
   const overpaidRent = Math.max(0, Math.round((totalPaidRent - actualRentDue) * 100) / 100);
   let rentRefundBillId = null;
@@ -842,6 +857,8 @@ registerCloudFunction('terminateLease', ({ leaseId, endDate, damageDeduction, re
       cashSettlementDetails,
       rentRefund: {
         actualOccupiedMonths,
+        occupiedMonths: actualOccupiedMonths,
+        billingCycleMonths,
         actualRentDue,
         totalPaidRent,
         overpaidRent,

@@ -96,7 +96,7 @@
     <view wx:if="{{moveOutPreview.rentRefund && moveOutPreview.rentRefund.overpaidRent > 0}}" class="rent-refund-box">
       <text class="section-title green-text">多付租金退还</text>
       <text class="detail-line">实际入住：{{moveOutPreview.rentRefund.occupiedPeriod}}</text>
-      <text class="detail-line">入住月数：{{moveOutPreview.rentRefund.occupiedMonths}} 个月（不满整月按整月）</text>
+      <text class="detail-line">计费月数：{{moveOutPreview.rentRefund.occupiedMonths}} 个月（按合同缴费周期取整）</text>
       <text class="detail-line">实际应付租金：¥{{moveOutPreview.rentRefund.actualRentDue}}</text>
       <text class="detail-line">已付租金合计：¥{{moveOutPreview.rentRefund.totalPaidRent}}</text>
       <view wx:for="{{moveOutPreview.rentRefund.paidRentDetails}}" wx:key="period" class="paid-rent-row">

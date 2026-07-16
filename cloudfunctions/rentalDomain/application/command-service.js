@@ -46,7 +46,7 @@ function normalizeMoveOutParams(params) {
 function parseDateInput(value) {
   if (value instanceof Date) return value
   if (typeof value === 'string') {
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
     if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   }
   if (value && value.$date) return new Date(value.$date)
@@ -55,6 +55,81 @@ function parseDateInput(value) {
 
 function addDays(date, days) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
+}
+
+function addMonths(date, months) {
+  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate())
+}
+
+function formatDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function formatPeriod(start, end) {
+  if (start.getTime() === end.getTime()) return formatDateKey(start)
+  return `${formatDateKey(start)}~${formatDateKey(end)}`
+}
+
+function parsePeriodEnd(period) {
+  if (typeof period !== 'string' || !period.includes('~')) return null
+  const dateMatches = period.match(/\d{4}-\d{2}-\d{2}/g)
+  if (dateMatches && dateMatches.length) return parseDateInput(dateMatches[dateMatches.length - 1])
+  const monthMatches = period.match(/\d{4}-\d{2}/g)
+  if (monthMatches && monthMatches.length) {
+    const [year, month] = monthMatches[monthMatches.length - 1].split('-').map(Number)
+    return new Date(year, month, 0)
+  }
+  const [, end] = period.split('~')
+  return end ? parseDateInput(end.trim()) : null
+}
+
+function inferBillMonthsFromAmount(bill, lease) {
+  const monthlyRent = number(lease && lease.rent)
+  const amount = number(bill && bill.amount)
+  if (monthlyRent <= 0 || amount <= 0) return 1
+  return Math.max(1, Math.round(amount / monthlyRent))
+}
+
+function inferRentBillCoverage(bill, lease) {
+  const start = parseDateInput(bill.rentCoverageStart || bill.dueDate)
+  let end = bill.rentCoverageEnd ? parseDateInput(bill.rentCoverageEnd) : parsePeriodEnd(bill.period)
+  if (!end || Number.isNaN(end.getTime())) {
+    if (Number(bill.coverageMonths || 0) > 0) {
+      end = addDays(addMonths(start, Number(bill.coverageMonths)), -1)
+    } else if (Number(bill.coverageDays || 0) > 0) {
+      end = addDays(start, Number(bill.coverageDays) - 1)
+    } else {
+      end = addDays(addMonths(start, inferBillMonthsFromAmount(bill, lease)), -1)
+    }
+  }
+  return { start, end }
+}
+
+function isOverlappingCoverage(left, right) {
+  return left.start.getTime() <= right.end.getTime() && left.end.getTime() >= right.start.getTime()
+}
+
+function advanceCursorByPaidCoverages(cursor, coverages) {
+  let current = cursor
+  let advanced = true
+  const rows = coverages.slice().sort((a, b) => a.start.getTime() - b.start.getTime())
+  while (advanced) {
+    advanced = false
+    for (const item of rows) {
+      if (item.start.getTime() <= current.getTime() && item.end.getTime() >= current.getTime()) {
+        current = addDays(item.end, 1)
+        advanced = true
+      }
+    }
+  }
+  return current
+}
+
+function monthSpan(start, end) {
+  for (let months = 1; months <= 240; months += 1) {
+    if (addDays(addMonths(start, months), -1).getTime() === end.getTime()) return months
+  }
+  return 0
 }
 
 function createCommandService(app, db) {
@@ -120,99 +195,134 @@ function createCommandService(app, db) {
       invariant(lease.status === 'active', 'CONFLICT', '合同不是生效状态')
 
       const calc = calculatePrepayPeriod(lease, input)
-      const existingRes = await transaction.collection('bills')
-        .where({ leaseId: input.leaseId, type: 'rent', period: calc.period, _openid: caller.openId })
+      const rentBillRes = await transaction.collection('bills')
+        .where({ leaseId: input.leaseId, type: 'rent', _openid: caller.openId })
         .get()
-      const existingBill = existingRes.data && existingRes.data[0]
-      invariant(!existingBill || existingBill.status !== 'paid', 'CONFLICT', '该周期租金账单已全额支付')
-
       const now = new Date()
-      let bill = existingBill
-      let billCreated = false
-      if (!bill) {
+      const paymentDate = input.paymentDate ? parseDateInput(input.paymentDate) : now
+      const targetCoverage = { start: calc.coverageStart, end: calc.coverageEnd }
+      const rentBills = rentBillRes.data || []
+      const payableBills = rentBills
+        .map(bill => ({ bill, coverage: inferRentBillCoverage(bill, lease) }))
+        .filter(item => item.bill.status !== 'paid')
+        .filter(item => number(number(item.bill.amount) - number(item.bill.paidAmount)) > 0)
+        .filter(item => isOverlappingCoverage(item.coverage, targetCoverage))
+        .sort((a, b) => a.coverage.start.getTime() - b.coverage.start.getTime())
+
+      let remainingPayment = number(calc.amount)
+      const payments = []
+      const paidBills = []
+      const createdBills = []
+      const paidCoverages = []
+
+      async function addPaymentForBill(bill, amount, remark) {
+        const paymentData = {
+          _openid: caller.openId,
+          billId: bill._id,
+          leaseId: bill.leaseId,
+          houseId: bill.houseId,
+          tenantId: bill.tenantId,
+          amount,
+          direction: 'in',
+          paymentDate,
+          paymentMethod: input.paymentMethod || 'cash',
+          remark,
+          createdAt: now
+        }
+        const paymentRes = await transaction.collection('payments').add(paymentData)
+        const payment = { ...paymentData, _id: paymentRes.id || paymentRes._id }
+        payments.push(payment)
+        return payment
+      }
+
+      for (const item of payableBills) {
+        if (remainingPayment <= 0) break
+        const billAmount = number(item.bill.amount)
+        const oldPaidAmount = number(item.bill.paidAmount)
+        const billRemaining = number(billAmount - oldPaidAmount)
+        const paymentAmount = number(Math.min(remainingPayment, billRemaining))
+        const newPaidAmount = number(oldPaidAmount + paymentAmount)
+        const newStatus = newPaidAmount >= billAmount ? 'paid' : 'partial'
+        await addPaymentForBill(item.bill, paymentAmount, input.paymentMethod === 'wechat' ? '线下微信收款记账：结清已有租金账单' : '提前收租：结清已有租金账单')
+        await transaction.collection('bills').where({ _id: item.bill._id, _openid: caller.openId }).update({
+          paidAmount: newPaidAmount,
+          status: newStatus,
+          paidAt: newStatus === 'paid' ? now : item.bill.paidAt,
+          updatedAt: now
+        })
+        const updatedBill = {
+          ...item.bill,
+          paidAmount: newPaidAmount,
+          status: newStatus,
+          paidAt: newStatus === 'paid' ? now : item.bill.paidAt,
+          updatedAt: now
+        }
+        paidBills.push(updatedBill)
+        if (newStatus === 'paid') paidCoverages.push(item.coverage)
+        remainingPayment = number(remainingPayment - paymentAmount)
+      }
+
+      if (remainingPayment > 0) {
+        const futureStart = advanceCursorByPaidCoverages(calc.coverageStart, paidCoverages)
+        invariant(futureStart.getTime() <= calc.coverageEnd.getTime(), 'CONFLICT', '该周期租金已结清')
+        const futureEnd = calc.coverageEnd
+        const futureMonths = monthSpan(futureStart, futureEnd)
         const billData = {
           _openid: caller.openId,
           leaseId: input.leaseId,
           houseId: lease.houseId,
           tenantId: lease.tenantId,
           type: 'rent',
-          period: calc.period,
-          amount: calc.amount,
-          paidAmount: 0,
-          status: 'unpaid',
-          dueDate: calc.coverageStart,
-          rentCoverageStart: calc.coverageStart,
-          rentCoverageEnd: calc.coverageEnd,
-          coverageMonths: calc.coverageMonths,
-          coverageDays: calc.coverageDays,
+          period: formatPeriod(futureStart, futureEnd),
+          amount: remainingPayment,
+          paidAmount: remainingPayment,
+          status: 'paid',
+          dueDate: futureStart,
+          rentCoverageStart: futureStart,
+          rentCoverageEnd: futureEnd,
+          coverageMonths: futureMonths,
+          coverageDays: futureMonths > 0 ? 0 : Math.max(1, Math.ceil((futureEnd.getTime() - futureStart.getTime()) / (1000 * 60 * 60 * 24)) + 1),
           remark: '提前收租',
+          paidAt: now,
           createdAt: now,
           updatedAt: now
         }
         const billRes = await transaction.collection('bills').add(billData)
-        bill = { ...billData, _id: billRes.id || billRes._id }
-        billCreated = true
+        const bill = { ...billData, _id: billRes.id || billRes._id }
+        createdBills.push(bill)
+        paidBills.push(bill)
+        paidCoverages.push({ start: futureStart, end: futureEnd })
+        await addPaymentForBill(bill, remainingPayment, input.paymentMethod === 'wechat' ? '线下微信收款记账' : '提前收租')
+        remainingPayment = 0
       }
 
-      const billAmount = number(bill.amount)
-      const oldPaidAmount = number(bill.paidAmount)
-      const paymentAmount = number(billAmount - oldPaidAmount)
-      invariant(paymentAmount > 0, 'CONFLICT', '该周期租金已结清')
-      const newPaidAmount = number(oldPaidAmount + paymentAmount)
-      invariant(newPaidAmount <= billAmount, 'VALIDATION_ERROR', '缴费金额超出应缴金额')
-      const newStatus = newPaidAmount >= billAmount ? 'paid' : 'partial'
-
-      const paymentData = {
-        _openid: caller.openId,
-        billId: bill._id,
-        leaseId: bill.leaseId,
-        houseId: bill.houseId,
-        tenantId: bill.tenantId,
-        amount: paymentAmount,
-        direction: 'in',
-        paymentDate: input.paymentDate ? parseDateInput(input.paymentDate) : now,
-        paymentMethod: input.paymentMethod || 'cash',
-        remark: input.paymentMethod === 'wechat' ? '线下微信收款记账' : '提前收租',
-        createdAt: now
-      }
-      const paymentRes = await transaction.collection('payments').add(paymentData)
-
-      await transaction.collection('bills').where({ _id: bill._id, _openid: caller.openId }).update({
-        paidAmount: newPaidAmount,
-        status: newStatus,
-        paidAt: newStatus === 'paid' ? now : bill.paidAt,
-        updatedAt: now
-      })
-
-      if (newStatus === 'paid') {
-        const coveredUntil = bill.rentCoverageEnd ? parseDateInput(bill.rentCoverageEnd) : calc.coverageEnd
-        const oldCoveredUntil = lease.rentCoveredUntil ? parseDateInput(lease.rentCoveredUntil) : null
-        if (!oldCoveredUntil || oldCoveredUntil.getTime() <= coveredUntil.getTime()) {
-          await transaction.collection('lease_agreements').where({ _id: input.leaseId, _openid: caller.openId }).update({
-            rentCoveredUntil: coveredUntil,
-            nextRentDueDate: addDays(coveredUntil, 1),
-            updatedAt: now
-          })
-        }
+      const cursor = advanceCursorByPaidCoverages(calc.coverageStart, paidCoverages)
+      const coveredUntil = addDays(cursor, -1)
+      const oldCoveredUntil = lease.rentCoveredUntil ? parseDateInput(lease.rentCoveredUntil) : null
+      if (paidCoverages.length && (!oldCoveredUntil || oldCoveredUntil.getTime() < coveredUntil.getTime())) {
+        await transaction.collection('lease_agreements').where({ _id: input.leaseId, _openid: caller.openId }).update({
+          rentCoveredUntil: coveredUntil,
+          nextRentDueDate: addDays(coveredUntil, 1),
+          updatedAt: now
+        })
       }
 
       await transaction.commit()
+      const primaryBill = createdBills[0] || paidBills[0] || null
+      const totalPaidAmount = number(payments.reduce((sum, payment) => sum + number(payment.amount), 0))
+      const fullyCovered = coveredUntil.getTime() >= calc.coverageEnd.getTime()
       return {
-        billId: bill._id,
-        paymentId: paymentRes.id || paymentRes._id,
-        bill: {
-          ...bill,
-          paidAmount: newPaidAmount,
-          status: newStatus,
-          paidAt: newStatus === 'paid' ? now : bill.paidAt,
-          updatedAt: now
-        },
-        payment: { ...paymentData, _id: paymentRes.id || paymentRes._id },
-        billCreated,
-        paidAmount: newPaidAmount,
-        totalAmount: billAmount,
-        status: newStatus,
-        remaining: number(billAmount - newPaidAmount),
+        billId: primaryBill && primaryBill._id,
+        paymentId: payments[0] && payments[0]._id,
+        bill: primaryBill,
+        payment: payments[0] || null,
+        billCreated: createdBills.length > 0,
+        createdBillIds: createdBills.map(item => item._id),
+        settledBillIds: paidBills.filter(item => !createdBills.some(created => created._id === item._id)).map(item => item._id),
+        paidAmount: totalPaidAmount,
+        totalAmount: calc.amount,
+        status: fullyCovered ? 'paid' : 'partial',
+        remaining: number(calc.amount - totalPaidAmount),
         paymentMethod: input.paymentMethod || 'cash',
         paymentDate: input.paymentDate || ''
       }

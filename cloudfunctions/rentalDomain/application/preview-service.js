@@ -35,7 +35,7 @@ function moveOutSourceDigest(ctx, bills, latestRecord, settings) {
 function parseDateInput(value) {
   if (value instanceof Date) return value
   if (typeof value === 'string') {
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
     if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   }
   if (value && value.$date) return new Date(value.$date)
@@ -52,6 +52,48 @@ function addDays(date, days) {
 
 function formatDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function calcOccupiedMonths(startDate, endDate) {
+  if (!startDate || !endDate || endDate < startDate) return 0
+  const months = (endDate.getFullYear() - startDate.getFullYear()) * 12
+    + endDate.getMonth() - startDate.getMonth()
+  return endDate.getDate() >= startDate.getDate() ? months + 1 : months
+}
+
+function billingMonths(cycle) {
+  return { month: 1, quarter: 3, half_year: 6, year: 12 }[cycle] || 1
+}
+
+function calcOccupiedBillingMonths(startDate, endDate, paymentCycle) {
+  const occupiedMonths = calcOccupiedMonths(startDate, endDate)
+  const cycleMonths = billingMonths(paymentCycle)
+  if (occupiedMonths <= 0) return 0
+  return Math.ceil(occupiedMonths / cycleMonths) * cycleMonths
+}
+
+function buildRentRefundView(lease = {}, bills = [], moveOutDate) {
+  const leaseStartDate = parseDateInput(lease.startDate)
+  const actualEndDate = parseDateInput(moveOutDate)
+  const paidRentBills = bills.filter(item => item.type === 'rent' && ['paid', 'partial'].includes(item.status))
+  const totalPaidRent = number(paidRentBills.reduce((sum, item) => sum + number(item.paidAmount), 0))
+  const occupiedMonths = calcOccupiedBillingMonths(leaseStartDate, actualEndDate, lease.paymentCycle)
+  const actualRentDue = number(occupiedMonths * number(lease.rent))
+  const overpaidRent = number(Math.max(0, totalPaidRent - actualRentDue))
+  return {
+    occupiedPeriod: `${formatDateKey(leaseStartDate)} 至 ${formatDateKey(actualEndDate)}`,
+    occupiedMonths,
+    billingCycleMonths: billingMonths(lease.paymentCycle),
+    actualRentDue,
+    paidRentDetails: paidRentBills.map(item => ({
+      period: item.period || dateText(item.dueDate),
+      amount: number(item.paidAmount),
+      coverageStart: item.rentCoverageStart ? formatDateKey(parseDateInput(item.rentCoverageStart)) : '',
+      coverageEnd: item.rentCoverageEnd ? formatDateKey(parseDateInput(item.rentCoverageEnd)) : ''
+    })),
+    totalPaidRent,
+    overpaidRent
+  }
 }
 
 function formatPeriod(start, end) {
@@ -148,9 +190,23 @@ async function getLeaseContext(repo, leaseId) {
   return { lease, house: house || {}, tenant: tenant || {} }
 }
 
+async function resolvePrepayLeaseId(repo, candidateId) {
+  const direct = await repo.byId('lease_agreements', candidateId)
+  if (direct) return direct._id
+  const [byTenant, byHouse] = await Promise.all([
+    repo.queryAll('lease_agreements', { tenantId: candidateId, status: 'active' }),
+    repo.queryAll('lease_agreements', { houseId: candidateId, status: 'active' })
+  ])
+  const matches = [...byTenant, ...byHouse].filter((item, index, rows) => rows.findIndex(row => row._id === item._id) === index)
+  invariant(matches.length > 0, 'NOT_FOUND', '未找到有效合同，请先调用 getActiveLeases，并使用返回的 leaseId/合同ID')
+  invariant(matches.length === 1, 'CONFLICT', '找到多个生效合同，请补充更准确的房屋或租客信息')
+  return matches[0]._id
+}
+
 async function buildPrepayRentSnapshot(repo, params) {
   const input = normalizePrepayInput(params)
   invariant(input.leaseId, 'VALIDATION_ERROR', '缺少合同 ID')
+  input.leaseId = await resolvePrepayLeaseId(repo, input.leaseId)
   const ctx = await getLeaseContext(repo, input.leaseId)
   invariant(ctx.lease.status === 'active', 'CONFLICT', '合同不是生效状态')
   const rentBills = await repo.queryAll('bills', { leaseId: input.leaseId, type: 'rent' })
@@ -211,13 +267,16 @@ async function buildMoveOutSettlementSnapshot(repo, params) {
   const latest = records[0] || {}
   const settings = settingsRows[0] || {}
   const outstandingAmount = bills.filter(item => item.status !== 'paid').reduce((sum, item) => sum + Math.max(0, number(item.amount) - number(item.paidAmount)), 0)
+  const rentRefund = buildRentRefundView(ctx.lease, bills, params.moveOutDate)
   const settlementView = {
     lease: leaseView(ctx.lease, ctx.house, ctx.tenant),
     moveOutDate: params.moveOutDate,
+    rentRefund,
     ...calculateSettlement({
       ...params,
       deposit: ctx.lease.deposit,
       outstandingAmount,
+      overpaidRent: rentRefund.overpaidRent,
       lastElectricity: latest.electricityReading || ctx.lease.moveInElectricity || 0,
       lastWater: latest.waterReading || ctx.lease.moveInWater || 0,
       electricityPrice: settings.electricityPrice || 0.8,

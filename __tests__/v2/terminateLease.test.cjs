@@ -344,7 +344,7 @@ describe('terminateLease 退租结算场景', () => {
   // 场景8：季付合同退租
   // ═══════════════════════════════════════════════════════════
   describe('场景8：季付合同退租', () => {
-    it('季付入住1个月退租，退还多付2个月租金', async () => {
+    it('季付入住1个月退租，不满一季度按一季度计', async () => {
       const leaseResult = await api.createLease({
         houseId: house._id, tenantId: tenant._id,
         startDate: '2026-06-01', rent: 1000, deposit: 1000,
@@ -359,12 +359,12 @@ describe('terminateLease 退租结算场景', () => {
         waterReading: 0
       });
 
-      // 季付首期3000，入住1个月应付1000，多付2000
+      // 季付首期3000，未住满一季度也按一季度计，应付3000，不退租金
       expect(result.rentRefund.totalPaidRent).toBe(3000);
-      expect(result.rentRefund.actualRentDue).toBe(1000);
-      expect(result.rentRefund.overpaidRent).toBe(2000);
+      expect(result.rentRefund.actualRentDue).toBe(3000);
+      expect(result.rentRefund.overpaidRent).toBe(0);
       expect(result.refundAmount).toBe(1000);
-      expect(result.totalRefund).toBe(3000);
+      expect(result.totalRefund).toBe(1000);
     });
   });
 });

@@ -55,6 +55,17 @@ async function callRental(action, params, openid = DEFAULT_OPENID) {
 }
 
 describe('提前收租 Handoff 链路', () => {
+  it('getActiveLeases 结构化输出包含真实 leaseId，供后续预览接口使用', async () => {
+    const leaseId = await createLease();
+    const result = await leaseApis.getActiveLeases({ keyword: '张阿姨' });
+
+    expect(result.isError).toBe(false);
+    expect(result.content[0].text).toContain(`合同ID：${leaseId}`);
+    expect(result.structuredContent.leases[0].leaseId).toBe(leaseId);
+    expect(result.structuredContent.leases[0].tenantId).toBe('t1');
+    expect(result.structuredContent.fields[0].leaseId).toBe(leaseId);
+  });
+
   it('previewPrepayRent 返回顶层 handoff，query 最小化且不包含金额和收款方式', async () => {
     const leaseId = await createLease();
     const result = await leaseApis.previewPrepayRent({
@@ -75,6 +86,20 @@ describe('提前收租 Handoff 链路', () => {
     expect(result.handoff.query).not.toMatch(/amount|paymentMethod|coverageMonths|coverageDays|phone|idCard/);
     expect(result.handoff.payload.confirmationId).toBe(result.structuredContent.confirmationId);
     expect(result.handoff.payload.prepayView).toBeTruthy();
+  });
+
+  it('previewPrepayRent 收到唯一生效合同的租客 ID 时，会解析为真实合同 ID', async () => {
+    const leaseId = await createLease();
+    const preview = await api.previewPrepayRent({
+      leaseId: 't1',
+      coverageMonths: 12,
+      paymentMethod: 'wechat'
+    });
+
+    expect(preview.confirmationId).toBeTruthy();
+    expect(preview.normalizedInput.leaseId).toBe(leaseId);
+    expect(preview.prepayView.lease.id).toBe(leaseId);
+    expect(preview.prepayView.amount).toBe(12000);
   });
 
   it('预览阶段只创建 confirmation，不创建未来账单、不写 payment、不推进合同日期', async () => {
@@ -117,6 +142,70 @@ describe('提前收租 Handoff 链路', () => {
     expect(payment.paymentMethod).toBe('wechat');
     expect(api.formatDate(lease.rentCoveredUntil)).toBe(apiTextFromDateKey(preview.prepayView.coverageEnd));
     expect(api.formatDate(lease.nextRentDueDate)).toBeTruthy();
+  });
+
+  it('确认交租覆盖已有欠租时，会先结清旧账单，剩余部分才创建已缴未来账单', async () => {
+    seedBase();
+    const result = await api.createLease({
+      houseId: 'h1',
+      tenantId: 't1',
+      startDate: '2026-01-01',
+      rent: 1000,
+      deposit: 1000,
+      paymentCycle: 'quarter'
+    });
+    const leaseId = result.leaseId;
+    const bills = getCollectionData('bills');
+    const aprBill = bills.find(item => item.leaseId === leaseId && item.type === 'rent' && item.status === 'unpaid');
+    Object.assign(aprBill, {
+      period: '2026-04~2026-06',
+      amount: 3000,
+      paidAmount: 0,
+      status: 'unpaid',
+      dueDate: '2026-04-01',
+      rentCoverageStart: undefined,
+      rentCoverageEnd: undefined
+    });
+    bills.push({
+      _id: 'bill_jul_sep',
+      leaseId,
+      houseId: 'h1',
+      tenantId: 't1',
+      type: 'rent',
+      period: '2026-07~2026-09',
+      amount: 3000,
+      paidAmount: 0,
+      status: 'unpaid',
+      dueDate: '2026-07-01',
+      createdAt: new Date('2026-07-01T00:00:00+08:00')
+    });
+
+    const paymentsBefore = getCollectionData('payments').length;
+    const preview = await api.previewPrepayRent({
+      leaseId,
+      coverageMonths: 12,
+      paymentMethod: 'wechat',
+      paymentDate: '2026-07-15'
+    });
+    const confirm = await api.confirmPrepayRent({ confirmationId: preview.confirmationId });
+    const updatedBills = getCollectionData('bills').filter(item => item.leaseId === leaseId && item.type === 'rent');
+    const createdBill = updatedBills.find(item => item._id === confirm.createdBillIds[0]);
+    const newPayments = getCollectionData('payments').slice(paymentsBefore);
+    const lease = await api.getLeaseById(leaseId);
+
+    expect(aprBill.status).toBe('paid');
+    expect(aprBill.paidAmount).toBe(3000);
+    expect(bills.find(item => item._id === 'bill_jul_sep').status).toBe('paid');
+    expect(bills.find(item => item._id === 'bill_jul_sep').paidAmount).toBe(3000);
+    expect(createdBill.amount).toBe(6000);
+    expect(createdBill.paidAmount).toBe(6000);
+    expect(createdBill.status).toBe('paid');
+    expect(createdBill.period).toBe('2026-10-01~2027-03-31');
+    expect(updatedBills.filter(item => item.status !== 'paid')).toHaveLength(0);
+    expect(newPayments.reduce((sum, item) => sum + item.amount, 0)).toBe(12000);
+    expect(confirm.status).toBe('paid');
+    expect(api.formatDate(lease.rentCoveredUntil)).toBe('2027/3/31');
+    expect(api.formatDate(lease.nextRentDueDate)).toBe('2027/4/1');
   });
 
   it('同一 confirmationId 重复确认只回放一次结果，不重复账单或收款', async () => {
