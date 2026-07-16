@@ -102,6 +102,14 @@ async function confirmPrepayRent(params) {
   return callRentalDomain('confirmPrepayRent', params);
 }
 
+async function previewRentCollection(params) {
+  return callRentalDomain('previewRentCollection', params);
+}
+
+async function confirmRentCollection(params) {
+  return callRentalDomain('confirmRentCollection', params);
+}
+
 async function previewMeterReading(params) {
   return callRentalDomain('previewMeterReading', params);
 }
@@ -480,6 +488,8 @@ module.exports = {
   previewRenewLease,
   previewPrepayRent,
   confirmPrepayRent,
+  previewRentCollection,
+  confirmRentCollection,
   previewCollectRent,
   previewMeterReading,
   previewMoveOutSettlement,

@@ -200,6 +200,62 @@
       }
     },
     {
+      "name": "previewRentCollection",
+      "description": "预览统一租金收款登记，覆盖补交欠租、当期收租、提前收租和连续混合账期，并生成进入普通页面确认已收款入账的确认记录（业务对象：租金收款登记确认页）。调用前置条件：合同 ID 必须来自 getActiveLeases 查询结果，账期必须明确。微信/支付宝/银行卡/现金均表示线下已收款方式。【严禁场景】不要直接入账，不要编造合同 ID；用户只说金额但未说明账期时，不要自动认定为提前收租，应让用户补充账期。",
+      "_meta": {
+        "ui": {
+          "componentPath": "components/lease-result/index",
+          "pagePath": "/pages/prepay-rent/index"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "leaseId": {
+            "type": "string",
+            "description": "合同 ID，必须来自 getActiveLeases 查询结果"
+          },
+          "periodStart": {
+            "type": "string",
+            "description": "起始租金账期日期，YYYY-MM-DD，必须与合同缴费周期对齐"
+          },
+          "periodEnd": {
+            "type": "string",
+            "description": "结束租金账期日期，YYYY-MM-DD；与 periodCount 二选一"
+          },
+          "periodCount": {
+            "type": "number",
+            "description": "收取月数，必须为正整数并按合同缴费周期取整；与 periodEnd 二选一"
+          },
+          "amount": {
+            "type": "number",
+            "description": "房东线下实际收到的金额；如填写，必须与云端计算的所选账期应收一致"
+          },
+          "paymentDate": {
+            "type": "string",
+            "description": "房东线下实际收款日期，YYYY-MM-DD"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["cash", "wechat", "alipay", "bank", "other"],
+            "description": "线下已收款方式：cash 现金，wechat 微信转账，alipay 支付宝转账，bank 银行卡转账，other 其他"
+          },
+          "note": {
+            "type": "string",
+            "description": "备注"
+          }
+        },
+        "required": [
+          "leaseId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
       "name": "previewRenewLease",
       "description": "预览为有效合同生成下一期租金账单（业务对象：合同结果卡片）。调用前置条件：已明确合同 ID。【严禁场景】不要用于实际收款。",
       "_meta": {

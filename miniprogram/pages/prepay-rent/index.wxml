@@ -10,7 +10,7 @@
   <block wx:else>
     <view class="card">
       <view class="card-header">
-        <text class="card-title">提前收租</text>
+        <text class="card-title">租金收款登记</text>
       </view>
 
       <view class="form-group">
@@ -27,15 +27,22 @@
       </view>
 
       <view class="form-group">
-        <text class="form-label">收租方式</text>
+        <text class="form-label">收取月数</text>
         <picker mode="selector" range="{{modeOptions}}" value="{{modeIndex}}" bindchange="onModeChange">
           <view class="form-picker">{{modeOptions[modeIndex]}}</view>
         </picker>
       </view>
 
       <view class="form-group">
-        <text class="form-label">收租金额</text>
-        <input class="form-input" type="digit" value="{{amount}}" bindinput="onAmountInput" placeholder="请输入金额" disabled="{{modeIndex !== 4}}" />
+        <text class="form-label">起始账期</text>
+        <picker mode="date" value="{{periodStart}}" bindchange="onPeriodStartChange">
+          <view class="form-picker">{{periodStart || '请选择起始账期'}}</view>
+        </picker>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">本次登记金额</text>
+        <input class="form-input" type="digit" value="{{amount}}" placeholder="由云端按账期计算" disabled />
       </view>
 
       <view class="form-group">
@@ -52,12 +59,29 @@
         </picker>
       </view>
 
+      <view class="form-group">
+        <text class="form-label">备注</text>
+        <input class="form-input" value="{{note}}" bindinput="onNoteInput" placeholder="可选，例如微信转账备注" />
+      </view>
+
       <view style="background:var(--primary-bg);border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">
-        <text style="font-size:24rpx;color:var(--primary-dark);display:block;">预计收款 ￥{{preview.amountText}}</text>
+        <text style="font-size:24rpx;color:var(--primary-dark);display:block;">{{preview.modeText || '租金收款'}} · 预计收款 ￥{{preview.amountText}}</text>
         <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:6rpx;">覆盖：{{preview.coverageText || '-'}}</text>
-        <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">从 {{preview.startText || '-'}} 开始顺延</text>
+        <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">账期：{{preview.startText || '-'}} 至 {{preview.endText || '-'}}</text>
         <text wx:if="{{preview.endText}}" style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">截至 {{preview.endText}}</text>
+        <text wx:if="{{preview.currentRentCoveredUntil}}" style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">当前已缴至 {{preview.currentRentCoveredUntil || '-'}}</text>
+        <text wx:if="{{preview.projectedRentCoveredUntil}}" style="font-size:22rpx;color:var(--primary-dark);display:block;margin-top:4rpx;">入账后预计已缴至 {{preview.projectedRentCoveredUntil || '-'}}</text>
         <text wx:if="{{preview.paymentNote}}" style="font-size:22rpx;color:var(--primary-dark);display:block;margin-top:8rpx;">{{preview.paymentNote}}</text>
+      </view>
+
+      <view wx:if="{{preview.allocations && preview.allocations.length}}" style="background:var(--gray-50);border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">
+        <text style="font-size:26rpx;font-weight:600;color:var(--gray-800);display:block;margin-bottom:10rpx;">账期分配</text>
+        <view wx:for="{{preview.allocations}}" wx:key="period" style="padding:10rpx 0;border-bottom:1rpx solid var(--gray-100);">
+          <text style="font-size:24rpx;color:var(--gray-800);display:block;">{{item.periodStart}} 至 {{item.periodEnd}}</text>
+          <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">
+            {{item.source === 'existing' ? '已有账单' : '将创建账单'}} · 应收 ¥{{item.receivableAmount}} · 已收 ¥{{item.alreadyPaidAmount}} · 本次 ¥{{item.allocationAmount}}
+          </text>
+        </view>
       </view>
 
       <view wx:if="{{errorText}}" style="background:#FEF2F2;border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">

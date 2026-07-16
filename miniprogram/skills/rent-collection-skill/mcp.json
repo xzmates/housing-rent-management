@@ -62,45 +62,6 @@
       }
     },
     {
-      "name": "confirmCollectRent",
-      "description": "确认收租并更新账单状态（业务对象：收租结果卡片）。调用前置条件：用户已确认收款信息，优先使用确认编号。【严禁场景】不要用于退租结算。",
-      "_meta": {
-        "ui": {
-          "componentPath": "components/rent-result/index"
-        }
-      },
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "confirmationId": {
-            "type": "string",
-            "description": "预览接口返回的确认编号"
-          },
-          "billId": {
-            "type": "string",
-            "description": "账单 ID"
-          },
-          "amount": {
-            "type": "number",
-            "description": "收款金额"
-          },
-          "paymentDate": {
-            "type": "string",
-            "description": "收款日期"
-          },
-          "paymentMethod": {
-            "type": "string",
-            "description": "收款方式"
-          }
-        },
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "additionalProperties": true
-      }
-    },
-    {
       "name": "getPaymentHistory",
       "description": "查询合同或账单的付款记录（业务对象：收租结果卡片）。调用前置条件：用户想查看付款流水。【严禁场景】不要用于新增收款。",
       "_meta": {

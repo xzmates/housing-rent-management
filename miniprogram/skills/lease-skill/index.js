@@ -8,6 +8,7 @@ skill.registerAPI('getActiveLeases', apis.getActiveLeases)
 skill.registerAPI('previewCreateLease', apis.previewCreateLease)
 skill.registerAPI('confirmCreateLease', apis.confirmCreateLease)
 skill.registerAPI('previewPrepayRent', apis.previewPrepayRent)
+skill.registerAPI('previewRentCollection', apis.previewRentCollection)
 skill.registerAPI('previewRenewLease', apis.previewRenewLease)
 
 console.info('[ai-mode] lease-skill APIs registered')

@@ -43,6 +43,8 @@ function leaseView(lease = {}, house = {}, tenant = {}) {
     paymentCycle: lease.paymentCycle || 'month',
     startDate: dateText(lease.startDate),
     endDate: dateText(lease.endDate),
+    rentCoveredUntil: dateText(lease.rentCoveredUntil),
+    nextRentDueDate: dateText(lease.nextRentDueDate),
     status: lease.status || '',
     statusText: lease.status === 'active' ? '生效中' : lease.status === 'terminated' ? '已退租' : lease.status || '未知'
   }

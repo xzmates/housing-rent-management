@@ -20,6 +20,8 @@ platform: ["wechat-miniprogram"]
 - "给 102 和小问新建合同，月租 1000，押金 1000"
 - "东楼北 101 的租约情况"
 - "101 提前收三个月租，微信转账已收"
+- "101 这个月房租收到了，微信转账"
+- "101 从上个月开始一共收四个月"
 
 ## 不适用范围
 
@@ -31,9 +33,11 @@ platform: ["wechat-miniprogram"]
 
 - `getActiveLeases`：查询所有生效中的租赁合同列表。
 - `getLeaseDetail`：查看单个合同详情（含关联房屋/租客信息）。
-- `previewPrepayRent`：预览提前收租并接力到普通页面确认已收款入账。
+- `previewRentCollection`：预览统一租金收款登记并接力到普通页面确认已收款入账。
+- `previewPrepayRent`：兼容旧提前收租入口。
 
 ## 使用顺序
 
 - 用户查询合同状态时优先展示生效合同列表。
-- 用户表达提前收租时，先用 `getActiveLeases` 匹配合同，再调用 `previewPrepayRent`；不要直接创建账单或收款记录。
+- 用户表达租金收款时，先用 `getActiveLeases` 匹配合同，再调用 `previewRentCollection`；不要直接创建账单或收款记录。
+- 用户只说金额但没有明确账期时，先追问账期；不要自动换算成提前收租。

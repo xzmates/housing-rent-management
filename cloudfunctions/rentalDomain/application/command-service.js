@@ -2,7 +2,12 @@ const { invariant } = require('../infrastructure/errors')
 const { idempotencyKey, loadPendingConfirmation, findExecutedOperation } = require('../infrastructure/idempotency')
 const { createRepository } = require('../repositories/rental-repository')
 const { number } = require('../domain/presenters')
-const { buildMoveOutSettlementSnapshot, buildPrepayRentSnapshot, calculatePrepayPeriod } = require('./preview-service')
+const {
+  buildMoveOutSettlementSnapshot,
+  buildPrepayRentSnapshot,
+  buildRentCollectionSnapshot,
+  buildRentCollectionPlan
+} = require('./preview-service')
 
 async function legacyCall(app, name, data) {
   const res = await app.callFunction({ name, data })
@@ -28,7 +33,7 @@ function sameValue(left, right) {
 }
 
 function assertConfirmationParamsNotOverridden(action, params, confirmation) {
-  if (!['settleMoveOut', 'confirmPrepayRent'].includes(action)) return
+  if (!['settleMoveOut', 'confirmPrepayRent', 'confirmRentCollection'].includes(action)) return
   const supplied = cleanParams(params)
   const normalized = confirmation.normalizedInput || {}
   const changedKeys = Object.keys(supplied).filter(key => !sameValue(supplied[key], normalized[key]))
@@ -181,10 +186,46 @@ function createCommandService(app, db) {
     invariant(confirmation.targetId === input.leaseId, 'VALIDATION_ERROR', '确认记录与合同不匹配')
     invariant(confirmation.sourceDigest, 'STALE_CONFIRMATION', '提前收租预览已过期，请重新生成预览')
     const snapshot = await buildPrepayRentSnapshot(repo.forOwner(caller.openId), input)
+    invariant(!snapshot.needPeriod, 'STALE_CONFIRMATION', '提前收租预览已过期，请重新生成预览')
     invariant(snapshot.sourceDigest === confirmation.sourceDigest, 'STALE_CONFIRMATION', '提前收租数据已变化，请重新生成预览')
   }
 
-  async function executePrepayRent(input, caller) {
+  async function assertRentCollectionConfirmationFresh(input, caller, confirmation) {
+    invariant(confirmation, 'VALIDATION_ERROR', '租金收款必须先生成预览确认记录')
+    invariant(confirmation.targetId === input.leaseId, 'VALIDATION_ERROR', '确认记录与合同不匹配')
+    invariant(confirmation.sourceDigest, 'STALE_CONFIRMATION', '租金收款预览已过期，请重新生成预览')
+    const snapshot = await buildRentCollectionSnapshot(repo.forOwner(caller.openId), input)
+    invariant(!snapshot.needPeriod, 'STALE_CONFIRMATION', '租金收款预览已过期，请重新生成预览')
+    invariant(snapshot.sourceDigest === confirmation.sourceDigest, 'STALE_CONFIRMATION', '租金收款数据已变化，请重新生成预览')
+  }
+
+  function groupNewBillAllocations(allocations = []) {
+    const grouped = []
+    let cursor = 0
+    while (cursor < allocations.length) {
+      const item = allocations[cursor]
+      if (item.source !== 'new') {
+        grouped.push(item)
+        cursor += 1
+        continue
+      }
+      const group = { ...item }
+      cursor += 1
+      while (cursor < allocations.length && allocations[cursor].source === 'new') {
+        const next = allocations[cursor]
+        group.periodEnd = next.periodEnd
+        group.period = formatPeriod(parseDateInput(group.periodStart), parseDateInput(group.periodEnd))
+        group.receivableAmount = number(group.receivableAmount + next.receivableAmount)
+        group.allocationAmount = number(group.allocationAmount + next.allocationAmount)
+        group.coverageMonths = Number(group.coverageMonths || 0) + Number(next.coverageMonths || 0)
+        cursor += 1
+      }
+      grouped.push(group)
+    }
+    return grouped
+  }
+
+  async function executeRentCollection(input, caller, collectionId = '', options = {}) {
     const transaction = await db.startTransaction()
     try {
       const leaseRes = await transaction.collection('lease_agreements')
@@ -194,30 +235,22 @@ function createCommandService(app, db) {
       invariant(lease, 'FORBIDDEN', '不能操作其他用户的合同')
       invariant(lease.status === 'active', 'CONFLICT', '合同不是生效状态')
 
-      const calc = calculatePrepayPeriod(lease, input)
       const rentBillRes = await transaction.collection('bills')
         .where({ leaseId: input.leaseId, type: 'rent', _openid: caller.openId })
         .get()
       const now = new Date()
       const paymentDate = input.paymentDate ? parseDateInput(input.paymentDate) : now
-      const targetCoverage = { start: calc.coverageStart, end: calc.coverageEnd }
       const rentBills = rentBillRes.data || []
-      const payableBills = rentBills
-        .map(bill => ({ bill, coverage: inferRentBillCoverage(bill, lease) }))
-        .filter(item => item.bill.status !== 'paid')
-        .filter(item => number(number(item.bill.amount) - number(item.bill.paidAmount)) > 0)
-        .filter(item => isOverlappingCoverage(item.coverage, targetCoverage))
-        .sort((a, b) => a.coverage.start.getTime() - b.coverage.start.getTime())
-
-      let remainingPayment = number(calc.amount)
+      const plan = buildRentCollectionPlan(lease, rentBills, input)
       const payments = []
       const paidBills = []
       const createdBills = []
-      const paidCoverages = []
 
       async function addPaymentForBill(bill, amount, remark) {
         const paymentData = {
           _openid: caller.openId,
+          collectionId,
+          confirmationId: collectionId,
           billId: bill._id,
           leaseId: bill.leaseId,
           houseId: bill.houseId,
@@ -235,54 +268,54 @@ function createCommandService(app, db) {
         return payment
       }
 
-      for (const item of payableBills) {
-        if (remainingPayment <= 0) break
-        const billAmount = number(item.bill.amount)
-        const oldPaidAmount = number(item.bill.paidAmount)
-        const billRemaining = number(billAmount - oldPaidAmount)
-        const paymentAmount = number(Math.min(remainingPayment, billRemaining))
-        const newPaidAmount = number(oldPaidAmount + paymentAmount)
-        const newStatus = newPaidAmount >= billAmount ? 'paid' : 'partial'
-        await addPaymentForBill(item.bill, paymentAmount, input.paymentMethod === 'wechat' ? '线下微信收款记账：结清已有租金账单' : '提前收租：结清已有租金账单')
-        await transaction.collection('bills').where({ _id: item.bill._id, _openid: caller.openId }).update({
-          paidAmount: newPaidAmount,
-          status: newStatus,
-          paidAt: newStatus === 'paid' ? now : item.bill.paidAt,
-          updatedAt: now
-        })
-        const updatedBill = {
-          ...item.bill,
-          paidAmount: newPaidAmount,
-          status: newStatus,
-          paidAt: newStatus === 'paid' ? now : item.bill.paidAt,
-          updatedAt: now
-        }
-        paidBills.push(updatedBill)
-        if (newStatus === 'paid') paidCoverages.push(item.coverage)
-        remainingPayment = number(remainingPayment - paymentAmount)
-      }
+      const executableAllocations = options.groupNewBills
+        ? groupNewBillAllocations(plan.allocations)
+        : plan.allocations
 
-      if (remainingPayment > 0) {
-        const futureStart = advanceCursorByPaidCoverages(calc.coverageStart, paidCoverages)
-        invariant(futureStart.getTime() <= calc.coverageEnd.getTime(), 'CONFLICT', '该周期租金已结清')
-        const futureEnd = calc.coverageEnd
-        const futureMonths = monthSpan(futureStart, futureEnd)
+      for (const allocation of executableAllocations) {
+        if (number(allocation.allocationAmount) <= 0) continue
+        if (allocation.source === 'existing') {
+          const bill = rentBills.find(item => item._id === allocation.billId)
+          invariant(bill, 'STALE_CONFIRMATION', '租金账单已变化，请重新生成预览')
+          const billAmount = number(bill.amount)
+          const newPaidAmount = number(number(bill.paidAmount) + number(allocation.allocationAmount))
+          invariant(newPaidAmount <= billAmount, 'VALIDATION_ERROR', '收款金额超出账单待收金额')
+          const newStatus = newPaidAmount >= billAmount ? 'paid' : 'partial'
+          await addPaymentForBill(bill, allocation.allocationAmount, input.note || '租金收款登记：结清已有租金账单')
+          await transaction.collection('bills').where({ _id: bill._id, _openid: caller.openId }).update({
+            paidAmount: newPaidAmount,
+            status: newStatus,
+            paidAt: newStatus === 'paid' ? now : bill.paidAt,
+            updatedAt: now
+          })
+          paidBills.push({
+            ...bill,
+            paidAmount: newPaidAmount,
+            status: newStatus,
+            paidAt: newStatus === 'paid' ? now : bill.paidAt,
+            updatedAt: now
+          })
+          continue
+        }
+
+        const periodStart = parseDateInput(allocation.periodStart)
+        const periodEnd = parseDateInput(allocation.periodEnd)
         const billData = {
           _openid: caller.openId,
           leaseId: input.leaseId,
           houseId: lease.houseId,
           tenantId: lease.tenantId,
           type: 'rent',
-          period: formatPeriod(futureStart, futureEnd),
-          amount: remainingPayment,
-          paidAmount: remainingPayment,
+          period: allocation.period,
+          amount: allocation.receivableAmount,
+          paidAmount: allocation.allocationAmount,
           status: 'paid',
-          dueDate: futureStart,
-          rentCoverageStart: futureStart,
-          rentCoverageEnd: futureEnd,
-          coverageMonths: futureMonths,
-          coverageDays: futureMonths > 0 ? 0 : Math.max(1, Math.ceil((futureEnd.getTime() - futureStart.getTime()) / (1000 * 60 * 60 * 24)) + 1),
-          remark: '提前收租',
+          dueDate: periodStart,
+          rentCoverageStart: periodStart,
+          rentCoverageEnd: periodEnd,
+          coverageMonths: allocation.coverageMonths,
+          coverageDays: 0,
+          remark: input.note || '租金收款登记',
           paidAt: now,
           createdAt: now,
           updatedAt: now
@@ -291,15 +324,11 @@ function createCommandService(app, db) {
         const bill = { ...billData, _id: billRes.id || billRes._id }
         createdBills.push(bill)
         paidBills.push(bill)
-        paidCoverages.push({ start: futureStart, end: futureEnd })
-        await addPaymentForBill(bill, remainingPayment, input.paymentMethod === 'wechat' ? '线下微信收款记账' : '提前收租')
-        remainingPayment = 0
+        await addPaymentForBill(bill, allocation.allocationAmount, input.note || '租金收款登记')
       }
 
-      const cursor = advanceCursorByPaidCoverages(calc.coverageStart, paidCoverages)
-      const coveredUntil = addDays(cursor, -1)
-      const oldCoveredUntil = lease.rentCoveredUntil ? parseDateInput(lease.rentCoveredUntil) : null
-      if (paidCoverages.length && (!oldCoveredUntil || oldCoveredUntil.getTime() < coveredUntil.getTime())) {
+      const coveredUntil = plan.projectedRentCoveredUntil
+      if (coveredUntil) {
         await transaction.collection('lease_agreements').where({ _id: input.leaseId, _openid: caller.openId }).update({
           rentCoveredUntil: coveredUntil,
           nextRentDueDate: addDays(coveredUntil, 1),
@@ -310,21 +339,25 @@ function createCommandService(app, db) {
       await transaction.commit()
       const primaryBill = createdBills[0] || paidBills[0] || null
       const totalPaidAmount = number(payments.reduce((sum, payment) => sum + number(payment.amount), 0))
-      const fullyCovered = coveredUntil.getTime() >= calc.coverageEnd.getTime()
       return {
+        collectionId,
         billId: primaryBill && primaryBill._id,
         paymentId: payments[0] && payments[0]._id,
+        paymentIds: payments.map(item => item._id),
         bill: primaryBill,
         payment: payments[0] || null,
         billCreated: createdBills.length > 0,
         createdBillIds: createdBills.map(item => item._id),
         settledBillIds: paidBills.filter(item => !createdBills.some(created => created._id === item._id)).map(item => item._id),
         paidAmount: totalPaidAmount,
-        totalAmount: calc.amount,
-        status: fullyCovered ? 'paid' : 'partial',
-        remaining: number(calc.amount - totalPaidAmount),
+        totalAmount: plan.totalCollectionAmount,
+        status: 'paid',
+        remaining: 0,
         paymentMethod: input.paymentMethod || 'cash',
-        paymentDate: input.paymentDate || ''
+        paymentDate: input.paymentDate || '',
+        rentCoveredUntil: coveredUntil ? formatDateKey(coveredUntil) : '',
+        nextRentDueDate: coveredUntil ? formatDateKey(addDays(coveredUntil, 1)) : '',
+        allocations: executableAllocations
       }
     } catch (err) {
       await transaction.rollback()
@@ -394,7 +427,24 @@ function createCommandService(app, db) {
     await assertPrepayConfirmationFresh(resolved.input, caller, resolved.confirmation)
     await markExecuting(params.confirmationId)
     try {
-      const result = await executePrepayRent(resolved.input, caller)
+      const result = await executeRentCollection(resolved.input, caller, params.confirmationId, { groupNewBills: true })
+      await markExecuted(params.confirmationId, result)
+      return { ...result, confirmationId: params.confirmationId, idempotencyKey: resolved.key }
+    } catch (err) {
+      await markPendingAfterFailure(params.confirmationId)
+      throw err
+    }
+  }
+
+  async function confirmRentCollection(params, caller) {
+    invariant(params && params.confirmationId, 'VALIDATION_ERROR', '租金收款必须从页面确认记录执行')
+    invariant(caller && caller.openId, 'FORBIDDEN', '缺少调用者身份')
+    const resolved = await resolveParams(params, caller, 'confirmRentCollection')
+    if (resolved.replay) return { replayed: true, idempotencyKey: resolved.key, result: resolved.result }
+    await assertRentCollectionConfirmationFresh(resolved.input, caller, resolved.confirmation)
+    await markExecuting(params.confirmationId)
+    try {
+      const result = await executeRentCollection(resolved.input, caller, params.confirmationId)
       await markExecuted(params.confirmationId, result)
       return { ...result, confirmationId: params.confirmationId, idempotencyKey: resolved.key }
     } catch (err) {
@@ -451,6 +501,7 @@ function createCommandService(app, db) {
     confirmRenewLease(params, caller) {
       return runLegacy(params, caller, 'confirmRenewLease', 'createNextRentBill')
     },
+    confirmRentCollection,
     confirmPrepayRent,
     confirmCollectRent(params, caller) {
       return runLegacy(params, caller, 'confirmCollectRent', 'payBill')

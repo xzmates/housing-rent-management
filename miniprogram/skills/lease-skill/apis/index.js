@@ -29,6 +29,8 @@ async function getActiveLeases(params = {}) {
         houseLabel: l.house ? l.house.label || '' : '',
         rent: l.rent,
         paymentCycle: l.paymentCycle,
+        rentCoveredUntil: l.rentCoveredUntil,
+        nextRentDueDate: l.nextRentDueDate,
         status: l.status,
         startDate: l.startDate,
         endDate: l.endDate
@@ -36,7 +38,9 @@ async function getActiveLeases(params = {}) {
       fields: leases.map(l => ({
         label: l.tenant ? l.tenant.name : '—',
         value: l.house ? l.house.label : '—',
-        leaseId: l.id || ''
+        leaseId: l.id || '',
+        rentCoveredUntil: l.rentCoveredUntil || '',
+        nextRentDueDate: l.nextRentDueDate || ''
       }))
     })
   } catch (err) {
@@ -45,23 +49,24 @@ async function getActiveLeases(params = {}) {
   }
 }
 
-function prepayHandoff(data = {}, params = {}) {
-  const view = data.prepayView || {}
+function rentCollectionHandoff(data = {}, params = {}, action = 'rentCollection') {
+  const view = data.rentCollectionView || data.prepayView || {}
   const input = data.normalizedInput || {}
   const lease = view.lease || {}
   return {
     query: encodeQuery({
-      action: 'prepayRent',
+      action,
       confirmationId: data.confirmationId || '',
       leaseId: input.leaseId || params.leaseId || lease.id || ''
     }),
     payload: {
-      type: 'prepayRent',
-      action: 'confirmPrepayRent',
+      type: action,
+      action: action === 'prepayRent' ? 'confirmPrepayRent' : 'confirmRentCollection',
       confirmationId: data.confirmationId || '',
       expiresAt: data.expiresAt || '',
       input,
-      prepayView: view
+      rentCollectionView: data.rentCollectionView || null,
+      prepayView: data.prepayView || null
     }
   }
 }
@@ -71,11 +76,29 @@ async function previewPrepayRent(params = {}) {
   try {
     const data = await callRentalDomain('previewPrepayRent', params)
     const result = successResult('提前收租预览已生成，请点击小程序卡片进入页面核对，并在确认已线下收款后入账。', data)
-    result.handoff = prepayHandoff(data, params)
+    if (data && !data.needPeriod) result.handoff = rentCollectionHandoff(data, params, 'prepayRent')
     return result
   } catch (err) {
     console.error('[ai-mode] lease-skill previewPrepayRent error:', err.message)
     return errorResult('预览提前收租失败：' + err.message)
+  }
+}
+
+async function previewRentCollection(params = {}) {
+  console.info('[ai-mode] lease-skill previewRentCollection params=', JSON.stringify(params || {}))
+  try {
+    const data = await callRentalDomain('previewRentCollection', params)
+    if (data && data.needPeriod) {
+      return successResult(data.message || '请补充收租账期，例如从哪一天开始、收几个月。', data)
+    }
+    const view = data.rentCollectionView || {}
+    const modeText = ({ arrears: '补交欠租', current: '当期收租', advance: '提前收租', mixed: '混合收租' })[view.mode] || '租金收款'
+    const result = successResult(`${modeText}预览已生成，请点击小程序卡片进入页面核对，并在确认已线下收款后入账。`, data)
+    result.handoff = rentCollectionHandoff(data, params, 'rentCollection')
+    return result
+  } catch (err) {
+    console.error('[ai-mode] lease-skill previewRentCollection error:', err.message)
+    return errorResult('预览租金收款失败：' + err.message)
   }
 }
 
@@ -123,4 +146,4 @@ async function confirmRenewLease(params = {}) {
   }
 }
 
-module.exports = { getActiveLeases, previewCreateLease, confirmCreateLease, previewPrepayRent, previewRenewLease, confirmRenewLease }
+module.exports = { getActiveLeases, previewCreateLease, confirmCreateLease, previewPrepayRent, previewRentCollection, previewRenewLease, confirmRenewLease }
