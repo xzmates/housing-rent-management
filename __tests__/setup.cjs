@@ -3,6 +3,7 @@
  * 支持 wx.cloud.database() 直接查询 + wx.cloud.callFunction() 云函数调用
  */
 const store = new Map();
+const rentCoverage = require('../cloudfunctions/rentalDomain/domain/rent-coverage');
 let mockClock = 0;
 const FIXED_TEST_NOW = new Date('2026-06-24T08:00:00+08:00').getTime();
 const DEFAULT_OPENID = 'test-openid';
@@ -247,24 +248,19 @@ global.getApp = () => ({
 });
 
 function parseDateInput(value) {
-  if (value instanceof Date) return value;
-  if (typeof value === 'string') {
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  }
-  return new Date(value);
+  return rentCoverage.parseDateInput(value) || new Date(value);
 }
 
 function addMonths(date, months) {
-  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
+  return rentCoverage.addMonths(date, months);
 }
 
 function addDays(date, days) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  return rentCoverage.addDays(date, days);
 }
 
 function formatDateKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return rentCoverage.formatDateKey(date);
 }
 
 function formatMonthKey(date) {
@@ -272,7 +268,7 @@ function formatMonthKey(date) {
 }
 
 function billingMonths(cycle) {
-  return { month: 1, quarter: 3, half_year: 6, year: 12 }[cycle] || 1;
+  return rentCoverage.billingMonths(cycle);
 }
 
 function rentPeriod(start, months) {
@@ -521,12 +517,10 @@ registerCloudFunction('payBill', ({ billId, amount, paymentDate, paymentMethod }
   if (bill.type === 'rent' && bill.status === 'paid') {
     const lease = getCollectionData('lease_agreements').find(l => l._id === bill.leaseId);
     if (lease) {
-      const months = billingMonths(lease.paymentCycle);
-      const dueDate = parseDateInput(bill.dueDate);
-      lease.rentCoveredUntil = bill.rentCoverageEnd
-        ? parseDateInput(bill.rentCoverageEnd)
-        : addDays(addMonths(dueDate, months), -1);
-      lease.nextRentDueDate = addDays(lease.rentCoveredUntil, 1);
+      const rentBills = getCollectionData('bills').filter(b => b.leaseId === bill.leaseId && b.type === 'rent');
+      const coverage = rentCoverage.recalculateContinuousRentCoverage(lease, rentBills);
+      lease.rentCoveredUntil = coverage.rentCoveredUntil;
+      lease.nextRentDueDate = coverage.nextRentDueDate;
     }
   }
 
@@ -1055,6 +1049,23 @@ function sortBills(rows) {
   });
 }
 
+function roundMoney(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+function normalizeBillStatus(bill = {}) {
+  const amount = roundMoney(bill.amount);
+  const paidAmount = roundMoney(bill.paidAmount);
+  const remaining = roundMoney(Math.max(0, amount - paidAmount));
+  const status = remaining <= 0 && paidAmount >= amount
+    ? 'paid'
+    : paidAmount > 0
+      ? 'partial'
+      : (bill.status || 'unpaid');
+  return { ...bill, amount, paidAmount, remaining, status };
+}
+
 registerCloudFunction('queryLeaseData', ({ action, filters = {}, id }) => {
   if (action === 'listLeases') {
     let rows = getCollectionData('lease_agreements');
@@ -1076,6 +1087,7 @@ registerCloudFunction('queryLeaseData', ({ action, filters = {}, id }) => {
         ? rows.filter(b => filters.leaseIds.includes(b.leaseId))
         : [];
     }
+    rows = rows.map(normalizeBillStatus);
     if (filters.leaseId) rows = rows.filter(b => b.leaseId === filters.leaseId);
     if (filters.type) rows = rows.filter(b => b.type === filters.type);
     if (filters.status) rows = rows.filter(b => b.status === filters.status);
@@ -1160,6 +1172,7 @@ function createRentalActions(caller) {
     getPaymentHistory: query.getPaymentHistory,
     getMeterTargets: query.getMeterTargets,
     getMoveOutTargets: query.getMoveOutTargets,
+    auditLeaseRentCoverage: query.auditLeaseRentCoverage,
     getOperationConfirmation,
     previewCreateHouse: preview.previewCreateHouse,
     previewCreateTenant: preview.previewCreateTenant,

@@ -118,6 +118,10 @@ async function previewMoveOutSettlement(params) {
   return callRentalDomain('previewMoveOutSettlement', params);
 }
 
+async function auditLeaseRentCoverage(leaseId) {
+  return callRentalDomain('auditLeaseRentCoverage', { leaseId });
+}
+
 async function getOperationConfirmation(confirmationId) {
   if (!confirmationId) throw new Error('缺少确认记录 ID');
   const data = await callRentalDomain('getOperationConfirmation', { confirmationId });
@@ -151,6 +155,29 @@ async function getTenantBills(tenantId, opts = {}) {
 
 async function queryLeaseData(action, params = {}) {
   return _callCloud('queryLeaseData', { action, ...params });
+}
+
+function roundMoney(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+function normalizeBillStatus(bill = {}) {
+  const amount = roundMoney(bill.amount);
+  const paidAmount = roundMoney(bill.paidAmount);
+  const remaining = roundMoney(Math.max(0, amount - paidAmount));
+  const status = remaining <= 0 && paidAmount >= amount
+    ? 'paid'
+    : paidAmount > 0
+      ? 'partial'
+      : (bill.status || 'unpaid');
+  return {
+    ...bill,
+    amount,
+    paidAmount,
+    remaining,
+    status
+  };
 }
 
 async function voiceTranscribe(params = {}) {
@@ -391,7 +418,8 @@ async function getLeaseById(id) {
 // ---- 账单 ----
 
 async function getBills(filters) {
-  return queryLeaseData('listBills', { filters });
+  const res = await queryLeaseData('listBills', { filters });
+  return { ...res, data: (res.data || []).map(normalizeBillStatus) };
 }
 
 async function getPayments(filters) {
@@ -493,6 +521,7 @@ module.exports = {
   previewCollectRent,
   previewMeterReading,
   previewMoveOutSettlement,
+  auditLeaseRentCoverage,
   getOperationConfirmation,
   // 房屋
   getHouses, getHousesWithOccupancy, getHouseById, addHouse, updateHouse, deleteHouse,

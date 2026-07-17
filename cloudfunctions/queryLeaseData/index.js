@@ -40,6 +40,23 @@ function fail(code, message) {
   return { code, message, data: null };
 }
 
+function roundMoney(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+function normalizeBillStatus(bill = {}) {
+  const amount = roundMoney(bill.amount);
+  const paidAmount = roundMoney(bill.paidAmount);
+  const remaining = roundMoney(Math.max(0, amount - paidAmount));
+  const status = remaining <= 0 && paidAmount >= amount
+    ? 'paid'
+    : paidAmount > 0
+      ? 'partial'
+      : (bill.status || 'unpaid');
+  return { ...bill, amount, paidAmount, remaining, status };
+}
+
 function buildLeaseWhere(filters = {}) {
   const where = {};
   if (filters.houseId) where.houseId = filters.houseId;
@@ -132,7 +149,7 @@ exports.main = async (event = {}) => {
         where,
         orderBy: { field: 'createdAt', direction: 'desc' }
       });
-      return ok({ data: sortBills(rows) });
+      return ok({ data: sortBills(rows.map(normalizeBillStatus)) });
     }
 
     if (action === 'listUtilityRecords') {

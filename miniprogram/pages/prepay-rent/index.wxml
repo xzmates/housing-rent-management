@@ -66,7 +66,9 @@
 
       <view style="background:var(--primary-bg);border-radius:10rpx;padding:16rpx;margin-bottom:20rpx;">
         <text style="font-size:24rpx;color:var(--primary-dark);display:block;">{{preview.modeText || '租金收款'}} · 预计收款 ￥{{preview.amountText}}</text>
-        <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:6rpx;">覆盖：{{preview.coverageText || '-'}}</text>
+        <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:6rpx;">覆盖账期：{{preview.coveragePeriodCount || 0}} 个</text>
+        <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">待收账期：{{preview.payablePeriodCount || 0}} 个</text>
+        <text wx:if="{{preview.alreadyPaidPeriodCount}}" style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">已有 {{preview.alreadyPaidPeriodCount}} 个账期缴清</text>
         <text style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">账期：{{preview.startText || '-'}} 至 {{preview.endText || '-'}}</text>
         <text wx:if="{{preview.endText}}" style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">截至 {{preview.endText}}</text>
         <text wx:if="{{preview.currentRentCoveredUntil}}" style="font-size:22rpx;color:var(--gray-600);display:block;margin-top:4rpx;">当前已缴至 {{preview.currentRentCoveredUntil || '-'}}</text>

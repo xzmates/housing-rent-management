@@ -103,6 +103,9 @@ Page({
     payMethods: PAY_METHODS.map(item => item.label),
     preview: {
       coverageText: '',
+      coveragePeriodCount: 0,
+      payablePeriodCount: 0,
+      alreadyPaidPeriodCount: 0,
       amountText: '0',
       startText: '',
       endText: '',
@@ -197,6 +200,9 @@ Page({
     const modeIndex = modeIndexFromInput(input);
     const amount = money(view.totalCollectionAmount || view.receivableAmount || view.amount || input.amount);
     const payMethodIndex = methodIndex(input.paymentMethod || view.paymentMethod);
+    const allocations = view.allocations || [];
+    const payablePeriodCount = allocations.filter(item => Number(item.allocationAmount || 0) > 0).length;
+    const alreadyPaidPeriodCount = allocations.filter(item => Number(item.allocationAmount || 0) <= 0).length;
 
     this.setData({
       loading: false,
@@ -213,12 +219,15 @@ Page({
       note: input.note || view.note || '',
       preview: {
         coverageText: view.periodCount ? `${view.periodCount}个月` : (view.coverageText || ''),
+        coveragePeriodCount: Number(view.periodCount || allocations.length || 0),
+        payablePeriodCount,
+        alreadyPaidPeriodCount,
         amountText: money(amount),
         startText: view.periodStart || view.coverageStart || '',
         endText: view.periodEnd || view.coverageEnd || '',
         paymentNote: view.paymentNote || '',
         modeText: modeText(view.mode),
-        allocations: view.allocations || [],
+        allocations,
         currentRentCoveredUntil: view.currentRentCoveredUntil || view.rentCoveredUntil || '',
         projectedRentCoveredUntil: view.projectedRentCoveredUntil || ''
       },
@@ -312,7 +321,7 @@ Page({
   updatePreview() {
     const lease = this.data.selectedLease;
     if (!lease) {
-      this.setData({ preview: { coverageText: '', amountText: '0', startText: '', endText: '', paymentNote: '' } });
+      this.setData({ preview: { coverageText: '', coveragePeriodCount: 0, payablePeriodCount: 0, alreadyPaidPeriodCount: 0, amountText: '0', startText: '', endText: '', paymentNote: '' } });
       return;
     }
     const mode = MODE_OPTIONS[this.data.modeIndex];
@@ -325,6 +334,9 @@ Page({
       preview: {
         ...this.data.preview,
         coverageText,
+        coveragePeriodCount: Number(mode.periodCount || 1),
+        payablePeriodCount: Number(mode.periodCount || 1),
+        alreadyPaidPeriodCount: 0,
         amountText: money(amount),
         startText: this.data.periodStart || lease.nextRentDueDateKey || '',
         endText: '',

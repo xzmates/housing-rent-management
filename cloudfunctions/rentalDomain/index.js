@@ -49,6 +49,7 @@ function createActions(caller) {
     getPaymentHistory: query.getPaymentHistory,
     getMeterTargets: query.getMeterTargets,
     getMoveOutTargets: query.getMoveOutTargets,
+    auditLeaseRentCoverage: query.auditLeaseRentCoverage,
     getOperationConfirmation,
     previewCreateHouse: preview.previewCreateHouse,
     previewCreateTenant: preview.previewCreateTenant,

@@ -1,4 +1,5 @@
 const cloud = require('@cloudbase/node-sdk');
+const rentCoverage = require('../rentalDomain/domain/rent-coverage');
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
 
@@ -12,25 +13,19 @@ function buildMeta(event, bill) {
 }
 
 function parseDateInput(value) {
-  if (value instanceof Date) return value;
-  if (typeof value === 'string') {
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  }
-  if (value && value.$date) return new Date(value.$date);
-  return value ? new Date(value) : new Date();
+  return rentCoverage.parseDateInput(value) || new Date();
 }
 
 function addMonths(date, months) {
-  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
+  return rentCoverage.addMonths(date, months);
 }
 
 function addDays(date, days) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  return rentCoverage.addDays(date, days);
 }
 
 function billingMonths(cycle) {
-  return { month: 1, quarter: 3, half_year: 6, year: 12 }[cycle] || 1;
+  return rentCoverage.billingMonths(cycle);
 }
 
 async function advanceLeaseRentDates(transaction, bill, now) {
@@ -38,19 +33,13 @@ async function advanceLeaseRentDates(transaction, bill, now) {
   const leaseRes = await transaction.collection('lease_agreements').where({ _id: bill.leaseId }).get();
   const lease = leaseRes.data && leaseRes.data[0];
   if (!lease) return;
-
-  const months = billingMonths(lease.paymentCycle);
-  const dueDate = parseDateInput(bill.dueDate);
-  const coveredUntil = bill.rentCoverageEnd
-    ? parseDateInput(bill.rentCoverageEnd)
-    : addDays(addMonths(dueDate, months), -1);
-  const nextRentDueDate = addDays(coveredUntil, 1);
-  const oldCoveredUntil = lease.rentCoveredUntil ? parseDateInput(lease.rentCoveredUntil) : null;
-  if (oldCoveredUntil && oldCoveredUntil.getTime() > coveredUntil.getTime()) return;
+  const rentBillRes = await transaction.collection('bills').where({ leaseId: bill.leaseId, type: 'rent' }).get();
+  const rentBills = (rentBillRes.data || []).map(item => item._id === bill._id ? bill : item);
+  const coverage = rentCoverage.recalculateContinuousRentCoverage(lease, rentBills);
 
   await transaction.collection('lease_agreements').where({ _id: bill.leaseId }).update({
-    rentCoveredUntil: coveredUntil,
-    nextRentDueDate,
+    rentCoveredUntil: coverage.rentCoveredUntil,
+    nextRentDueDate: coverage.nextRentDueDate,
     updatedAt: now
   });
 }
@@ -75,7 +64,7 @@ exports.main = async (event) => {
     const newPaidAmount = Math.round((Number(bill.paidAmount || 0) + Number(amount)) * 100) / 100;
     if (newPaidAmount > Number(bill.amount || 0)) {
       await transaction.rollback();
-      return { code: 400, message: `缴费金额超出应缴金额，最多可缴 ${Number(bill.amount || 0) - Number(bill.paidAmount || 0)} 元` };
+      return { code: 400, message: `超额缴费，缴费金额超出应缴金额，最多可缴 ${Number(bill.amount || 0) - Number(bill.paidAmount || 0)} 元` };
     }
 
     const now = new Date();
@@ -95,6 +84,13 @@ exports.main = async (event) => {
     });
 
     const newStatus = newPaidAmount >= Number(bill.amount || 0) ? 'paid' : 'partial';
+    const updatedBill = {
+      ...bill,
+      paidAmount: newPaidAmount,
+      status: newStatus,
+      paidAt: newStatus === 'paid' ? now : bill.paidAt,
+      updatedAt: now
+    };
     await transaction.collection('bills').where({ _id: billId }).update({
       paidAmount: newPaidAmount,
       status: newStatus,
@@ -103,7 +99,7 @@ exports.main = async (event) => {
     });
 
     if (newStatus === 'paid') {
-      await advanceLeaseRentDates(transaction, bill, now);
+      await advanceLeaseRentDates(transaction, updatedBill, now);
     }
 
     await transaction.commit();

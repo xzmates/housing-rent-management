@@ -51,7 +51,14 @@ function leaseView(lease = {}, house = {}, tenant = {}) {
 }
 
 function billView(bill = {}, lease = {}, house = {}, tenant = {}) {
-  const remaining = number(number(bill.amount) - number(bill.paidAmount))
+  const amount = number(bill.amount)
+  const paidAmount = number(bill.paidAmount)
+  const remaining = number(Math.max(0, amount - paidAmount))
+  const status = remaining <= 0 && paidAmount >= amount
+    ? 'paid'
+    : paidAmount > 0
+      ? 'partial'
+      : (bill.status || 'unpaid')
   return {
     id: bill._id || '',
     leaseId: bill.leaseId || '',
@@ -59,11 +66,11 @@ function billView(bill = {}, lease = {}, house = {}, tenant = {}) {
     tenantName: tenant.name || '',
     type: bill.type || '',
     typeText: { rent: '租金', deposit: '押金', utility: '水电费', deposit_return: '押金退还', rent_refund: '租金退还', extra_due: '补缴', other: '补缴' }[bill.type] || bill.type || '账单',
-    amount: number(bill.amount),
-    paidAmount: number(bill.paidAmount),
+    amount,
+    paidAmount,
     remaining,
-    status: bill.status || '',
-    statusText: bill.status === 'paid' ? '已缴' : bill.status === 'partial' ? '部分缴' : '待缴',
+    status,
+    statusText: status === 'paid' ? '已缴' : status === 'partial' ? '部分缴' : '待缴',
     period: bill.period || '',
     dueDate: dateText(bill.dueDate)
   }

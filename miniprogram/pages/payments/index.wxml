@@ -116,6 +116,20 @@
         </view>
       </view>
 
+      <view wx:if="{{rentGapWarning}}" style="background:#FFF7ED;border:1rpx solid #FDBA74;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="font-size:26rpx;font-weight:700;color:#9A3412;display:block;">前面仍有 {{rentGapWarning.count}} 个未缴租金账期</text>
+        <view wx:for="{{rentGapWarning.earlierBills}}" wx:key="id" style="margin-top:8rpx;">
+          <text style="font-size:23rpx;color:#9A3412;display:block;">{{item.period}}：待缴 ¥{{item.remaining}}</text>
+        </view>
+        <text style="font-size:23rpx;color:#9A3412;display:block;margin-top:12rpx;">
+          如果仍登记为 {{rentGapWarning.targetPeriod}}，该账单会已缴，但合同连续已缴日期不会越过前面的欠租。
+        </text>
+        <view class="modal-actions" style="margin-top:16rpx;">
+          <button class="btn" style="background:#FFEDD5;color:#9A3412;" bindtap="useEarliestRentBill">优先处理最早欠租</button>
+          <button class="btn btn-primary" bindtap="keepSelectedRentBill">仍登记为当前账单</button>
+        </view>
+      </view>
+
       <view class="form-group">
         <text class="form-label">缴费金额</text>
         <input class="form-input" value="{{payAmount}}" type="digit" bindinput="onPayAmountInput" placeholder="输入金额" />

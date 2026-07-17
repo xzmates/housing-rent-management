@@ -2,6 +2,7 @@ const { invariant } = require('../infrastructure/errors')
 const { createConfirmation, digest } = require('../infrastructure/confirmations')
 const { billView, houseView, tenantView, leaseView, number, dateText } = require('../domain/presenters')
 const { calculateMeterPreview, calculateSettlement } = require('../domain/settlement')
+const rentCoverage = require('../domain/rent-coverage')
 
 function dateValue(value) {
   if (!value) return ''
@@ -33,25 +34,19 @@ function moveOutSourceDigest(ctx, bills, latestRecord, settings) {
 }
 
 function parseDateInput(value) {
-  if (value instanceof Date) return value
-  if (typeof value === 'string') {
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  }
-  if (value && value.$date) return new Date(value.$date)
-  return value ? new Date(value) : new Date()
+  return rentCoverage.parseDateInput(value) || new Date()
 }
 
 function addMonths(date, months) {
-  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate())
+  return rentCoverage.addMonths(date, months)
 }
 
 function addDays(date, days) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
+  return rentCoverage.addDays(date, days)
 }
 
 function formatDateKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return rentCoverage.formatDateKey(date)
 }
 
 function calcOccupiedMonths(startDate, endDate) {
@@ -62,7 +57,7 @@ function calcOccupiedMonths(startDate, endDate) {
 }
 
 function billingMonths(cycle) {
-  return { month: 1, quarter: 3, half_year: 6, year: 12 }[cycle] || 1
+  return rentCoverage.billingMonths(cycle)
 }
 
 function calcOccupiedBillingMonths(startDate, endDate, paymentCycle) {
@@ -319,44 +314,7 @@ function classifyRentCollectionMode(lease, paymentDate, periods) {
 }
 
 function calculateContinuousRentCoverage(lease, rentBills, plannedAllocations = []) {
-  const plannedByKey = new Map(plannedAllocations.map((item) => [coverageKey({ start: parseDateInput(item.periodStart), end: parseDateInput(item.periodEnd) }), item]))
-  const coverages = rentBills.map((bill) => {
-    const coverage = inferRentBillCoverage(bill, lease)
-    const planned = plannedByKey.get(coverageKey(coverage))
-    const paidAmount = number(bill.paidAmount) + number(planned && planned.allocationAmount)
-    const amount = number(bill.amount)
-    return {
-      start: coverage.start,
-      end: coverage.end,
-      paid: amount > 0 && paidAmount >= amount
-    }
-  })
-
-  plannedAllocations
-    .filter((item) => item.source === 'new')
-    .forEach((item) => {
-      coverages.push({
-        start: parseDateInput(item.periodStart),
-        end: parseDateInput(item.periodEnd),
-        paid: number(item.allocationAmount) >= number(item.receivableAmount)
-      })
-    })
-
-  let cursor = parseDateInput(lease.startDate)
-  let coveredUntil = null
-  const rows = coverages.filter(item => item.paid).sort((a, b) => a.start.getTime() - b.start.getTime())
-  let advanced = true
-  while (advanced) {
-    advanced = false
-    for (const item of rows) {
-      if (compareDate(item.start, cursor) <= 0 && compareDate(item.end, cursor) >= 0) {
-        coveredUntil = item.end
-        cursor = addDays(item.end, 1)
-        advanced = true
-      }
-    }
-  }
-  return coveredUntil
+  return rentCoverage.recalculateContinuousRentCoverage(lease, rentBills, plannedAllocations).rentCoveredUntil
 }
 
 function buildRentCollectionPlan(lease, rentBills, input) {
@@ -395,7 +353,8 @@ function buildRentCollectionPlan(lease, rentBills, input) {
     invariant(input.amount === totalCollectionAmount, 'VALIDATION_ERROR', `收款金额与所选账期应收不一致，应收 ${totalCollectionAmount} 元`)
   }
   invariant(totalCollectionAmount > 0, 'CONFLICT', '所选账期已全部缴清')
-  const projectedRentCoveredUntil = calculateContinuousRentCoverage(lease, rentBills, allocations)
+  const currentCoverage = rentCoverage.recalculateContinuousRentCoverage(lease, rentBills)
+  const projectedCoverage = rentCoverage.recalculateContinuousRentCoverage(lease, rentBills, allocations)
 
   return {
     ...built,
@@ -406,7 +365,12 @@ function buildRentCollectionPlan(lease, rentBills, input) {
     totalReceivable,
     totalAlreadyPaid,
     totalCollectionAmount,
-    projectedRentCoveredUntil
+    currentRentCoveredUntil: currentCoverage.rentCoveredUntil,
+    currentNextRentDueDate: currentCoverage.nextRentDueDate,
+    projectedRentCoveredUntil: projectedCoverage.rentCoveredUntil,
+    projectedNextRentDueDate: projectedCoverage.nextRentDueDate,
+    firstUnpaidPeriod: projectedCoverage.firstUnpaidPeriod,
+    coverageAnomalies: [...currentCoverage.anomalies, ...projectedCoverage.anomalies]
   }
 }
 
@@ -485,9 +449,12 @@ function rentCollectionView(ctx, input, plan) {
     containsCurrent: plan.containsCurrent,
     containsAdvance: plan.containsAdvance,
     monthlyRent: number(ctx.lease.rent),
-    nextRentDueDate: dateText(ctx.lease.nextRentDueDate),
-    currentRentCoveredUntil: dateText(ctx.lease.rentCoveredUntil),
-    projectedRentCoveredUntil: plan.projectedRentCoveredUntil ? formatDateKey(plan.projectedRentCoveredUntil) : ''
+    nextRentDueDate: plan.currentNextRentDueDate ? formatDateKey(plan.currentNextRentDueDate) : '',
+    currentRentCoveredUntil: plan.currentRentCoveredUntil ? formatDateKey(plan.currentRentCoveredUntil) : '',
+    projectedRentCoveredUntil: plan.projectedRentCoveredUntil ? formatDateKey(plan.projectedRentCoveredUntil) : '',
+    projectedNextRentDueDate: plan.projectedNextRentDueDate ? formatDateKey(plan.projectedNextRentDueDate) : '',
+    firstUnpaidPeriod: plan.firstUnpaidPeriod,
+    coverageAnomalies: plan.coverageAnomalies || []
   }
 }
 
@@ -511,6 +478,7 @@ async function buildRentCollectionSnapshot(repo, params, options = {}) {
     else if (legacy.amount > 0) input.periodCount = Math.max(1, Math.round(legacy.amount / number(ctx.lease.rent)))
   }
   if (!input.periodStart || (!input.periodCount && !input.periodEnd)) {
+    const currentCoverage = rentCoverage.recalculateContinuousRentCoverage(ctx.lease, rentBills)
     return {
       status: 'need_period',
       needPeriod: true,
@@ -523,8 +491,8 @@ async function buildRentCollectionSnapshot(repo, params, options = {}) {
         paymentMethod: input.paymentMethod,
         paymentMethodText: paymentMethodText(input.paymentMethod),
         paymentDate: input.paymentDate,
-        currentRentCoveredUntil: dateText(ctx.lease.rentCoveredUntil),
-        nextRentDueDate: dateText(ctx.lease.nextRentDueDate)
+        currentRentCoveredUntil: currentCoverage.rentCoveredUntil ? formatDateKey(currentCoverage.rentCoveredUntil) : '',
+        nextRentDueDate: currentCoverage.nextRentDueDate ? formatDateKey(currentCoverage.nextRentDueDate) : ''
       }
     }
   }

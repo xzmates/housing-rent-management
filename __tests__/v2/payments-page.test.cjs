@@ -1,4 +1,7 @@
 describe('缴费记录统计筛选', () => {
+  const { clearAllData, getCollectionData } = require('../setup.cjs');
+  const api = require('../../miniprogram/services/api');
+
   function loadPage() {
     let pageDef = null;
     const oldPage = global.Page;
@@ -73,5 +76,35 @@ describe('缴费记录统计筛选', () => {
 
     expect(ctx.data.stats.rentPaid).toBe(9000);
     expect(ctx.data.stats.totalPaid).toBe(9000);
+  });
+
+  it('paidAmount 已覆盖 amount 时，即使原 status=partial，API 也规范为已缴', async () => {
+    clearAllData();
+    getCollectionData('bills').push({
+      _id: 'dirty_partial',
+      leaseId: 'l1',
+      houseId: 'h1',
+      type: 'rent',
+      amount: 1000,
+      paidAmount: 1000,
+      status: 'partial',
+      dueDate: '2026-03-11'
+    });
+
+    const res = await api.getBills();
+    expect(res.data[0].status).toBe('paid');
+    expect(res.data[0].remaining).toBe(0);
+  });
+
+  it('待缴统计不把 remaining=0 的 partial 脏账单算入待缴', () => {
+    const ctx = createContext();
+    ctx._calcStats([
+      ...bills,
+      { _id: 'dirty_partial', leaseId: 'l1', houseId: 'h1', type: 'rent', amount: 1000, paidAmount: 1000, status: 'partial' }
+    ]);
+
+    expect(ctx.data.stats.totalUnpaid).toBe(0);
+    expect(ctx.data.stats.rentUnpaid).toBe(0);
+    expect(ctx.data.stats.rentPaid).toBe(10000);
   });
 });

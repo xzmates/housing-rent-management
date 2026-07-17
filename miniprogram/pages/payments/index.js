@@ -1,11 +1,46 @@
 const api = require('../../services/api');
 
+function toTime(value) {
+  if (!value) return 0;
+  const raw = value.$date || value;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function rentCoverageStartTime(bill = {}) {
+  return toTime(bill.rentCoverageStart || bill.dueDate);
+}
+
+function money(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+function billRemaining(bill = {}) {
+  return money(Math.max(0, Number(bill.amount || 0) - Number(bill.paidAmount || 0)));
+}
+
+function effectiveBillStatus(bill = {}) {
+  const amount = money(bill.amount);
+  const paidAmount = money(bill.paidAmount);
+  const remaining = billRemaining(bill);
+  if (remaining <= 0 && paidAmount >= amount) return 'paid';
+  if (paidAmount > 0) return 'partial';
+  return bill.status || 'unpaid';
+}
+
+function billStatusText(bill = {}) {
+  const status = effectiveBillStatus(bill);
+  if (['deposit_return', 'rent_refund'].indexOf(bill.type) >= 0 && status === 'paid') return '已退';
+  return status === 'paid' ? '已缴' : status === 'partial' ? '部分缴' : '待缴';
+}
+
 Page({
   data: {
     loading: false, paying: false,
     showPayModal: false, showDetailModal: false,
     detailBill: null,
-    bills: [],
+    bills: [], allBills: [],
     allHouses: [], allLeases: [],
     filters: { status: '', type: '' },
     houseFilterId: '',
@@ -14,9 +49,12 @@ Page({
     stats: { totalUnpaid: 0, totalPaid: 0, rentPaid: 0, utilityPaid: 0, lossPaid: 0, rentUnpaid: 0, utilityUnpay: 0, managedDeposit: 0 },
     // 缴费弹窗
     payBillId: '',
+    payTargetBillId: '',
     payAmount: 0,
     payMethod: 'cash',
-    payDate: ''
+    payDate: '',
+    rentGapWarning: null,
+    rentGapConfirmed: false
   },
 
   onLoad() {
@@ -98,15 +136,15 @@ Page({
         const lease = leaseMap[bill.leaseId] || {};
         const house = houseMap[lease.houseId] || {};
         const tenant = tenantMap[lease.tenantId] || {};
+        const normalized = { ...bill, remaining: billRemaining(bill), status: effectiveBillStatus(bill) };
         return {
-          ...bill,
+          ...normalized,
           _depositOffset: depositOffsetMap[bill._id] || 0,
           houseLabel: house.code ? `${house.code} - ${house.address}` : '',
           tenantName: tenant.name || '',
           houseId: lease.houseId,
-          remaining: bill.amount - bill.paidAmount,
           typeText: { rent: '租金', deposit: '押金', utility: '水电费', deposit_return: '押金退还', rent_refund: '租金退还', extra_due: '补缴', other: '补缴' }[bill.type] || bill.type,
-          statusText: ['deposit_return', 'rent_refund'].indexOf(bill.type) >= 0 && bill.status === 'paid' ? '已退' : bill.status === 'paid' ? '已缴' : bill.status === 'partial' ? '部分缴' : '待缴',
+          statusText: billStatusText(normalized),
           dueDateStr: api.formatDate(bill.dueDate),
           utilityDetail: bill.type === 'utility' ? (bill.remark || '') : ''
         };
@@ -135,7 +173,7 @@ Page({
         return (a.dueDate || '').localeCompare(b.dueDate || '');
       });
 
-      this.setData({ bills });
+      this.setData({ bills, allBills });
       this._calcStats(allBills);
     } catch (e) {
       console.error('加载账单失败', e);
@@ -154,12 +192,13 @@ Page({
       return b.type === type;
     });
     const visibleForStats = typeMatchedBills.filter(b => {
-      if (status === 'unpaid') return b.status === 'unpaid' || b.status === 'partial';
-      if (status) return b.status === status;
+      const billStatus = effectiveBillStatus(b);
+      if (status === 'unpaid') return billStatus === 'unpaid' || billStatus === 'partial';
+      if (status) return billStatus === status;
       return true;
     });
-    const unpaid = visibleForStats.filter(b => b.status !== 'paid');
-    const paid = status === 'unpaid' ? [] : visibleForStats.filter(b => b.status === 'paid');
+    const unpaid = visibleForStats.filter(b => effectiveBillStatus(b) !== 'paid');
+    const paid = status === 'unpaid' ? [] : visibleForStats.filter(b => effectiveBillStatus(b) === 'paid');
     const rentPaid = type && type !== 'rent' ? 0 : (
       paid.filter(b => b.type === 'rent').reduce((s, b) => s + Number(b.paidAmount || 0), 0) -
       paid.filter(b => b.type === 'rent_refund').reduce((s, b) => s + Number(b.paidAmount || 0), 0)
@@ -178,13 +217,13 @@ Page({
       .filter(l => !this.data.houseFilterId || l.houseId === this.data.houseFilterId);
     this.setData({
       stats: {
-        totalUnpaid: unpaid.reduce((s, b) => s + (Number(b.amount || 0) - Number(b.paidAmount || 0)), 0),
+        totalUnpaid: unpaid.reduce((s, b) => s + billRemaining(b), 0),
         totalPaid: rentPaid + utilityPaid + lossPaid,
         rentPaid,
         utilityPaid,
         lossPaid,
-        rentUnpaid: type && type !== 'rent' ? 0 : unpaid.filter(b => b.type === 'rent').reduce((s, b) => s + (Number(b.amount || 0) - Number(b.paidAmount || 0)), 0),
-        utilityUnpay: type && type !== 'utility' ? 0 : unpaid.filter(b => b.type === 'utility').reduce((s, b) => s + (Number(b.amount || 0) - Number(b.paidAmount || 0)), 0),
+        rentUnpaid: type && type !== 'rent' ? 0 : unpaid.filter(b => b.type === 'rent').reduce((s, b) => s + billRemaining(b), 0),
+        utilityUnpay: type && type !== 'utility' ? 0 : unpaid.filter(b => b.type === 'utility').reduce((s, b) => s + billRemaining(b), 0),
         managedDeposit: activeLeases.reduce((s, l) => s + Number(l.deposit || 0), 0)
       }
     });
@@ -214,17 +253,21 @@ Page({
   // 缴费弹窗
   showPayModal(e) {
     const bill = e.currentTarget.dataset.bill;
+    const warning = this.buildRentGapWarning(bill);
     this.setData({
       showPayModal: true,
       payBillId: bill._id,
-      payAmount: bill.amount - bill.paidAmount,
+      payTargetBillId: bill._id,
+      payAmount: billRemaining(bill),
       payMethod: 'cash',
       payDate: new Date().toISOString().slice(0, 10),
-      payBillInfo: bill
+      payBillInfo: bill,
+      rentGapWarning: warning,
+      rentGapConfirmed: !warning
     });
   },
 
-  closePay() { this.setData({ showPayModal: false }); },
+  closePay() { this.setData({ showPayModal: false, rentGapWarning: null, rentGapConfirmed: false }); },
   onPayAmountInput(e) { this.setData({ payAmount: Number(e.detail.value) || 0 }); },
   onPayDateChange(e) { this.setData({ payDate: e.detail.value }); },
   onPayMethodChange(e) {
@@ -232,10 +275,55 @@ Page({
     this.setData({ payMethod: methods[e.detail.value] });
   },
 
+  buildRentGapWarning(bill) {
+    if (!bill || bill.type !== 'rent') return null;
+    const selectedStart = rentCoverageStartTime(bill);
+    if (!selectedStart) return null;
+    const earlier = (this.data.allBills || [])
+      .filter(item => item.leaseId === bill.leaseId && item.type === 'rent' && item._id !== bill._id)
+      .filter(item => effectiveBillStatus(item) !== 'paid')
+      .filter(item => rentCoverageStartTime(item) > 0 && rentCoverageStartTime(item) < selectedStart)
+      .sort((a, b) => rentCoverageStartTime(a) - rentCoverageStartTime(b));
+    if (!earlier.length) return null;
+    return {
+      count: earlier.length,
+      targetPeriod: bill.period || bill.dueDateStr || '当前账期',
+      earliestBillId: earlier[0]._id,
+      earlierBills: earlier.map(item => ({
+        id: item._id,
+        period: item.period || item.dueDateStr || '未标注账期',
+        remaining: billRemaining(item)
+      }))
+    };
+  },
+
+  useEarliestRentBill() {
+    const warning = this.data.rentGapWarning;
+    if (!warning || !warning.earliestBillId) return;
+    const bill = (this.data.allBills || []).find(item => item._id === warning.earliestBillId);
+    if (!bill) return;
+    this.setData({
+      payBillId: bill._id,
+      payTargetBillId: bill._id,
+      payAmount: billRemaining(bill),
+      payBillInfo: bill,
+      rentGapWarning: null,
+      rentGapConfirmed: true
+    });
+  },
+
+  keepSelectedRentBill() {
+    this.setData({ rentGapConfirmed: true });
+  },
+
   async confirmPay() {
-    const { payBillId, payAmount, payDate, payMethod } = this.data;
+    const { payBillId, payAmount, payDate, payMethod, rentGapWarning, rentGapConfirmed } = this.data;
     if (!payBillId || payAmount <= 0) {
       wx.showToast({ title: '请输入有效金额', icon: 'none' });
+      return;
+    }
+    if (rentGapWarning && !rentGapConfirmed) {
+      wx.showToast({ title: '请先确认欠租提醒', icon: 'none' });
       return;
     }
     this.setData({ paying: true });

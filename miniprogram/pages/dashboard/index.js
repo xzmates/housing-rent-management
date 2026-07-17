@@ -22,6 +22,19 @@ function dateKey(value) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function money(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+function billRemaining(bill = {}) {
+  return money(Math.max(0, Number(bill.amount || 0) - Number(bill.paidAmount || 0)));
+}
+
+function isBillPaid(bill = {}) {
+  return billRemaining(bill) <= 0 && Number(bill.paidAmount || 0) >= Number(bill.amount || 0);
+}
+
 Page({
   data: {
     loading: true,
@@ -66,8 +79,8 @@ Page({
         houses: (housesRes.data || []).length,
         activeLeases: (leasesRes.data || []).length,
         unpaidAmount: bills
-          .filter(b => b.status !== 'paid')
-          .reduce((s, b) => s + (b.amount - b.paidAmount), 0),
+          .filter(b => !isBillPaid(b))
+          .reduce((s, b) => s + billRemaining(b), 0),
         managedDeposit: (leasesRes.data || []).reduce((s, l) => s + Number(l.deposit || 0), 0)
       };
 
@@ -108,7 +121,7 @@ Page({
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
       const unpaidBills = (billsRes.data || [])
-        .filter(b => b.status !== 'paid' && b.type === 'rent')
+        .filter(b => !isBillPaid(b) && b.type === 'rent')
         .map(b => {
           const lease = leaseMap[b.leaseId] || {};
           const house = houseMap[lease.houseId] || {};
@@ -123,7 +136,7 @@ Page({
             houseAddress: house.address || '',
             tenantName: tenant.name || '',
             dueDateStr: api.formatDate(b.dueDate),
-            remaining: b.amount - b.paidAmount,
+            remaining: billRemaining(b),
             daysUntilDue,
             isOverdue: daysUntilDue < 0,
             statusText: daysUntilDue < 0 ? '已逾期' : daysUntilDue === 0 ? '今日应缴' : '本月到期',
@@ -133,12 +146,16 @@ Page({
         .filter(b => b.isOverdue || startOfDay(b.dueDate) <= monthEnd);
 
       const unpaidBillKeys = new Set(unpaidBills.map(b => `${b.leaseId}:${dateKey(b.dueDate)}`));
+      const rentBillKeys = new Set((billsRes.data || [])
+        .filter(b => b.type === 'rent')
+        .map(b => `${b.leaseId}:${dateKey(b.dueDate)}`));
       const leaseReminders = leases
         .map(lease => {
           const dueDate = startOfDay(lease.nextRentDueDate || (lease.rentCoveredUntil ? new Date(startOfDay(lease.rentCoveredUntil).getTime() + DAY) : null));
           if (!dueDate || dueDate > monthEnd) return null;
           const key = `${lease._id}:${dateKey(dueDate)}`;
           if (unpaidBillKeys.has(key)) return null;
+          if (rentBillKeys.has(key)) return null;
           const house = houseMap[lease.houseId] || {};
           const tenant = tenantMap[lease.tenantId] || {};
           const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / DAY);
@@ -176,8 +193,8 @@ Page({
       };
 
       const stats = this.data.stats;
-      const allUnpaidBills = (billsRes.data || []).filter(b => b.status !== 'paid');
-      stats.unpaidAmount = allUnpaidBills.reduce((s, b) => s + (b.amount - b.paidAmount), 0);
+      const allUnpaidBills = (billsRes.data || []).filter(b => !isBillPaid(b));
+      stats.unpaidAmount = allUnpaidBills.reduce((s, b) => s + billRemaining(b), 0);
 
       this.setData({ overdueBills, upcomingBills, visibleReminderBills, reminderSummary, stats });
     } catch (e) {
@@ -196,13 +213,14 @@ Page({
       (billsRes.data || []).slice(0, 5).forEach(b => {
         const d = new Date(b.updatedAt || b.createdAt);
         const typeText = { rent: '租金', utility: '水电费', deposit_return: '押金退还' }[b.type] || b.type;
-        const statusText = b.type === 'deposit_return' && b.status === 'paid' ? '已退' : b.status === 'paid' ? '已缴' : '待缴';
+        const paid = isBillPaid(b) || b.status === 'paid';
+        const statusText = b.type === 'deposit_return' && paid ? '已退' : paid ? '已缴' : '待缴';
         activities.push({
           id: 'bill_' + b._id,
           title: `${typeText}账单 ¥${b.amount} ${statusText}`,
           time: this._getRelativeTime(d),
           timestamp: d.getTime(),
-          status: b.status === 'paid' ? 'success' : 'pending'
+          status: paid ? 'success' : 'pending'
         });
       });
 

@@ -1,5 +1,6 @@
 const { houseView, tenantView, leaseView, billView } = require('../domain/presenters')
 const { invariant } = require('../infrastructure/errors')
+const { recalculateContinuousRentCoverage, formatDateKey } = require('../domain/rent-coverage')
 
 function createQueryService(repo, command) {
   async function mapsForLeases(leases) {
@@ -76,8 +77,30 @@ function createQueryService(repo, command) {
 
   async function getMeterTargets(params = {}) { return getActiveLeases(params) }
   async function getMoveOutTargets(params = {}) { return getActiveLeases(params) }
+  async function auditLeaseRentCoverage(params = {}) {
+    invariant(params.leaseId, 'VALIDATION_ERROR', '缺少合同 ID')
+    const lease = await repo.byId('lease_agreements', params.leaseId)
+    invariant(lease, 'NOT_FOUND', '未找到合同')
+    const rentBills = await repo.queryAll('bills', { leaseId: params.leaseId, type: 'rent' })
+    const calculated = recalculateContinuousRentCoverage(lease, rentBills)
+    const calculatedRentCoveredUntil = calculated.rentCoveredUntil ? formatDateKey(calculated.rentCoveredUntil) : ''
+    const calculatedNextRentDueDate = calculated.nextRentDueDate ? formatDateKey(calculated.nextRentDueDate) : ''
+    const storedRentCoveredUntil = lease.rentCoveredUntil ? formatDateKey(lease.rentCoveredUntil) : ''
+    const storedNextRentDueDate = lease.nextRentDueDate ? formatDateKey(lease.nextRentDueDate) : ''
+    return {
+      leaseId: params.leaseId,
+      storedRentCoveredUntil,
+      calculatedRentCoveredUntil,
+      storedNextRentDueDate,
+      calculatedNextRentDueDate,
+      isConsistent: storedRentCoveredUntil === calculatedRentCoveredUntil && storedNextRentDueDate === calculatedNextRentDueDate,
+      firstUnpaidPeriod: calculated.firstUnpaidPeriod,
+      continuousPaidPeriods: calculated.continuousPaidPeriods,
+      anomalies: calculated.anomalies
+    }
+  }
 
-  return { searchHouses, getHouseDetail, searchTenants, getTenantDetail, getActiveLeases, getUnpaidBills, getPaymentHistory, getMeterTargets, getMoveOutTargets, mapsForLeases }
+  return { searchHouses, getHouseDetail, searchTenants, getTenantDetail, getActiveLeases, getUnpaidBills, getPaymentHistory, getMeterTargets, getMoveOutTargets, auditLeaseRentCoverage, mapsForLeases }
 }
 
 module.exports = { createQueryService }

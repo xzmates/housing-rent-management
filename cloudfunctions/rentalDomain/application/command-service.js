@@ -2,6 +2,7 @@ const { invariant } = require('../infrastructure/errors')
 const { idempotencyKey, loadPendingConfirmation, findExecutedOperation } = require('../infrastructure/idempotency')
 const { createRepository } = require('../repositories/rental-repository')
 const { number } = require('../domain/presenters')
+const rentCoverage = require('../domain/rent-coverage')
 const {
   buildMoveOutSettlementSnapshot,
   buildPrepayRentSnapshot,
@@ -49,25 +50,19 @@ function normalizeMoveOutParams(params) {
 }
 
 function parseDateInput(value) {
-  if (value instanceof Date) return value
-  if (typeof value === 'string') {
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  }
-  if (value && value.$date) return new Date(value.$date)
-  return value ? new Date(value) : new Date()
+  return rentCoverage.parseDateInput(value) || new Date()
 }
 
 function addDays(date, days) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
+  return rentCoverage.addDays(date, days)
 }
 
 function addMonths(date, months) {
-  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate())
+  return rentCoverage.addMonths(date, months)
 }
 
 function formatDateKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return rentCoverage.formatDateKey(date)
 }
 
 function formatPeriod(start, end) {
@@ -453,6 +448,102 @@ function createCommandService(app, db) {
     }
   }
 
+  async function collectSingleBillPayment(params, caller) {
+    invariant(params && params.billId, 'VALIDATION_ERROR', '缺少账单 ID')
+    invariant(Number(params.amount) > 0, 'VALIDATION_ERROR', '请输入有效金额')
+    const transaction = await db.startTransaction()
+    try {
+      const billRes = await transaction.collection('bills')
+        .where({ _id: params.billId, _openid: caller.openId })
+        .get()
+      const bill = billRes.data && billRes.data[0]
+      invariant(bill, 'FORBIDDEN', '不能操作其他用户的账单')
+      invariant(bill.status !== 'paid', 'VALIDATION_ERROR', '该账单已全额支付')
+
+      const amount = number(params.amount)
+      const remainingBefore = number(number(bill.amount) - number(bill.paidAmount))
+      invariant(amount <= remainingBefore, 'VALIDATION_ERROR', `超额缴费，缴费金额超出应缴金额，最多可缴 ${remainingBefore} 元`)
+
+      const now = new Date()
+      const paymentDate = params.paymentDate ? parseDateInput(params.paymentDate) : now
+      const paymentData = {
+        _openid: caller.openId,
+        billId: bill._id,
+        leaseId: bill.leaseId,
+        houseId: bill.houseId,
+        tenantId: bill.tenantId,
+        amount,
+        direction: 'in',
+        paymentDate,
+        paymentMethod: params.paymentMethod || 'cash',
+        remark: params.remark || '',
+        createdAt: now
+      }
+      const paymentRes = await transaction.collection('payments').add(paymentData)
+      const paymentId = paymentRes.id || paymentRes._id
+
+      const inc = db.command && db.command.inc ? db.command.inc(amount) : amount
+      await transaction.collection('bills').where({ _id: bill._id, _openid: caller.openId }).update({
+        paidAmount: inc,
+        updatedAt: now
+      })
+      const latestBillRes = await transaction.collection('bills')
+        .where({ _id: bill._id, _openid: caller.openId })
+        .get()
+      const latestBill = latestBillRes.data && latestBillRes.data[0]
+      const newPaidAmount = number(latestBill && latestBill.paidAmount)
+      const newStatus = newPaidAmount >= number(bill.amount) ? 'paid' : 'partial'
+      const updatedBill = {
+        ...bill,
+        paidAmount: newPaidAmount,
+        status: newStatus,
+        paidAt: newStatus === 'paid' ? now : bill.paidAt,
+        updatedAt: now
+      }
+      await transaction.collection('bills').where({ _id: bill._id, _openid: caller.openId }).update({
+        status: updatedBill.status,
+        paidAt: updatedBill.paidAt,
+        updatedAt: updatedBill.updatedAt
+      })
+
+      let coverageResult = null
+      if (bill.type === 'rent') {
+        const leaseRes = await transaction.collection('lease_agreements')
+          .where({ _id: bill.leaseId, _openid: caller.openId })
+          .get()
+        const lease = leaseRes.data && leaseRes.data[0]
+        invariant(lease, 'FORBIDDEN', '不能操作其他用户的合同')
+        const rentBillRes = await transaction.collection('bills')
+          .where({ leaseId: bill.leaseId, type: 'rent', _openid: caller.openId })
+          .get()
+        const updatedRentBills = (rentBillRes.data || []).map(item => item._id === bill._id ? updatedBill : item)
+        coverageResult = rentCoverage.recalculateContinuousRentCoverage(lease, updatedRentBills)
+        await transaction.collection('lease_agreements').where({ _id: bill.leaseId, _openid: caller.openId }).update({
+          rentCoveredUntil: coverageResult.rentCoveredUntil,
+          nextRentDueDate: coverageResult.nextRentDueDate,
+          updatedAt: now
+        })
+      }
+
+      await transaction.commit()
+      return {
+        billId: bill._id,
+        paymentId,
+        paidAmount: newPaidAmount,
+        totalAmount: bill.amount,
+        status: newStatus,
+        remaining: number(number(bill.amount) - newPaidAmount),
+        rentCoveredUntil: coverageResult && coverageResult.rentCoveredUntil ? formatDateKey(coverageResult.rentCoveredUntil) : '',
+        nextRentDueDate: coverageResult && coverageResult.nextRentDueDate ? formatDateKey(coverageResult.nextRentDueDate) : '',
+        firstUnpaidPeriod: coverageResult && coverageResult.firstUnpaidPeriod,
+        coverageAnomalies: coverageResult ? coverageResult.anomalies : []
+      }
+    } catch (err) {
+      await transaction.rollback()
+      throw err
+    }
+  }
+
   async function createHouse(params, caller) {
     invariant(params.code, 'VALIDATION_ERROR', '缺少房屋编号')
     invariant(params.address, 'VALIDATION_ERROR', '缺少房屋地址')
@@ -504,7 +595,7 @@ function createCommandService(app, db) {
     confirmRentCollection,
     confirmPrepayRent,
     confirmCollectRent(params, caller) {
-      return runLegacy(params, caller, 'confirmCollectRent', 'payBill')
+      return runDirect(params, caller, 'confirmCollectRent', collectSingleBillPayment)
     },
     confirmMeterReading(params, caller) {
       return runLegacy(params, caller, 'confirmMeterReading', 'addUtilityRecord')
