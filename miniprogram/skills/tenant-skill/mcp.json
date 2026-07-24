@@ -5,7 +5,8 @@
       "description": "搜索租客列表（业务对象：租客结果卡片）。按关键字（姓名/电话）和状态筛选租客。调用前置条件：用户表达查租客诉求。【严禁场景】不要用于房屋查询、合同查询。",
       "_meta": {
         "ui": {
-          "componentPath": "components/tenant-result/index"
+          "componentPath": "components/tenant-result/index",
+          "pagePath": "/pages/tenants/index"
         }
       },
       "inputSchema": {
@@ -58,7 +59,8 @@
       "description": "预览新增租客并生成确认记录（业务对象：租客结果卡片）。调用前置条件：用户已提供租客姓名。【严禁场景】不要直接当成最终新增。",
       "_meta": {
         "ui": {
-          "componentPath": "components/tenant-result/index"
+          "componentPath": "components/tenant-result/index",
+          "pagePath": "/pages/tenants/index"
         }
       },
       "inputSchema": {

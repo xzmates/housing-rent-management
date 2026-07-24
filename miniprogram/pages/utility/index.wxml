@@ -53,7 +53,7 @@
     </view>
 
     <button class="btn btn-primary btn-block" bindtap="calculateBill" style="margin-top:12rpx;" disabled="{{!currentLease || calculating}}">
-      {{calculating ? '计算中...' : '计算水电费'}}
+      {{calculating ? '处理中...' : '预览水电费'}}
     </button>
   </view>
 
@@ -86,8 +86,9 @@
       </view>
     </view>
     <view style="background:#D1FAE5;border-radius:8rpx;padding:12rpx;margin-top:12rpx;">
-      <text style="color:#065F46;font-size:24rpx;">水电费计算完成，已自动生成水电费账单。</text>
+      <text style="color:#065F46;font-size:24rpx;">这是云端费用预览，请核对后确认保存。</text>
     </view>
+    <button wx:if="{{confirmationId}}" class="btn btn-primary btn-block" bindtap="confirmMeterReading" disabled="{{calculating}}" style="margin-top:12rpx;">确认保存抄表并生成账单</button>
   </view>
 
   <view class="card" style="margin-top:20rpx;">

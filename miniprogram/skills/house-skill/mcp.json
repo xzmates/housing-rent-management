@@ -54,11 +54,19 @@
       }
     },
     {
+      "name": "getHouseAvailability",
+      "description": "查询已出租或未出租房屋；出租状态以活跃合同为准。",
+      "_meta": { "ui": { "componentPath": "components/house-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "mode": { "type": "string", "enum": ["rented", "available"] } }, "required": ["mode"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
       "name": "previewCreateHouse",
       "description": "预览新增房屋并生成确认记录（业务对象：房屋结果卡片）。调用前置条件：用户已提供房屋编号、地址和月租金。【严禁场景】不要直接当成最终新增。",
       "_meta": {
         "ui": {
-          "componentPath": "components/house-result/index"
+          "componentPath": "components/house-result/index",
+          "pagePath": "/pages/houses/index"
         }
       },
       "inputSchema": {
@@ -66,11 +74,11 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "房屋编号"
+            "description": "房屋编号，例如用户说“东楼211”时填 211；不要填完整地址。"
           },
           "address": {
             "type": "string",
-            "description": "房屋地址"
+            "description": "楼栋地址，仅可填当前页面支持的东楼或里召；用户说“东楼211”时填东楼。"
           },
           "rent": {
             "type": "number",

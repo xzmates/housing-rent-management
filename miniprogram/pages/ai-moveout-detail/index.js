@@ -244,7 +244,6 @@ Page({
     const oldPreview = this.data.moveOutPreview
     if (!oldPreview) return
     const form = { ...this.data.form, ...patch }
-    const damageAmount = money(form.damageAmount)
     const lastElectricity = Number(oldPreview.lastElectricity || 0)
     const lastWater = Number(oldPreview.lastWater || 0)
     const moveOutElectricity = form.moveOutElectricity === '' ? lastElectricity : Number(form.moveOutElectricity || 0)
@@ -254,63 +253,33 @@ Page({
     if (moveOutElectricity < lastElectricity) errorText = '退租电表读数不能小于上次读数'
     if (moveOutWater < lastWater) errorText = '退租水表读数不能小于上次读数'
 
-    const electricityUsage = Math.max(0, moveOutElectricity - lastElectricity)
-    const waterUsage = Math.max(0, moveOutWater - lastWater)
-    const electricityPrice = oldPreview.electricityUsage ? Number(oldPreview.electricityCost || 0) / Number(oldPreview.electricityUsage || 1) : 0.8
-    const waterPrice = oldPreview.waterUsage ? Number(oldPreview.waterCost || 0) / Number(oldPreview.waterUsage || 1) : 3.5
-    const electricityCost = money(electricityUsage * electricityPrice)
-    const waterCost = money(waterUsage * waterPrice)
-    const utilityCost = money(electricityCost + waterCost)
-    const nonUtilityAmount = money(Number(oldPreview.payableBeforeDeposit || 0) - Number(oldPreview.utilityCost || 0))
-    const payableBeforeDeposit = money(nonUtilityAmount + utilityCost)
-    const deposit = money(oldPreview.deposit || 0)
-    const refundableDeposit = money(deposit - damageAmount)
-    const depositForOffset = Math.max(0, refundableDeposit)
-    const depositOffset = money(Math.min(depositForOffset, payableBeforeDeposit))
-    const refundAmount = money(Math.max(0, depositForOffset - depositOffset))
-    const damageExtraDue = damageAmount > deposit ? money(damageAmount - deposit) : 0
-    const damageOffset = money(Math.max(0, damageAmount - damageExtraDue))
-    const extraPayment = money(Math.max(0, payableBeforeDeposit - depositOffset) + damageExtraDue)
-    const totalRefund = money(refundAmount + Number(oldPreview.overpaidRent || 0) - extraPayment)
-
-    const moveOutPreview = {
-      ...oldPreview,
-      moveOutDate: form.moveOutDate,
-      damageAmount,
-      damageOffset,
-      damageExtraDue,
-      moveOutElectricity,
-      moveOutWater,
-      electricityUsage,
-      waterUsage,
-      electricityCost,
-      waterCost,
-      utilityCost,
-      payableBeforeDeposit,
-      outstandingAmount: payableBeforeDeposit,
-      depositOffset,
-      refundAmount,
-      extraPayment,
-      totalRefund,
-      finalLabel: totalRefund >= 0 ? '应退总额' : '仍需补缴',
-      finalAmount: Math.abs(totalRefund),
-      finalSignedText: totalRefund >= 0 ? `¥${money(totalRefund)}` : `-¥${money(Math.abs(totalRefund))}`,
-      canMoveOutText: payableBeforeDeposit > 0 ? `待抵扣款项 ¥${payableBeforeDeposit}，确认退租后将优先用押金自动抵扣。` : '未结清款项已全部结清，可以办理退租。',
-      utilityUsageText: `${electricityUsage} 度 / ${waterUsage} 吨`
-    }
-
     this.setData({
       form,
-      moveOutPreview,
-      errorText,
-      canConfirm: !errorText,
-      confirmDisabled: !!errorText,
+      confirmToken: '',
+      errorText: errorText || '正在重新计算结算金额…',
+      canConfirm: false,
+      confirmDisabled: true,
       moveOutDate: form.moveOutDate,
       damageAmountInput: form.damageAmount,
       moveOutElectricityInput: form.moveOutElectricity,
       moveOutWaterInput: form.moveOutWater,
       needsAuthoritativeRefresh: true
     })
+    if (this._previewTimer) clearTimeout(this._previewTimer)
+    const version = (this._previewRequestVersion || 0) + 1
+    this._previewRequestVersion = version
+    if (errorText) return
+    this._previewTimer = setTimeout(async () => {
+      try {
+        const input = this.buildCurrentInput()
+        const preview = await api.previewMoveOutSettlement(input)
+        if (version !== this._previewRequestVersion || this._unloaded) return
+        this.applyPreview(preview, input, '')
+      } catch (err) {
+        if (version !== this._previewRequestVersion || this._unloaded) return
+        this.setData({ moveOutPreview: null, confirmToken: '', canConfirm: false, confirmDisabled: true, errorText: '结算金额获取失败，请重新计算后再确认退租。' })
+      }
+    }, 300)
   },
 
   onDateChange(e) {
@@ -321,6 +290,12 @@ Page({
     const field = e.currentTarget.dataset.field
     if (!field) return
     this.recomputePreview({ [field]: e.detail.value })
+  },
+
+  onUnload() {
+    this._unloaded = true
+    this._previewRequestVersion = (this._previewRequestVersion || 0) + 1
+    if (this._previewTimer) clearTimeout(this._previewTimer)
   },
 
   buildCurrentInput() {
@@ -353,9 +328,7 @@ Page({
     })
 
     try {
-      const latest = await api.previewMoveOutSettlement(this.buildCurrentInput())
-      this.applyPreview(latest, this.buildCurrentInput(), '')
-      const confirmationId = latest.confirmationId
+      const confirmationId = this.data.confirmToken
       if (!confirmationId) throw new Error('云端未返回确认编号')
       const result = await api.terminateLease({ confirmationId })
       console.info('[ai-mode] ai-moveout-detail settle result:', result)

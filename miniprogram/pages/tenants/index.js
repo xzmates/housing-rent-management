@@ -27,13 +27,24 @@ Page({
     processingMoveOut: false
   },
 
-  onLoad() {
+  onLoad(options = {}) {
     const today = new Date().toISOString().slice(0, 10);
     this.setData({ moveOutDate: today });
+    this.consumeCreateTenantHandoff();
   },
 
   onPullDownRefresh() { this.loadTenants().then(() => wx.stopPullDownRefresh()); },
-  onShow() { this.loadTenants(); },
+  onShow() { this.consumeCreateTenantHandoff(); this.loadTenants(); },
+
+  consumeCreateTenantHandoff() {
+    const app = getApp();
+    const pageId = typeof this.getPageId === 'function' ? this.getPageId() : '';
+    const handoff = app && app.takeAgentHandoff && pageId ? app.takeAgentHandoff(pageId) : null;
+    const payload = handoff && handoff.payload;
+    if (!payload || payload.mode !== 'create_tenant') return;
+    const fields = payload.fields || {};
+    this.setData({ showAddModal: true, editingTenant: null, form: { name: fields.name || '', phone: fields.phone || '', idCard: fields.idCard || '' } });
+  },
 
   async loadTenants() {
     this.setData({ loading: true });
@@ -169,6 +180,7 @@ Page({
   },
 
   async saveTenant() {
+    if (this.data.saving) return;
     const form = this.data.form;
     const msg = V.run([
       { fn: V.required, args: [form.name, '租客姓名'] },

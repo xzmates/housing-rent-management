@@ -18,6 +18,15 @@ async function searchHouses(params = {}) {
   }
 }
 
+async function getHouseAvailability(params = {}) {
+  try {
+    const mode = params.mode === 'rented' ? 'rented' : 'available'
+    const data = await callRentalDomain('getHouseAvailability', { mode })
+    const houses = data.houses || []
+    return successResult(`${mode === 'rented' ? '已出租' : '未出租'}房屋共 ${houses.length} 套。`, { title: mode === 'rented' ? '已出租房屋' : '未出租房屋', fields: houses.map(item => ({ label: item.label, value: mode === 'rented' ? `租客：${item.tenantName || '—'}` : `¥${item.rent}/月` })) })
+  } catch (err) { return errorResult('查询房屋状态失败：' + err.message) }
+}
+
 async function getHouseDetail(params = {}) {
   console.info('[ai-mode] house-skill getHouseDetail params=', JSON.stringify(params || {}))
   try {
@@ -41,14 +50,26 @@ async function getHouseDetail(params = {}) {
 }
 
 async function previewCreateHouse(params = {}) {
-  console.info('[ai-mode] house-skill previewCreateHouse params=', JSON.stringify(params || {}))
-  try {
-    const data = await callRentalDomain('previewCreateHouse', params)
-    return successResult('已生成新增房屋确认卡，请核对后确认。', data)
-  } catch (err) {
-    console.error('[ai-mode] house-skill previewCreateHouse error:', err.message)
-    return errorResult('预览新增房屋失败：' + err.message)
+  let code = String(params.code || '').trim()
+  let address = String(params.address || '').trim()
+  // 普通页面地址是固定楼栋枚举，AI 常将“东楼211”整体误填到两个字段。
+  // 仅对当前页面已支持的楼栋做确定性拆分，未知地址不猜测。
+  const buildingAliases = {
+    东楼: '东楼', 都楼: '东楼', 东lou: '东楼', 东路: '东楼',
+    里召: '里召', 李召: '里召', 里照: '里召'
   }
+  const knownBuilding = /^(东楼|都楼|东lou|东路|里召|李召|里照)\s*([A-Za-z]?\d+)$/i
+  const compound = knownBuilding.exec(code) || knownBuilding.exec(address)
+  if (compound) {
+    address = buildingAliases[compound[1]] || compound[1]
+    code = compound[2]
+  }
+  const rent = params.rent === '' || params.rent === undefined ? '' : Number(params.rent)
+  if (!code) return errorResult('请先提供房屋编号。')
+  if (!address) return errorResult('请先提供房屋地址。')
+  if (!Number.isFinite(rent) || rent <= 0) return errorResult('请提供大于 0 的月租金。')
+  const fields = { code, address, rent, status: params.status || 'available' }
+  return { isError: false, content: [{ type: 'text', text: '已整理房屋信息，请点击下方小程序卡片核对并创建。' }], structuredContent: { mode: 'create_house', fields, missingFields: [] }, handoff: { query: 'mode=create_house', payload: { mode: 'create_house', fields } } }
 }
 
 async function confirmCreateHouse(params = {}) {
@@ -62,4 +83,4 @@ async function confirmCreateHouse(params = {}) {
   }
 }
 
-module.exports = { searchHouses, getHouseDetail, previewCreateHouse, confirmCreateHouse }
+module.exports = { searchHouses, getHouseAvailability, getHouseDetail, previewCreateHouse, confirmCreateHouse }

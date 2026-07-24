@@ -38,15 +38,30 @@ Page({
     lastHouseReadDate: '',
     // 预填参数
     presetTenantId: '',
-    presetHouseId: ''
+    presetHouseId: '',
+    confirmationId: ''
   },
 
   onLoad(options) {
     const today = new Date().toISOString().slice(0, 10);
+    const app = getApp();
+    const pageId = typeof this.getPageId === 'function' ? this.getPageId() : '';
+    const handoff = app && app.takeAgentHandoff && pageId ? app.takeAgentHandoff(pageId) : null;
+    const payload = handoff && handoff.payload;
+    const input = payload && payload.type === 'createLease' ? (payload.input || {}) : {};
     this.setData({
       'form.startDate': today,
-      presetTenantId: options.tenantId || '',
-      presetHouseId: options.houseId || ''
+      presetTenantId: input.tenantId || options.tenantId || '',
+      presetHouseId: input.houseId || options.houseId || '',
+      confirmationId: payload && payload.confirmationId || '',
+      'form.startDate': input.startDate || today,
+      'form.rent': input.rent || 0,
+      'form.deposit': input.deposit || 0,
+      'form.paymentCycle': input.paymentCycle || 'month',
+      'form.moveInElectricity': Number(input.moveInElectricity || 0),
+      'form.moveInWater': Number(input.moveInWater || 0),
+      'form.meterReplaced': !!input.meterReplaced,
+      'form.remark': input.remark || ''
     });
     this.loadData();
   },
@@ -226,6 +241,7 @@ Page({
         this.setData({ saving: true });
         try {
           await api.createLease({
+            confirmationId: this.data.confirmationId || undefined,
             tenantId: form.tenantId,
             houseId: form.houseId,
             startDate: form.startDate,

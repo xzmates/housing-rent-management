@@ -28,7 +28,8 @@
       "description": "预览抄表产生的水电用量和费用，并生成确认记录（业务对象：抄表确认卡片）。调用前置条件：已明确合同和当前水电表读数。【严禁场景】不要直接替代最终确认。",
       "_meta": {
         "ui": {
-          "componentPath": "components/meter-result/index"
+          "componentPath": "components/meter-result/index",
+          "pagePath": "/pages/utility/index"
         }
       },
       "inputSchema": {

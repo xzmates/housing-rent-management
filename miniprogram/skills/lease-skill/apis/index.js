@@ -49,6 +49,39 @@ async function getActiveLeases(params = {}) {
   }
 }
 
+async function getFinancialReport(params = {}) {
+  try {
+    const data = await callRentalDomain('getFinancialReport', params)
+    const fields = Object.keys(data.sourceTotals || {}).map(key => ({ label: key, value: `¥${data.sourceTotals[key]}` }))
+    fields.unshift({ label: '收入', value: `¥${data.totalIncome || 0}` }, { label: '退款', value: `¥${data.totalRefund || 0}` }, { label: '净收入', value: `¥${data.netIncome || 0}` })
+    return successResult('已汇总指定时间范围的收入与退款。', { title: '资金收支汇总', subtitle: `${data.startDate || '全部时间'} 至 ${data.endDate || '今天'}`, fields })
+  } catch (err) { return errorResult('查询收支汇总失败：' + err.message) }
+}
+
+async function getLeaseActivity(params = {}) {
+  try {
+    const data = await callRentalDomain('getLeaseActivity', params)
+    const fields = [...(data.moveIns || []).map(item => ({ label: `入住 · ${item.tenant.name}`, value: item.house.label })), ...(data.moveOuts || []).map(item => ({ label: `退租 · ${item.tenant.name}`, value: item.house.label }))]
+    return successResult(`入住 ${data.moveIns.length} 人，退租 ${data.moveOuts.length} 人。`, { title: '入住与退租名单', fields })
+  } catch (err) { return errorResult('查询入住退租名单失败：' + err.message) }
+}
+
+async function getSettlementReport(params = {}) {
+  try {
+    const data = await callRentalDomain('getSettlementReport', params)
+    return successResult('已汇总押金、退款与补缴记录。', { title: '押金与退款流水', fields: (data.records || []).map(item => ({ label: `${item.typeText} · ${item.tenantName}`, value: `¥${item.amount}` })) })
+  } catch (err) { return errorResult('查询结算流水失败：' + err.message) }
+}
+
+async function getLeasePaymentHistory(params = {}) {
+  try {
+    if (!params.leaseId) return errorResult('请先确定要查询的合同；可先查询该房屋或租客的合同。')
+    const data = await callRentalDomain('getPaymentHistory', { leaseId: params.leaseId })
+    const payments = data.payments || []
+    return successResult(`找到 ${payments.length} 条缴费记录。`, { title: '缴费历史', fields: payments.map(item => ({ label: item.paymentDate || '未标注日期', value: `¥${item.amount || 0}` })) })
+  } catch (err) { return errorResult('查询缴费历史失败：' + err.message) }
+}
+
 function rentCollectionHandoff(data = {}, params = {}, action = 'rentCollection') {
   const view = data.rentCollectionView || data.prepayView || {}
   const input = data.normalizedInput || {}
@@ -106,7 +139,12 @@ async function previewCreateLease(params = {}) {
   console.info('[ai-mode] lease-skill previewCreateLease params=', JSON.stringify(params || {}))
   try {
     const data = await callRentalDomain('previewCreateLease', params)
-    return successResult('已生成创建合同确认卡，请核对后确认。', data)
+    const result = successResult('合同预览已生成，请点击小程序卡片进入页面核对后创建。', data)
+    result.handoff = {
+      query: encodeQuery({ action: 'createLease', confirmationId: data.confirmationId || '' }),
+      payload: { type: 'createLease', confirmationId: data.confirmationId || '', expiresAt: data.expiresAt || '', input: params, lease: data.lease || null }
+    }
+    return result
   } catch (err) {
     console.error('[ai-mode] lease-skill previewCreateLease error:', err.message)
     return errorResult('预览创建合同失败：' + err.message)
@@ -146,4 +184,4 @@ async function confirmRenewLease(params = {}) {
   }
 }
 
-module.exports = { getActiveLeases, previewCreateLease, confirmCreateLease, previewPrepayRent, previewRentCollection, previewRenewLease, confirmRenewLease }
+module.exports = { getActiveLeases, getFinancialReport, getLeaseActivity, getSettlementReport, getLeasePaymentHistory, previewCreateLease, confirmCreateLease, previewPrepayRent, previewRentCollection, previewRenewLease, confirmRenewLease }

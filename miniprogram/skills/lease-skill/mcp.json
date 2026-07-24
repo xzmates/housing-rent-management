@@ -5,7 +5,8 @@
       "description": "查询所有生效中的租赁合同列表（业务对象：合同结果卡片）。调用前置条件：用户表达查合同/租约诉求。【严禁场景】不要用于房屋或租客查询。",
       "_meta": {
         "ui": {
-          "componentPath": "components/lease-result/index"
+          "componentPath": "components/lease-result/index",
+          "pagePath": "/pages/create-lease/index"
         }
       },
       "inputSchema": {
@@ -28,7 +29,8 @@
       "description": "预览创建合同并生成确认记录（业务对象：合同结果卡片）。调用前置条件：已明确房屋、租客、起租日期和月租金。【严禁场景】不要直接当成最终创建。",
       "_meta": {
         "ui": {
-          "componentPath": "components/lease-result/index"
+          "componentPath": "components/lease-result/index",
+          "pagePath": "/pages/create-lease/index"
         }
       },
       "inputSchema": {
@@ -280,6 +282,34 @@
         "type": "object",
         "additionalProperties": true
       }
+    },
+    {
+      "name": "getFinancialReport",
+      "description": "查询指定时间范围内的收入、退款、净收入及来源。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "startDate": { "type": "string" }, "endDate": { "type": "string" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getLeaseActivity",
+      "description": "查询指定时间范围内的入住和退租名单。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "startDate": { "type": "string" }, "endDate": { "type": "string" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getSettlementReport",
+      "description": "查询押金、退款、房屋损失补缴等结算流水。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "keyword": { "type": "string" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getLeasePaymentHistory",
+      "description": "查询指定合同的缴费历史；合同 ID 必须来自合同查询结果。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "leaseId": { "type": "string" } }, "required": ["leaseId"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
     }
   ],
   "components": [

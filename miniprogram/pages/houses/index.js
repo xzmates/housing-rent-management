@@ -13,9 +13,20 @@ Page({
     statusIndex: 0
   },
 
-  onLoad() { this.loadHouses(); },
+  onLoad() { this.consumeCreateHouseHandoff(); this.loadHouses(); },
   onPullDownRefresh() { this.loadHouses().then(() => wx.stopPullDownRefresh()); },
-  onShow() { this.loadHouses(); },
+  onShow() { this.consumeCreateHouseHandoff(); this.loadHouses(); },
+
+  consumeCreateHouseHandoff() {
+    const app = getApp();
+    const pageId = typeof this.getPageId === 'function' ? this.getPageId() : '';
+    const handoff = app && app.takeAgentHandoff && pageId ? app.takeAgentHandoff(pageId) : null;
+    const payload = handoff && handoff.payload;
+    if (!payload || payload.mode !== 'create_house') return;
+    const fields = payload.fields || {};
+    const addressIndex = this.data.addressOptions.indexOf(fields.address);
+    this.setData({ showModal: true, editingHouse: null, form: { code: fields.code || '', address: fields.address || '', rent: fields.rent || 0, status: fields.status || 'available' }, addressIndex, statusIndex: fields.status === 'rented' ? 1 : 0 });
+  },
 
   async loadHouses() {
     this.setData({ loading: true });
@@ -139,6 +150,7 @@ Page({
   },
 
   async saveHouse() {
+    if (this.data.saving) return;
     const form = this.data.form;
     const msg = V.run([
       { fn: V.required, args: [form.code, '房屋编号'] },

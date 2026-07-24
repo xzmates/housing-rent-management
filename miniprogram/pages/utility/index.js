@@ -13,6 +13,7 @@ Page({
     lastReadingDate: '',
     utilityRecords: [],
     result: null,
+    confirmationId: '',
     form: {
       houseId: '',
       houseIndex: -1,
@@ -21,8 +22,20 @@ Page({
     }
   },
 
-  onLoad() { this.loadInit(); },
+  onLoad() { this.consumeMeterHandoff(); this.loadInit(); },
   onPullDownRefresh() { this.loadInit().then(() => wx.stopPullDownRefresh()); },
+
+  consumeMeterHandoff() {
+    const app = getApp(); const pageId = typeof this.getPageId === 'function' ? this.getPageId() : '';
+    const handoff = app && app.takeAgentHandoff && pageId ? app.takeAgentHandoff(pageId) : null;
+    const payload = handoff && handoff.payload;
+    if (!payload || payload.type !== 'meterReading') return;
+    const input = payload.input || {};
+    this.pendingMeterHandoff = payload;
+    this.pendingHouseId = payload.lease?.house?.id || '';
+    this.pendingMeterInput = { electricityReading: Number(input.electricityReading || 0), waterReading: Number(input.waterReading || 0) };
+    this.setData({ confirmationId: payload.confirmationId || '', 'form.currentElectricity': Number(input.electricityReading || 0), 'form.currentWater': Number(input.waterReading || 0), result: payload.meterView || null });
+  },
 
   async loadInit() {
     await Promise.all([this.loadSettings(), this.loadHouses()]);
@@ -52,6 +65,8 @@ Page({
         allHouses: houses,
         houseLabels: houses.map(h => `${h.code} - ${h.address}`)
       });
+      const handoffIndex = houses.findIndex(h => h._id === this.pendingHouseId);
+      if (handoffIndex >= 0) this.onHouseChange({ detail: { value: handoffIndex }, fromHandoff: true });
     } catch (e) {
       console.error(e);
     }
@@ -77,14 +92,15 @@ Page({
       const data = await api.getHouseCurrentLease(house._id);
       if (data.currentLease && data.tenant) {
         const lastReading = data.utilityRecords?.[0] || null;
+        const handoffInput = e.fromHandoff ? this.pendingMeterInput : null;
         this.setData({
           currentLease: data.currentLease,
           currentTenant: data.tenant,
           lastReading,
           lastReadingDate: lastReading ? (api.formatDate(lastReading.calculationDate || lastReading.createdAt) || '未知时间') : '',
           utilityRecords: data.utilityRecords || [],
-          'form.currentElectricity': lastReading ? Number(lastReading.electricityReading || 0) : 0,
-          'form.currentWater': lastReading ? Number(lastReading.waterReading || 0) : 0
+          'form.currentElectricity': handoffInput ? handoffInput.electricityReading : (lastReading ? Number(lastReading.electricityReading || 0) : 0),
+          'form.currentWater': handoffInput ? handoffInput.waterReading : (lastReading ? Number(lastReading.waterReading || 0) : 0)
         });
       } else {
         wx.showToast({ title: '该房屋无活跃租客', icon: 'none' });
@@ -98,11 +114,11 @@ Page({
   },
 
   onElecInput(e) {
-    this.setData({ 'form.currentElectricity': e.detail.value });
+    this.setData({ 'form.currentElectricity': e.detail.value, confirmationId: '', result: null });
   },
 
   onWaterInput(e) {
-    this.setData({ 'form.currentWater': e.detail.value });
+    this.setData({ 'form.currentWater': e.detail.value, confirmationId: '', result: null });
   },
 
   async calculateBill() {
@@ -128,29 +144,33 @@ Page({
 
     this.setData({ calculating: true });
     try {
-      const result = await api.addMeterReading({
+      const result = await api.previewMeterReading({
         leaseId: lease._id,
         electricityReading: Number(form.currentElectricity) || 0,
         waterReading: Number(form.currentWater) || 0
       });
-      this.setData({ result });
-
-      const data = await api.getHouseCurrentLease(form.houseId);
-      const latest = data.utilityRecords?.[0] || null;
-      this.setData({
-        utilityRecords: data.utilityRecords || [],
-        lastReading: latest,
-        lastReadingDate: latest ? (api.formatDate(latest.calculationDate || latest.createdAt) || '未知时间') : '',
-        'form.currentElectricity': latest ? Number(latest.electricityReading || 0) : 0,
-        'form.currentWater': latest ? Number(latest.waterReading || 0) : 0
-      });
-      wx.showToast({ title: '计算完成', icon: 'success' });
+      this.setData({ result, confirmationId: result.confirmationId || '' });
+      wx.showToast({ title: '请核对后确认', icon: 'none' });
     } catch (e) {
       console.error('计算水电费失败', e);
       wx.showToast({ title: e.message || '计算失败', icon: 'none' });
     } finally {
       this.setData({ calculating: false });
     }
+  },
+
+  async confirmMeterReading() {
+    if (this.data.calculating || !this.data.confirmationId) return;
+    this.setData({ calculating: true });
+    try {
+      await api.addMeterReading({ confirmationId: this.data.confirmationId });
+      const data = await api.getHouseCurrentLease(this.data.form.houseId);
+      const latest = data.utilityRecords?.[0] || null;
+      this.setData({ confirmationId: '', utilityRecords: data.utilityRecords || [], lastReading: latest, lastReadingDate: latest ? (api.formatDate(latest.calculationDate || latest.createdAt) || '未知时间') : '', 'form.currentElectricity': latest ? Number(latest.electricityReading || 0) : 0, 'form.currentWater': latest ? Number(latest.waterReading || 0) : 0 });
+      wx.showToast({ title: '抄表已确认', icon: 'success' });
+    } catch (e) {
+      wx.showToast({ title: e.message || '确认失败', icon: 'none' });
+    } finally { this.setData({ calculating: false }); }
   },
 
   stopPropagation() {}

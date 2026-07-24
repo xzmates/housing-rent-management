@@ -564,19 +564,30 @@ function createCommandService(app, db) {
 
   async function createTenant(params, caller) {
     invariant(params.name, 'VALIDATION_ERROR', '缺少租客姓名')
-    const now = new Date()
-    const data = {
-      _openid: caller.openId,
-      name: String(params.name).trim(),
-      idCard: params.idCard || '',
-      phone: params.phone || '',
-      remark: params.remark || '',
-      status: params.status || 'inactive',
-      createdAt: now,
-      updatedAt: now
+    // orderNo 是 tenants.orderNo_unique 的业务唯一字符串，不使用“最大值+1”。
+    // 唯一索引是最后一道并发保护；极小概率冲突时重试。
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const now = new Date()
+      const suffix = require('crypto').randomBytes(8).toString('hex')
+      const data = {
+        _openid: caller.openId,
+        orderNo: `T_${String(caller.openId || 'anonymous').slice(-12)}_${now.getTime()}_${suffix}`,
+        name: String(params.name).trim(),
+        idCard: params.idCard || '',
+        phone: params.phone || '',
+        remark: params.remark || '',
+        status: params.status || 'inactive',
+        createdAt: now,
+        updatedAt: now
+      }
+      try {
+        const res = await db.collection('tenants').add(data)
+        return { tenantId: res.id || res._id, tenant: data }
+      } catch (err) {
+        const message = String(err && err.message || err || '')
+        if (!/orderNo_unique|duplicate key/i.test(message) || attempt === 2) throw err
+      }
     }
-    const res = await db.collection('tenants').add(data)
-    return { tenantId: res.id || res._id, tenant: data }
   }
 
   return {
