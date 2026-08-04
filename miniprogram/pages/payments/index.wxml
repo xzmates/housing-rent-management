@@ -1,7 +1,7 @@
 <view class="home-page payments-page">
   <view class="home-hero">
     <text class="home-hero-title">缴费记录</text>
-    <text class="home-hero-subtitle">应收账单、实收流水和押金状态</text>
+    <text class="home-hero-subtitle">实际收款、实际退款、待收账单和押金状态</text>
     <button class="home-hero-action" bindtap="exportCSV">导出</button>
   </view>
 
@@ -17,33 +17,74 @@
         <view class="soft-chip {{filters.type === 'rent' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="rent">租金</view>
         <view class="soft-chip {{filters.type === 'utility' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="utility">水电</view>
       </view>
+      <view class="date-range-filter">
+        <text class="date-range-label">统计时间</text>
+        <text class="date-range-hint">已收按收款日期统计；待收和在管押金显示当前状态</text>
+        <picker mode="date" value="{{filters.dateStart}}" bindchange="onDateStartChange">
+          <view class="date-range-picker">从 {{filters.dateStart || '开始日期'}}</view>
+        </picker>
+        <text class="date-range-separator">至</text>
+        <picker mode="date" value="{{filters.dateEnd}}" bindchange="onDateEndChange">
+          <view class="date-range-picker">到 {{filters.dateEnd || '结束日期'}}</view>
+        </picker>
+        <view wx:if="{{filters.dateStart || filters.dateEnd}}" class="date-range-clear" bindtap="clearDateRange">清除</view>
+      </view>
     </view>
 
     <view class="payment-stats">
-      <view class="payment-stat stat-danger">
-        <text class="stat-label-text">待收总额</text>
-        <text class="stat-number">¥{{stats.totalUnpaid}}</text>
+      <view class="payment-stat stat-danger stat-primary">
+        <text class="stat-label-text">当前待收</text>
+        <text class="stat-number">¥{{stats.currentReceivableAmount}}</text>
+        <text class="stat-desc">其中逾期 ¥{{stats.overdueAmount}}，共 {{stats.currentReceivableCount}} 笔</text>
       </view>
-      <view class="payment-stat stat-success">
-        <text class="stat-label-text">实收合计</text>
-        <text class="stat-number">¥{{stats.totalPaid}}</text>
+      <view class="payment-stat stat-success stat-settlement">
+        <text class="stat-label-text">本期经营结算</text>
+        <text class="stat-number">¥{{stats.operatingSettlementTotal}}</text>
+        <text class="stat-desc">租金、水电和房损已结算</text>
       </view>
-      <view class="payment-stat stat-blue">
-        <text class="stat-label-text">租金实收</text>
-        <text class="stat-number">¥{{stats.rentPaid}}</text>
+    </view>
+
+    <view class="cash-in-summary">
+      <text class="cash-in-title">本期现金流入 ¥{{stats.cashReceived}}</text>
+      <text class="cash-in-desc">其中现金经营收款 ¥{{stats.operatingReceived}}，收押金 ¥{{stats.depositReceived}}</text>
+    </view>
+
+    <view class="cashflow-detail-toggle tap-card" bindtap="toggleFinancialDetail">
+      <text>收付款明细</text>
+      <view class="cashflow-detail-toggle-right">
+        <text>{{showFinancialDetail ? '收起' : '展开详情'}}</text>
+        <text class="cashflow-detail-arrow">{{showFinancialDetail ? '⌃' : '›'}}</text>
       </view>
-      <view class="payment-stat stat-orange">
-        <text class="stat-label-text">水电费实收</text>
-        <text class="stat-number">¥{{stats.utilityPaid}}</text>
+    </view>
+
+    <view wx:if="{{!showFinancialDetail}}" class="cashflow-collapsed-summary">结算：租金 ¥{{stats.rentSettled}} · 水电 ¥{{stats.utilitySettled}} · 房损 ¥{{stats.damageSettled}}</view>
+
+    <view wx:if="{{showFinancialDetail}}" class="cashflow-detail">
+      <text class="cashflow-detail-title">经营结算</text>
+      <view class="cashflow-detail-grid">
+        <text>租金 ¥{{stats.rentSettled}}</text><text>水电 ¥{{stats.utilitySettled}}</text>
+        <text>房屋损失费 ¥{{stats.damageSettled}}</text>
+        <text class="detail-total detail-settlement-total">经营结算合计 ¥{{stats.operatingSettlementTotal}}</text>
       </view>
-      <view class="payment-stat stat-orange">
-        <text class="stat-label-text">损失费实收</text>
-        <text class="stat-number">¥{{stats.lossPaid}}</text>
+      <text class="cashflow-detail-title refund-detail-title">现金流入</text>
+      <view class="cashflow-detail-grid">
+        <text>租金现金 ¥{{stats.rentReceived}}</text><text>水电现金 ¥{{stats.utilityReceived}}</text>
+        <text>收押金 ¥{{stats.depositReceived}}</text>
+        <text class="detail-total">现金流入合计 ¥{{stats.cashReceived}}</text>
       </view>
-      <view class="payment-stat stat-violet">
-        <text class="stat-label-text">在管押金</text>
-        <text class="stat-number">¥{{stats.managedDeposit}}</text>
+      <text class="cashflow-detail-title refund-detail-title">押金使用</text>
+      <view class="cashflow-detail-grid">
+        <text>房损扣除 ¥{{stats.damageDepositDeducted}}</text>
+        <text wx:if="{{stats.depositOffsetRent}}">抵扣租金 ¥{{stats.depositOffsetRent}}</text>
+        <text wx:if="{{stats.depositOffsetUtility}}">抵扣水电 ¥{{stats.depositOffsetUtility}}</text>
+        <text wx:if="{{stats.depositOffsetOther}}">抵扣其他费用 ¥{{stats.depositOffsetOther}}</text>
       </view>
+      <text class="cashflow-detail-title refund-detail-title">实际退款构成</text>
+      <view class="cashflow-detail-grid">
+        <text>退押金 ¥{{stats.depositRefund}}</text><text>退多收租金 ¥{{stats.rentRefund}}</text>
+        <text>其他退款 ¥{{stats.otherRefund}}</text><text class="detail-total">本期实际退款 ¥{{stats.cashRefunded}}</text>
+      </view>
+      <text class="cashflow-detail-note">经营结算统计租金、水电和房损；现金流入只统计实际到账与收押金；押金使用是已收押金的去向，不会重复计入现金流入。</text>
     </view>
 
     <view class="section-head compact-head">
@@ -97,7 +138,7 @@
   <view wx:if="{{showPayModal}}" class="modal-mask" bindtap="closePay">
     <view class="modal-content" catchtap="stopPropagation">
       <view class="flex-row justify-between align-center" style="margin-bottom:24rpx;">
-        <text style="font-size:34rpx;font-weight:600;">缴费</text>
+        <text style="font-size:34rpx;font-weight:600;">{{payGroupInfo ? '确认缴费' : '缴费'}}</text>
         <text bindtap="closePay" style="font-size:40rpx;color:var(--gray-400);">×</text>
       </view>
 
@@ -116,6 +157,26 @@
         </view>
       </view>
 
+      <view wx:if="{{payBillDetails.length}}" style="margin-bottom:20rpx;">
+        <text style="font-size:27rpx;font-weight:700;color:var(--gray-700);display:block;margin-bottom:12rpx;">账单明细</text>
+        <view wx:for="{{payBillDetails}}" wx:key="id" style="background:#F8FAFC;border-radius:12rpx;padding:18rpx 20rpx;margin-top:12rpx;">
+          <view class="flex-row justify-between" style="gap:16rpx;">
+            <text style="font-size:27rpx;font-weight:700;">{{item.typeText}}</text>
+            <text style="font-size:27rpx;font-weight:700;color:var(--danger);">待缴 ¥{{item.remaining}}</text>
+          </view>
+          <text style="font-size:24rpx;color:var(--gray-600);display:block;margin-top:8rpx;">{{item.billDateText}}</text>
+          <text style="font-size:24rpx;color:var(--gray-600);display:block;margin-top:6rpx;">{{item.houseLabel}}　{{item.tenantName}}</text>
+          <text style="font-size:24rpx;color:var(--gray-600);display:block;margin-top:6rpx;">到期 {{item.dueDateStr}}</text>
+          <text wx:if="{{item.utilityDetail}}" style="font-size:22rpx;color:var(--gray-500);display:block;margin-top:6rpx;">{{item.utilityDetail}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{payGroupInfo}}" style="background:#EFF6FF;border:1rpx solid #BFDBFE;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
+        <text style="font-size:26rpx;font-weight:700;color:#1D4ED8;display:block;">已选 {{payGroupInfo.count}} 笔{{payGroupInfo.typeText}}账单，按账期从早到晚处理</text>
+        <text style="font-size:23rpx;color:#475569;display:block;margin-top:8rpx;">{{payGroupInfo.periodText}}</text>
+        <text style="font-size:24rpx;color:#1D4ED8;display:block;margin-top:10rpx;">待缴合计 ¥{{payGroupInfo.totalAmount}}</text>
+      </view>
+
       <view wx:if="{{rentGapWarning}}" style="background:#FFF7ED;border:1rpx solid #FDBA74;border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
         <text style="font-size:26rpx;font-weight:700;color:#9A3412;display:block;">前面仍有 {{rentGapWarning.count}} 个未缴租金账期</text>
         <view wx:for="{{rentGapWarning.earlierBills}}" wx:key="id" style="margin-top:8rpx;">
@@ -131,7 +192,7 @@
       </view>
 
       <view class="form-group">
-        <text class="form-label">缴费金额</text>
+        <text class="form-label">{{payGroupInfo ? '本次缴费总额' : '缴费金额'}}</text>
         <input class="form-input" value="{{payAmount}}" type="digit" bindinput="onPayAmountInput" placeholder="输入金额" />
       </view>
 

@@ -7,6 +7,15 @@ function toTime(value) {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
+function dateKey(value) {
+  const time = toTime(value);
+  if (!time) return '';
+  const date = new Date(time);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function rentCoverageStartTime(bill = {}) {
   return toTime(bill.rentCoverageStart || bill.dueDate);
 }
@@ -32,24 +41,130 @@ function effectiveBillStatus(bill = {}) {
 function billStatusText(bill = {}) {
   const status = effectiveBillStatus(bill);
   if (['deposit_return', 'rent_refund'].indexOf(bill.type) >= 0 && status === 'paid') return '已退';
-  return status === 'paid' ? '已缴' : status === 'partial' ? '部分缴' : '待缴';
+  if (status === 'paid') return '已经缴清';
+  const due = toTime(bill.dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (due) {
+    const dueDay = new Date(due);
+    dueDay.setHours(0, 0, 0, 0);
+    const days = Math.floor((today.getTime() - dueDay.getTime()) / 86400000);
+    if (days > 0) return `已逾期${days}天`;
+    if (days === 0) return '今天应收';
+  }
+  return `还待收¥${billRemaining(bill)}`;
+}
+
+function calculateManagedDeposit(leases = [], bills = [], payments = [], houseId = '') {
+  const activeLeases = leases.filter(item => item.status === 'active' && (!houseId || item.houseId === houseId));
+  const activeLeaseIds = new Set(activeLeases.map(item => item._id));
+  const billMap = Object.fromEntries(bills.map(item => [item._id, item]));
+  const depositBillIds = new Set(bills.filter(item => activeLeaseIds.has(item.leaseId) && item.type === 'deposit').map(item => item._id));
+  const incoming = payments.filter(item => activeLeaseIds.has(item.leaseId) && depositBillIds.has(item.billId) && item.direction === 'in' && item.cashImpact !== false && item.paymentMethod !== 'deposit_offset');
+  const reductions = payments.filter(item => activeLeaseIds.has(item.leaseId) && (
+    item.paymentMethod === 'deposit_offset' ||
+    (item.direction === 'out' && billMap[item.billId] && billMap[item.billId].type === 'deposit_return')
+  ));
+  const received = money(incoming.reduce((sum, item) => sum + Number(item.amount || 0), 0));
+  const reduced = money(reductions.reduce((sum, item) => sum + Number(item.amount || 0), 0));
+  const agreed = money(activeLeases.reduce((sum, item) => sum + Number(item.deposit || 0), 0));
+  return {
+    managedDeposit: depositBillIds.size && received >= agreed ? money(Math.max(0, received - reduced)) : agreed,
+    managedDepositEvidence: depositBillIds.size && received >= agreed ? 'direct' : (agreed ? 'insufficient' : 'not_applicable')
+  };
+}
+
+function calculateDamageDepositDeduction(leases = [], houseId = '', dateStart = '', dateEnd = '') {
+  return money(leases
+    .filter(item => item.status === 'terminated' && (!houseId || item.houseId === houseId))
+    .filter(item => {
+      const key = dateKey(item.endedAt || item.endDate || item.updatedAt);
+      return key && (!dateStart || key >= dateStart) && (!dateEnd || key <= dateEnd);
+    })
+    .reduce((sum, item) => sum + Math.min(Number(item.deposit || 0), Math.max(0, Number(item.damageAmount || 0))), 0));
+}
+
+function calculateDepositOffsetBreakdown(bills = [], payments = [], houseId = '', dateStart = '', dateEnd = '') {
+  const billMap = Object.fromEntries(bills.map(item => [item._id, item]));
+  const inRange = item => {
+    const key = dateKey(item.paymentDate || item.createdAt);
+    return key && (!dateStart || key >= dateStart) && (!dateEnd || key <= dateEnd);
+  };
+  return payments
+    .filter(item => item.paymentMethod === 'deposit_offset' && inRange(item))
+    .reduce((totals, item) => {
+      const bill = billMap[item.billId];
+      if (!bill || (houseId && bill.houseId !== houseId)) return totals;
+      const type = bill.type === 'rent' ? 'rent' : (bill.type === 'utility' ? 'utility' : 'other');
+      totals[type] = money(Number(totals[type] || 0) + Number(item.amount || 0));
+      return totals;
+    }, { rent: 0, utility: 0, other: 0 });
+}
+
+function calculateOperatingSettlement(bills = [], payments = [], leases = [], houseId = '', dateStart = '', dateEnd = '') {
+  const billMap = Object.fromEntries(bills.map(item => [item._id, item]));
+  const inRange = item => {
+    const key = dateKey(item.paymentDate || item.createdAt);
+    return key && (!dateStart || key >= dateStart) && (!dateEnd || key <= dateEnd);
+  };
+  const settledByType = payments
+    .filter(item => {
+      const bill = billMap[item.billId];
+      return bill && (!houseId || bill.houseId === houseId) && item.direction === 'in' && inRange(item);
+    })
+    .reduce((totals, item) => {
+      const type = billMap[item.billId] && billMap[item.billId].type;
+      if (type === 'rent' || type === 'utility') totals[type] = money(Number(totals[type] || 0) + Number(item.amount || 0));
+      return totals;
+    }, { rent: 0, utility: 0 });
+  const rentRefunded = money(payments
+    .filter(item => {
+      const bill = billMap[item.billId];
+      return bill && (!houseId || bill.houseId === houseId) && bill.type === 'rent_refund' && item.direction === 'out' && inRange(item);
+    })
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0));
+  const netRentSettled = money(settledByType.rent - rentRefunded);
+  const damage = money(leases
+    .filter(item => item.status === 'terminated' && (!houseId || item.houseId === houseId))
+    .filter(item => {
+      const key = dateKey(item.endedAt || item.endDate || item.updatedAt);
+      return key && (!dateStart || key >= dateStart) && (!dateEnd || key <= dateEnd);
+    })
+    .reduce((sum, item) => sum + Number(item.damageAmount || 0), 0));
+  return {
+    rentSettled: netRentSettled,
+    utilitySettled: settledByType.utility,
+    damageSettled: damage,
+    operatingSettlementTotal: money(netRentSettled + settledByType.utility + damage)
+  };
 }
 
 Page({
   data: {
     loading: false, paying: false,
     showPayModal: false, showDetailModal: false,
+    showFinancialDetail: false,
     detailBill: null,
-    bills: [], allBills: [],
+    bills: [], allBills: [], allPayments: [],
     allHouses: [], allLeases: [],
-    filters: { status: '', type: '' },
+    filters: { status: '', type: '', dateStart: '', dateEnd: '' },
     houseFilterId: '',
     houseFilterLabel: '全部房屋',
     houseOptions: ['全部房屋'],
-    stats: { totalUnpaid: 0, totalPaid: 0, rentPaid: 0, utilityPaid: 0, lossPaid: 0, rentUnpaid: 0, utilityUnpay: 0, managedDeposit: 0 },
+    stats: {
+      cashReceived: 0, rentReceived: 0, utilityReceived: 0, depositReceived: 0, settlementReceived: 0, otherReceived: 0,
+      cashRefunded: 0, depositRefund: 0, rentRefund: 0, otherRefund: 0, netCashChange: 0,
+      currentReceivableAmount: 0, currentReceivableCount: 0, overdueAmount: 0, overdueCount: 0, upcomingAmount: 0, undatedOutstandingAmount: 0,
+      operatingReceived: 0, rentSettled: 0, utilitySettled: 0, damageSettled: 0, operatingSettlementTotal: 0,
+      damageDepositDeducted: 0, depositOffsetRent: 0, depositOffsetUtility: 0, depositOffsetOther: 0,
+      managedDeposit: 0, managedDepositEvidence: 'not_applicable'
+    },
     // 缴费弹窗
     payBillId: '',
     payTargetBillId: '',
+    payBillIds: [],
+    payGroupInfo: null,
+    payBillDetails: [],
     payAmount: 0,
     payMethod: 'cash',
     payDate: '',
@@ -67,6 +182,19 @@ Page({
 
   async loadAll() {
     await Promise.all([this.loadHouses(), this.loadBills()]);
+    this.openDashboardSelectedBills();
+  },
+
+  openDashboardSelectedBills() {
+    const billIds = wx.getStorageSync('dashboardPayBillIds') || [];
+    if (!Array.isArray(billIds) || !billIds.length) return;
+    wx.removeStorageSync('dashboardPayBillIds');
+    const bills = (this.data.allBills || []).filter(item => billIds.includes(item._id) && billRemaining(item) > 0 && item.status !== 'paid');
+    if (!bills.length) {
+      wx.showToast({ title: '该待收账单已结清，请刷新首页', icon: 'none' });
+      return;
+    }
+    this.openPayBills(bills);
   },
 
   async loadHouses() {
@@ -95,7 +223,7 @@ Page({
       const leaseIds = leases.map(l => l._id);
       if (leaseIds.length === 0) {
         this.setData({ bills: [], loading: false });
-        this._calcStats([]);
+        await this.loadFinancialSummary();
         return;
       }
 
@@ -143,9 +271,12 @@ Page({
           houseLabel: house.code ? `${house.code} - ${house.address}` : '',
           tenantName: tenant.name || '',
           houseId: lease.houseId,
-          typeText: { rent: '租金', deposit: '押金', utility: '水电费', deposit_return: '押金退还', rent_refund: '租金退还', extra_due: '补缴', other: '补缴' }[bill.type] || bill.type,
+          typeText: { rent: '租金', deposit: '押金', utility: '水电费', deposit_return: '押金退还', rent_refund: '租金退还', extra_due: '退租补缴', damage: '退租补缴', other: '其他费用' }[bill.type] || bill.type,
           statusText: billStatusText(normalized),
           dueDateStr: api.formatDate(bill.dueDate),
+          billDateText: bill.type === 'utility'
+            ? (api.formatDate(bill.period || bill.meterReadingDate || bill.readingDate || bill.createdAt) || '日期未记录')
+            : (bill.period || ''),
           utilityDetail: bill.type === 'utility' ? (bill.remark || '') : ''
         };
       });
@@ -163,18 +294,27 @@ Page({
         const filterLeaseIds = leases.filter(l => l.houseId === this.data.houseFilterId).map(l => l._id);
         bills = bills.filter(b => filterLeaseIds.indexOf(b.leaseId) >= 0);
       }
+      this.setData({ allPayments: paymentsRes.data || [] });
+      bills = this.filterBillsByDateRange(bills);
 
-      // 排序：待缴优先，然后按到期日
+      // 排序：已逾期 → 今日应收 → 其他待收 → 已缴。
       bills.sort((a, b) => {
-        if (a.status !== b.status) {
-          const order = { unpaid: 0, partial: 1, paid: 2 };
-          return (order[a.status] ?? 9) - (order[b.status] ?? 9);
-        }
+        const priority = item => {
+          if (item.status === 'paid') return 9;
+          const due = toTime(item.dueDate);
+          if (!due) return 3;
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const dueDay = new Date(due); dueDay.setHours(0, 0, 0, 0);
+          if (dueDay < today) return 0;
+          if (dueDay.getTime() === today.getTime()) return 1;
+          return 2;
+        };
+        if (priority(a) !== priority(b)) return priority(a) - priority(b);
         return (a.dueDate || '').localeCompare(b.dueDate || '');
       });
 
       this.setData({ bills, allBills });
-      this._calcStats(allBills);
+      await this.loadFinancialSummary();
     } catch (e) {
       console.error('加载账单失败', e);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -183,48 +323,47 @@ Page({
     }
   },
 
+  async loadFinancialSummary() {
+    const { dateStart, dateEnd } = this.data.filters || {};
+    const params = {};
+    if (dateStart) params.startDate = dateStart;
+    if (dateEnd) params.endDate = dateEnd;
+    if (this.data.houseFilterId) params.houseId = this.data.houseFilterId;
+    try {
+      const report = await api.callRentalDomain('getFinancialReport', params);
+      const depositStats = calculateManagedDeposit(this.data.allLeases, this.data.allBills, this.data.allPayments, this.data.houseFilterId);
+      const operatingReceived = money(Number(report.rentReceived || 0) + Number(report.utilityReceived || 0) + Number(report.settlementReceived || 0) + Number(report.otherReceived || 0));
+      const damageDepositDeducted = calculateDamageDepositDeduction(this.data.allLeases, this.data.houseFilterId, dateStart, dateEnd);
+      const depositOffsetBreakdown = calculateDepositOffsetBreakdown(this.data.allBills, this.data.allPayments, this.data.houseFilterId, dateStart, dateEnd);
+      const settlementStats = calculateOperatingSettlement(this.data.allBills, this.data.allPayments, this.data.allLeases, this.data.houseFilterId, dateStart, dateEnd);
+      this.setData({
+        stats: {
+          ...report,
+          ...depositStats,
+          ...settlementStats,
+          operatingReceived,
+          damageDepositDeducted,
+          depositOffsetRent: depositOffsetBreakdown.rent,
+          depositOffsetUtility: depositOffsetBreakdown.utility,
+          depositOffsetOther: depositOffsetBreakdown.other
+        }
+      });
+    } catch (e) {
+      console.error('加载收付款汇总失败', e);
+      wx.showToast({ title: '收付款汇总加载失败', icon: 'none' });
+    }
+  },
+
   _calcStats(allBills) {
-    const { status, type } = this.data.filters || {};
-    const scopedBills = (allBills || []).filter(b => !this.data.houseFilterId || b.houseId === this.data.houseFilterId);
-    const typeMatchedBills = scopedBills.filter(b => {
-      if (!type) return true;
-      if (type === 'rent') return b.type === 'rent' || b.type === 'rent_refund';
-      return b.type === type;
-    });
-    const visibleForStats = typeMatchedBills.filter(b => {
-      const billStatus = effectiveBillStatus(b);
-      if (status === 'unpaid') return billStatus === 'unpaid' || billStatus === 'partial';
-      if (status) return billStatus === status;
-      return true;
-    });
-    const unpaid = visibleForStats.filter(b => effectiveBillStatus(b) !== 'paid');
-    const paid = status === 'unpaid' ? [] : visibleForStats.filter(b => effectiveBillStatus(b) === 'paid');
-    const rentPaid = type && type !== 'rent' ? 0 : (
-      paid.filter(b => b.type === 'rent').reduce((s, b) => s + Number(b.paidAmount || 0), 0) -
-      paid.filter(b => b.type === 'rent_refund').reduce((s, b) => s + Number(b.paidAmount || 0), 0)
-    );
-    const utilityPaid = type && type !== 'utility'
-      ? 0
-      : paid.filter(b => b.type === 'utility').reduce((s, b) => s + Number(b.paidAmount || 0), 0);
-    const lossPaid = (!type && status !== 'unpaid')
-      ? (this.data.allLeases || [])
-        .filter(l => l.status === 'terminated')
-        .filter(l => !this.data.houseFilterId || l.houseId === this.data.houseFilterId)
-        .reduce((s, l) => s + Number(l.damageAmount || 0), 0)
-      : 0;
+    // 资金汇总必须来自 rentalDomain；这里仅保留在测试或旧调用方直接触发时的
+    // 在管押金必须有押金收款流水佐证；缺少流水时只可作为合同约定额显示。
     const activeLeases = (this.data.allLeases || [])
       .filter(l => l.status === 'active')
       .filter(l => !this.data.houseFilterId || l.houseId === this.data.houseFilterId);
     this.setData({
       stats: {
-        totalUnpaid: unpaid.reduce((s, b) => s + billRemaining(b), 0),
-        totalPaid: rentPaid + utilityPaid + lossPaid,
-        rentPaid,
-        utilityPaid,
-        lossPaid,
-        rentUnpaid: type && type !== 'rent' ? 0 : unpaid.filter(b => b.type === 'rent').reduce((s, b) => s + billRemaining(b), 0),
-        utilityUnpay: type && type !== 'utility' ? 0 : unpaid.filter(b => b.type === 'utility').reduce((s, b) => s + billRemaining(b), 0),
-        managedDeposit: activeLeases.reduce((s, l) => s + Number(l.deposit || 0), 0)
+        ...this.data.stats,
+        ...calculateManagedDeposit(activeLeases, this.data.allBills, this.data.allPayments, this.data.houseFilterId)
       }
     });
   },
@@ -234,6 +373,56 @@ Page({
     const filters = { ...this.data.filters };
     filters[key] = filters[key] === val ? '' : val;
     this.setData({ filters }, () => this.loadBills());
+  },
+
+  filterBillsByDateRange(bills = []) {
+    const { dateStart = '', dateEnd = '' } = this.data.filters || {};
+    if (!dateStart && !dateEnd) return bills;
+    const paymentsByBillId = (this.data.allPayments || []).reduce((map, payment) => {
+      if (!payment.billId) return map;
+      if (!map[payment.billId]) map[payment.billId] = [];
+      map[payment.billId].push(payment);
+      return map;
+    }, {});
+    return bills.filter(bill => {
+      const relatedPayments = paymentsByBillId[bill._id] || [];
+      if (relatedPayments.length) {
+        return relatedPayments.some(payment => {
+          const key = dateKey(payment.paymentDate || payment.createdAt);
+          return key && (!dateStart || key >= dateStart) && (!dateEnd || key <= dateEnd);
+        });
+      }
+      const key = dateKey(bill.dueDate);
+      return key && (!dateStart || key >= dateStart) && (!dateEnd || key <= dateEnd);
+    });
+  },
+
+  onDateStartChange(e) {
+    const dateStart = e.detail.value;
+    const { dateEnd = '' } = this.data.filters || {};
+    if (dateEnd && dateStart > dateEnd) {
+      wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' });
+      return;
+    }
+    this.setData({ filters: { ...this.data.filters, dateStart } }, () => this.loadBills());
+  },
+
+  onDateEndChange(e) {
+    const dateEnd = e.detail.value;
+    const { dateStart = '' } = this.data.filters || {};
+    if (dateStart && dateEnd < dateStart) {
+      wx.showToast({ title: '结束日期不能早于开始日期', icon: 'none' });
+      return;
+    }
+    this.setData({ filters: { ...this.data.filters, dateEnd } }, () => this.loadBills());
+  },
+
+  clearDateRange() {
+    this.setData({ filters: { ...this.data.filters, dateStart: '', dateEnd: '' } }, () => this.loadBills());
+  },
+
+  toggleFinancialDetail() {
+    this.setData({ showFinancialDetail: !this.data.showFinancialDetail });
   },
 
   onHouseFilterChange(e) {
@@ -253,21 +442,50 @@ Page({
   // 缴费弹窗
   showPayModal(e) {
     const bill = e.currentTarget.dataset.bill;
+    this.openPayBills([bill]);
+  },
+
+  openPayBills(bills = []) {
+    const openBills = bills.filter(item => item && billRemaining(item) > 0 && item.status !== 'paid')
+      .sort((a, b) => rentCoverageStartTime(a) - rentCoverageStartTime(b));
+    if (!openBills.length) return;
+    const totalAmount = money(openBills.reduce((sum, item) => sum + billRemaining(item), 0));
+    const isBatch = openBills.length > 1;
+    const bill = openBills[0];
     const warning = this.buildRentGapWarning(bill);
     this.setData({
       showPayModal: true,
       payBillId: bill._id,
       payTargetBillId: bill._id,
-      payAmount: billRemaining(bill),
+      payBillIds: openBills.map(item => item._id),
+      payAmount: totalAmount,
       payMethod: 'cash',
       payDate: new Date().toISOString().slice(0, 10),
       payBillInfo: bill,
-      rentGapWarning: warning,
-      rentGapConfirmed: !warning
+      payGroupInfo: isBatch ? {
+        count: openBills.length,
+        totalAmount,
+        typeText: bill.typeText,
+        periodText: openBills.map(item => item.period || item.dueDateStr || '未标注日期').join('、')
+      } : null,
+      payBillDetails: openBills.map(item => ({
+        id: item._id,
+        typeText: item.typeText,
+        billDateText: item.billDateText || item.period || '日期未记录',
+        houseLabel: item.houseLabel || '未关联房屋',
+        tenantName: item.tenantName || '未关联租客',
+        dueDateStr: item.dueDateStr || '未标到期日',
+        amount: item.amount,
+        remaining: billRemaining(item),
+        utilityDetail: item.utilityDetail || ''
+      })),
+      // 已选中同一待收分组的全部租金账单，按最早账期分配，不需要逐笔跳转确认。
+      rentGapWarning: isBatch ? null : warning,
+      rentGapConfirmed: isBatch || !warning
     });
   },
 
-  closePay() { this.setData({ showPayModal: false, rentGapWarning: null, rentGapConfirmed: false }); },
+  closePay() { this.setData({ showPayModal: false, rentGapWarning: null, rentGapConfirmed: false, payBillIds: [], payGroupInfo: null, payBillDetails: [] }); },
   onPayAmountInput(e) { this.setData({ payAmount: Number(e.detail.value) || 0 }); },
   onPayDateChange(e) { this.setData({ payDate: e.detail.value }); },
   onPayMethodChange(e) {
@@ -317,7 +535,7 @@ Page({
   },
 
   async confirmPay() {
-    const { payBillId, payAmount, payDate, payMethod, rentGapWarning, rentGapConfirmed } = this.data;
+    const { payBillId, payBillIds, payAmount, payDate, payMethod, rentGapWarning, rentGapConfirmed } = this.data;
     if (!payBillId || payAmount <= 0) {
       wx.showToast({ title: '请输入有效金额', icon: 'none' });
       return;
@@ -328,8 +546,11 @@ Page({
     }
     this.setData({ paying: true });
     try {
-      await api.payBill(payBillId, payAmount, payDate, payMethod);
-      wx.showToast({ title: '缴费成功', icon: 'success' });
+      const batch = (payBillIds || []).filter(Boolean);
+      const result = batch.length > 1
+        ? await api.payBillBatch(batch, payAmount, payDate, payMethod)
+        : await api.payBill(payBillId, payAmount, payDate, payMethod);
+      wx.showToast({ title: batch.length > 1 ? `已处理${result.settledCount || batch.length}笔账单` : '缴费成功', icon: 'success' });
       this.closePay();
       this.loadBills();
     } catch (e) {
