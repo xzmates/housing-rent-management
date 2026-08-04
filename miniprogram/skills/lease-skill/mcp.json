@@ -2,7 +2,7 @@
   "apis": [
     {
       "name": "getActiveLeases",
-      "description": "查询所有生效中的租赁合同列表（业务对象：合同结果卡片）。调用前置条件：用户表达查合同/租约诉求。【严禁场景】不要用于房屋或租客查询。",
+      "description": "查询所有当前生效的租赁合同列表（业务对象：合同结果卡片）。仅适用于当前合同/当前租约；用户询问某月、某年、上月等未指定对象的入住或退租名单时严禁调用，应使用全量入住退租查询接口。",
       "_meta": {
         "ui": {
           "componentPath": "components/lease-result/index",
@@ -26,7 +26,7 @@
     },
     {
       "name": "previewCreateLease",
-      "description": "预览创建合同并生成确认记录（业务对象：合同结果卡片）。调用前置条件：已明确房屋、租客、起租日期和月租金。【严禁场景】不要直接当成最终创建。",
+      "description": "预览创建合同并生成确认记录（业务对象：合同结果卡片）。调用前置条件：已明确房屋、租客、起租日期和月租金；相同房屋、租客与起租日或任一方已有生效合同均必须停止创建。【严禁场景】不要直接当成最终创建。",
       "_meta": {
         "ui": {
           "componentPath": "components/lease-result/index",
@@ -285,30 +285,100 @@
     },
     {
       "name": "getFinancialReport",
-      "description": "查询指定时间范围内的收入、退款、净收入及来源。",
+      "description": "查询指定时间范围内的实际收款、实际退款及构成。实际收款只统计 direction=in、cashImpact 不为 false 且 paymentMethod 不是 deposit_offset 的真实入账；押金单列为保证金。退款后净进账只是资金变化，不是利润。extra_due 和 damage 统一称为退租补缴；无可识别账单类型的流水只能列为其他，不能猜测用途。",
       "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
-      "inputSchema": { "type": "object", "properties": { "startDate": { "type": "string" }, "endDate": { "type": "string" } }, "additionalProperties": false },
+      "inputSchema": { "type": "object", "properties": { "startDate": { "type": "string" }, "endDate": { "type": "string" }, "houseId": { "type": "string" }, "tenantId": { "type": "string" } }, "additionalProperties": false },
       "outputSchema": { "type": "object", "additionalProperties": true }
     },
     {
-      "name": "getLeaseActivity",
-      "description": "查询指定时间范围内的入住和退租名单。",
+      "name": "getContractOverview",
+      "description": "合同类总入口。用户问“有效合同有多少/有哪些”“最先到期的有效合同”“有没有合同到期仍有效”“同一房屋或租客是否有多份有效合同”时必须调用。合同到期问题不能调用未来应收账单接口。",
       "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
-      "inputSchema": { "type": "object", "properties": { "startDate": { "type": "string" }, "endDate": { "type": "string" } }, "additionalProperties": false },
+      "inputSchema": { "type": "object", "properties": { "mode": { "type": "string", "enum": ["active", "expired_active", "house_conflicts", "tenant_conflicts"], "description": "有效合同=active；到期仍有效=expired_active；房屋多份有效=house_conflicts；租客多份有效=tenant_conflicts" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getRelativeLeaseExpiry",
+      "description": "合同结束日专用查询。用户问“未来7/10/30天哪些合同到期”“下个月哪些合同到期”“最先到期的合同”时必须调用。不得改用未来应收账单接口；合同结束日不等于实际退租日。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "period": { "type": "string", "enum": ["next_7_days", "next_10_days", "next_30_days", "next_month"], "description": "未来7/10/30天或下个月；mode=earliest 时可省略" }, "mode": { "type": "string", "enum": ["relative", "earliest"], "description": "relative=按期间查到期；earliest=最先到期" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "listGlobalMoveInOutByDateRange",
+      "description": "查询未指定房屋和租客的精确日期范围入住/退租名单。用户明确说某天、某月、跨月或跨年日期区间时必须调用；scope 必须为 global_unfiltered，不能用于指定对象。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "scope": { "type": "string", "enum": ["global_unfiltered"] }, "startDate": { "type": "string", "description": "YYYY-MM-DD" }, "endDate": { "type": "string", "description": "YYYY-MM-DD" } }, "required": ["scope", "startDate", "endDate"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "listGlobalMoveInOutForRelativePeriod",
+      "description": "查询未指定房屋和租客的相对时间入住和退租名单。用户说“今天/昨天/本周/最近7天/这个月/上个月/今年/去年谁入住或退租”且未点名对象时必须调用，并传 scope=global_unfiltered；不得调用 getActiveLeases，也不得用于指定房屋或租客。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "scope": { "type": "string", "enum": ["global_unfiltered"] }, "period": { "type": "string", "enum": ["today", "yesterday", "this_week", "last_week", "recent_7_days", "recent_30_days", "this_month", "last_month", "this_year", "last_year"], "description": "相对时间：今天=today，昨天=yesterday，本周=this_week，上周=last_week，最近7天=recent_7_days，最近30天=recent_30_days，这个月=this_month，上个月=last_month，今年=this_year，去年=last_year" } }, "required": ["scope", "period"], "additionalProperties": false },
       "outputSchema": { "type": "object", "additionalProperties": true }
     },
     {
       "name": "getSettlementReport",
-      "description": "查询押金、退款、房屋损失补缴等结算流水。",
+      "description": "查询押金、退款、房屋损失补缴等结算流水。keyword 必须筛选房屋或租客主体，不能混入无关结算。damageAmount 是房损结算金额，不等于实际到账；只有 damageReceived 且 damageEvidence=direct/partial 有付款流水证据。totalRefund 是结算退款，不等于实际退款；只有 refundPaidAmount 且 refundEvidence=direct/partial 有付款流水证据。用户问“实际收到多少房损费”只能依据 damageReceived；问“实际退款多少”只能依据 refundPaidAmount；evidence=insufficient 时必须回答当前数据库记录不足以确认。",
       "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
       "inputSchema": { "type": "object", "properties": { "keyword": { "type": "string" } }, "additionalProperties": false },
       "outputSchema": { "type": "object", "additionalProperties": true }
     },
     {
       "name": "getLeasePaymentHistory",
-      "description": "查询指定合同的缴费历史；合同 ID 必须来自合同查询结果。",
+      "description": "查询指定合同的缴费历史；仅当本轮已由工具明确返回该合同 ID 时使用。用户点名租客姓名、手机号或房屋时严禁猜测、复用上下文合同 ID，必须分别调用按租客关键词或房屋档案的专用入口。",
       "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
       "inputSchema": { "type": "object", "properties": { "leaseId": { "type": "string" } }, "required": ["leaseId"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getTenantPaymentHistoryByKeyword",
+      "description": "按用户原始租客姓名或手机号安全查询该租客所有关联合同的付款流水。用户问“某租客交过哪些钱、今年/这个月交过哪些费用、交了多少租金或水电费”时必须优先调用；会先在云端唯一匹配租客，再以 tenantId 严格过滤付款。匹配不唯一时只返回候选，绝不混入他人或全库流水。严禁改用 rent-collection-skill/getPaymentsByDateRange。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "keyword": { "type": "string", "description": "逐字复制用户提供的租客姓名或手机号，不得替换为其他租客、合同 ID 或上下文对象" }, "period": { "type": "string", "enum": ["this_month", "last_month", "this_year", "last_year"], "description": "相对时间；未提及时间则不传" }, "startDate": { "type": "string" }, "endDate": { "type": "string" } }, "required": ["keyword"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getHousePaymentHistoryByKeyword",
+      "description": "按房屋编号或地址关键词安全查询该房屋所有关联合同的付款流水。用户问“101去年付款记录”“某房今年收了多少钱/有哪些付款”时必须调用；先唯一匹配房屋，再严格按 houseId 过滤。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "keyword": { "type": "string" }, "period": { "type": "string", "enum": ["this_month", "last_month", "this_year", "last_year"] }, "startDate": { "type": "string" }, "endDate": { "type": "string" } }, "required": ["keyword"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getLeaseReport",
+      "description": "查询当前、历史、到期或指定房屋/租客的合同。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "houseId": { "type": "string" }, "tenantId": { "type": "string" }, "status": { "type": "string" }, "dueBefore": { "type": "string" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getTenantArrearsByKeyword",
+      "description": "【强制】回答点名租客的欠费问题必须先调用本工具获取实时数据，严禁凭记忆、经验、历史回答或上下文推断直接作答。按租客姓名或手机号安全查询当前已到期欠费。用户点名租客并问“欠多少、欠什么、有几笔没付、最早欠款、部分付款、欠费超过N天”时必须调用；先唯一匹配租客，再严格过滤该租客账单。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "keyword": { "type": "string" }, "type": { "type": "string", "enum": ["rent", "utility"] }, "minOverdueDays": { "type": "number" } }, "required": ["keyword"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getArrearsReport",
+      "description": "【强制】回答待收、欠钱、欠费、未缴、逾期问题必须先调用本工具获取实时数据，严禁凭记忆、经验、历史回答或上下文推断直接作答。所有已生成且未结清账单均为当前待收，逐笔返回应缴、已缴、待缴和逾期天数；其中到期日在今天之前的才是逾期欠费。用户问“欠钱、欠费、没交、没付完、部分付款、逾期、欠多少”时，解析到唯一房屋或租客后必须调用本接口并传 houseId 或 tenantId；不得改用 getSubjectProfile。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "houseId": { "type": "string" }, "tenantId": { "type": "string" }, "type": { "type": "string" }, "minOverdueDays": { "type": "number" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getRelativeFutureReceivables",
+      "description": "查询未来 7/10/30 天或下周到期、尚未结清的应收账单。用户问“未来7天有哪些费用要收”“下周哪些账单到期”“未来应收多少”时必须调用；不得自行生成日期改用明确日期范围接口，也不得调用不按日期过滤的收租查询。云端能力未部署时会明确停止，不得回退为当前欠费或经营概览。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "period": { "type": "string", "enum": ["next_7_days", "next_10_days", "next_30_days", "next_week"], "description": "未来时间范围" } }, "required": ["period"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getOperatingOverview",
+      "description": "查询当前整体房屋、合同、当前待收、本月实际收款、逾期欠费和未来15天预计收租概况。当前待收只来自已生成未结清账单；预计收租只来自尚未生成对应未结清租金账单的有效合同，两者不能相加为欠款；本月实际收款仅来自 payments 的入账流水。",
+      "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
+      "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
       "outputSchema": { "type": "object", "additionalProperties": true }
     }
   ],

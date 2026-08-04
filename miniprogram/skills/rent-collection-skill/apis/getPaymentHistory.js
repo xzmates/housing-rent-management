@@ -1,8 +1,8 @@
 ﻿const apis = require('./index')
 
-async function getPaymentHistory(params = {}) {
-  return apis.getPaymentHistory(params)
+async function getPaymentsByDateRange(params = {}) {
+  return apis.getPaymentsByDateRange(params)
 }
 
-module.exports = getPaymentHistory
+module.exports = getPaymentsByDateRange
 

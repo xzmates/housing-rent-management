@@ -1,0 +1,213 @@
+{
+  "runId": "AI_NLTEST_20260728_102843",
+  "envId": "cloud1-2gxr9nlc327f3b44",
+  "refreshedAt": "2026-07-31",
+  "mcp": {
+    "houses_nltest": {
+      "requestId": "30de27d6-55c3-420c-ad71-ab445724bd5b",
+      "total": 7
+    },
+    "tenants_nltest": {
+      "requestId": "ea74c153-03a9-4b79-9733-8ae663dcf0f2",
+      "total": 8
+    },
+    "leases_nltest": {
+      "requestId": "67c59525-8df4-425a-9472-49baef136f2a",
+      "total": 7
+    },
+    "bills_nltest": {
+      "requestId": "7532206f-ce11-4db9-9d95-e46f5e3ea793",
+      "total": 13
+    },
+    "payments_nltest": {
+      "requestId": "b246d791-a94e-4b1d-a90d-cf06e681842c",
+      "total": 10
+    },
+    "utilities_nltest": {
+      "requestId": "2e817d94-2bcc-41bd-9e7d-698a390b5af8",
+      "total": 3
+    },
+    "bills_all": {
+      "requestId": "9d4f9afd-18dc-4078-a407-1021511d67aa",
+      "total": 36
+    },
+    "payments_all": {
+      "requestId": "5b24eb3f-392d-42a4-9403-bbfe096dba53",
+      "total": 28
+    }
+  },
+  "houses": {
+    "NLTEST-2801": {
+      "id": "H01",
+      "status": "available",
+      "rent": 700,
+      "desc": "空房，无合同"
+    },
+    "NLTEST-2802": {
+      "id": "H02",
+      "status": "rented",
+      "rent": 1000,
+      "tenant": "NL测试短租到期租客",
+      "lease": "2026-07-01~2026-08-03",
+      "deposit": 1200,
+      "desc": "在租、即将到期短约"
+    },
+    "NLTEST-2803": {
+      "id": "H03",
+      "status": "rented",
+      "rent": 800,
+      "tenant": "NL测试正常缴费租客",
+      "lease": "2026-07-01~2026-12-31",
+      "deposit": 800,
+      "desc": "在租、正常缴费、未来应收"
+    },
+    "NLTEST-2901": {
+      "id": "H04",
+      "status": "available",
+      "rent": 900,
+      "desc": "多历史租客：NL测试历史甲、NL测试退租结算租客"
+    },
+    "NLTEST-2902": {
+      "id": "H05",
+      "status": "available",
+      "rent": 750,
+      "desc": "多合同租客第一份合同"
+    },
+    "NLTEST-2903": {
+      "id": "H06",
+      "status": "available",
+      "rent": 760,
+      "desc": "多合同租客第二份合同，房损450无付款"
+    },
+    "NLTEST-2810": {
+      "id": "H07",
+      "status": "rented",
+      "rent": 1000,
+      "tenant": "NL测试欠费租客",
+      "lease": "2026-05-01~2026-12-31",
+      "deposit": 0,
+      "desc": "在租、长期欠费、部分付款、未缴水电"
+    }
+  },
+  "tenants": {
+    "NL测试欠费租客": {
+      "id": "T01",
+      "status": "active",
+      "phone": "13900002801",
+      "house": "NLTEST-2810",
+      "arrears": 1820,
+      "bills": 3
+    },
+    "NL测试正常缴费租客": {
+      "id": "T02",
+      "status": "active",
+      "phone": "13900002802",
+      "idCard": "NLTEST-ID-2802",
+      "house": "NLTEST-2803",
+      "lease": "2026-07-01~2026-12-31",
+      "rent": 800,
+      "deposit": 800,
+      "paidTotal": 1766,
+      "paidRent": 800,
+      "paidUtility": 166,
+      "paidDeposit": 800
+    },
+    "NL测试历史甲": {
+      "id": "T03",
+      "status": "inactive",
+      "phone": "13900002901",
+      "lease": "2025-10-01~2025-12-31",
+      "noActualMoveOut": true
+    },
+    "NL测试退租结算租客": {
+      "id": "T04",
+      "status": "inactive",
+      "phone": "13900002902",
+      "moveOut": "2026-07-18",
+      "deposit": 1000,
+      "damage": 300,
+      "utility": 120,
+      "refund": 580
+    },
+    "NL测试多合同租客": {
+      "id": "T05",
+      "status": "inactive",
+      "phone": "13900002903",
+      "contracts": 2,
+      "damage": 450,
+      "damageNoPayment": true
+    },
+    "NL测试同名租客": {
+      "id": "T06/T07",
+      "status": "inactive",
+      "phones": [
+        "13900002904",
+        "13900002905"
+      ],
+      "ambiguity": true
+    },
+    "NL测试短租到期租客": {
+      "id": "T08",
+      "status": "active",
+      "phone": "13900002808",
+      "house": "NLTEST-2802",
+      "leaseEnd": "2026-08-03"
+    }
+  },
+  "aggregates": {
+    "asOf": "2026-07-31",
+    "totalHouses": 33,
+    "rentedHouses": 5,
+    "vacantHouses": 28,
+    "activeTenants": 5,
+    "activeLeases": 5,
+    "currentArrearsTotal": 6500,
+    "currentArrearsBills": 8,
+    "adongArrears": 4680,
+    "adongArrearsBills": 5,
+    "nltestArrears": 1820,
+    "nltestArrearsBills": 3,
+    "futureReceivable": 1480,
+    "futureReceivableBills": 2,
+    "pendingTotal": 7980,
+    "julyCollectionTotal": 19146,
+    "julyOperatingIncome": 15446,
+    "julyRentIncome": 14600,
+    "julyUtilityIncome": 846,
+    "julyDeposit": 3700,
+    "julyRefund": 580,
+    "year2026CollectionTotal": 27446,
+    "year2026OperatingIncome": 22746,
+    "year2026Rent": 21900,
+    "year2026Utility": 846,
+    "year2026Deposit": 4700,
+    "year2026Refund": 580,
+    "year2025CollectionTotal": 12230,
+    "year2025OperatingIncome": 12230,
+    "year2025Rent": 11550,
+    "year2025Utility": 680,
+    "h1_2026CollectionTotal": 8300
+  },
+  "futureReceivables": [
+    {
+      "desc": "小晶水电费",
+      "amount": 680,
+      "due": "2026-08-04"
+    },
+    {
+      "desc": "NL测试正常缴费租客租金",
+      "amount": 800,
+      "due": "2026-08-05"
+    }
+  ],
+  "movingIn": {
+    "2026-07": [
+      "NL测试短租到期租客",
+      "NL测试正常缴费租客"
+    ],
+    "2026-03-01~2026-05-31": [
+      "阿东",
+      "NL测试欠费租客"
+    ]
+  }
+}

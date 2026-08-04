@@ -28,8 +28,8 @@
       }
     },
     {
-      "name": "getHouseDetail",
-      "description": "查看单个房屋详情（业务对象：房屋结果卡片）。按房屋 ID 获取房屋基本信息及当前活跃租约。调用前置条件：用户已明确具体房屋。【严禁场景】缺少 houseId 时不要调用。",
+      "name": "getHouseDetailByKeyword",
+      "description": "按用户原始房屋编号或“楼栋+房号”安全查询单套房屋的基本信息、当前租客、合同起止、合同约定押金和历史租客。必须将用户消息中的编号逐字复制到 keyword，数字是精确业务键：例如用户说 NLTEST-2801 时只能传 NLTEST-2801，严禁改成/猜成 NLTEST-2802 或上下文其他房号。Skill 会在全量房屋中唯一匹配；同号不同楼、近似房号、不确定或不存在时只返回候选/未找到，绝不自动选择。仅适用于基础详情、谁住、历史租客和合同日期；房屋整体财务档案必须用 getHouseProfileByKeyword。",
       "_meta": {
         "ui": {
           "componentPath": "components/house-result/index"
@@ -38,13 +38,13 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "houseId": {
+          "keyword": {
             "type": "string",
-            "description": "房屋唯一标识"
+            "description": "逐字复制用户原始房屋编号或完整楼栋房号，例如“东楼 201”；数字不得改写、纠正、补全或复用上下文其他房号"
           }
         },
         "required": [
-          "houseId"
+          "keyword"
         ],
         "additionalProperties": false
       },
@@ -57,12 +57,19 @@
       "name": "getHouseAvailability",
       "description": "查询已出租或未出租房屋；出租状态以活跃合同为准。",
       "_meta": { "ui": { "componentPath": "components/house-result/index" } },
-      "inputSchema": { "type": "object", "properties": { "mode": { "type": "string", "enum": ["rented", "available"] } }, "required": ["mode"], "additionalProperties": false },
+      "inputSchema": { "type": "object", "properties": { "mode": { "type": "string", "enum": ["rented", "available"] }, "page": { "type": "number" }, "pageSize": { "type": "number" } }, "required": ["mode"], "additionalProperties": false },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
+      "name": "getHouseProfileByKeyword",
+      "description": "按用户原始房屋编号或“楼栋+房号”安全查询单套房屋的完整综合档案：关联合同、当前已到期欠费、未来应收及该房屋关联合同付款流水的实际收款。必须将用户消息中的编号逐字复制到 keyword；例如用户说 NLTEST-2801 时严禁改成 NLTEST-2802 或任何上下文房号。用户问“202整体情况怎么样”“房屋档案”“这套房欠多少钱/收过多少款”时必须调用。匹配不唯一时只能要求用户确认；实际收款已按关联 leaseId 限定，严禁为补金额调用全局 getPaymentsByDateRange。",
+      "_meta": { "ui": { "componentPath": "components/house-result/index" } },
+      "inputSchema": { "type": "object", "properties": { "keyword": { "type": "string", "description": "逐字复制用户原始房屋编号或完整楼栋房号；数字不得改写、纠正、补全或复用上下文其他房号" } }, "required": ["keyword"], "additionalProperties": false },
       "outputSchema": { "type": "object", "additionalProperties": true }
     },
     {
       "name": "previewCreateHouse",
-      "description": "预览新增房屋并生成确认记录（业务对象：房屋结果卡片）。调用前置条件：用户已提供房屋编号、地址和月租金。【严禁场景】不要直接当成最终新增。",
+      "description": "预览新增房屋并生成确认记录（业务对象：房屋结果卡片）。调用前置条件：用户已提供房屋编号、地址和月租金；同一楼栋和房屋编号已存在时必须停止创建并提示使用已有房屋。【严禁场景】不要直接当成最终新增。",
       "_meta": {
         "ui": {
           "componentPath": "components/house-result/index",

@@ -2,7 +2,7 @@
   "apis": [
     {
       "name": "searchTenants",
-      "description": "搜索租客列表（业务对象：租客结果卡片）。按关键字（姓名/电话）和状态筛选租客。调用前置条件：用户表达查租客诉求。【严禁场景】不要用于房屋查询、合同查询。",
+      "description": "搜索租客列表（业务对象：租客结果卡片）。按关键字（姓名/电话）和状态筛选租客。调用前置条件：用户表达查租客诉求。调用成功后，最终自然语言必须复述工具 content 中的数量和匹配租客，不能只说“租客列表如下”。【严禁场景】不要用于房屋查询、合同查询。",
       "_meta": {
         "ui": {
           "componentPath": "components/tenant-result/index",
@@ -29,8 +29,8 @@
       }
     },
     {
-      "name": "getTenantDetail",
-      "description": "查看单个租客详情（业务对象：租客结果卡片）。按租客 ID 获取基本信息及名下所有合同。调用前置条件：用户已明确具体租客。【严禁场景】缺少 tenantId 时不要调用。",
+      "name": "getTenantDetailByKeyword",
+      "description": "按租客姓名或手机号安全查询详情、当前/历史房屋和全部合同。用户问“某租客资料、住哪个房、先后住过哪些房、所有历史合同”时优先调用；本接口会先在云端唯一匹配，存在同名或近似对象时只返回候选，绝不自动选择或查询无关合同。成功后最终自然语言必须使用工具 content 逐项回答姓名、当前房屋、当前合同日期及历史房屋；不得只输出“资料如下”或只输出卡片标题。",
       "_meta": {
         "ui": {
           "componentPath": "components/tenant-result/index"
@@ -39,14 +39,12 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "tenantId": {
+          "keyword": {
             "type": "string",
-            "description": "租客唯一标识"
+            "description": "租客姓名或手机号；必须保留用户原始对象，不得替换为其他租客 ID"
           }
         },
-        "required": [
-          "tenantId"
-        ],
+        "required": ["keyword"],
         "additionalProperties": false
       },
       "outputSchema": {
@@ -55,8 +53,20 @@
       }
     },
     {
+      "name": "getTenantOccupancy",
+      "description": "查询当前在租或历史/无当前合同的租客；当前状态以活跃合同为准。",
+      "_meta": { "ui": { "componentPath": "components/tenant-result/index" } },
+      "inputSchema": {
+        "type": "object",
+        "properties": { "mode": { "type": "string", "enum": ["current", "history"] }, "page": { "type": "number" }, "pageSize": { "type": "number" } },
+        "required": ["mode"],
+        "additionalProperties": false
+      },
+      "outputSchema": { "type": "object", "additionalProperties": true }
+    },
+    {
       "name": "previewCreateTenant",
-      "description": "预览新增租客并生成确认记录（业务对象：租客结果卡片）。调用前置条件：用户已提供租客姓名。【严禁场景】不要直接当成最终新增。",
+      "description": "预览新增租客并生成确认记录（业务对象：租客结果卡片）。调用前置条件：用户已提供租客姓名；手机号、身份证或无联系方式的同名租客已存在时必须停止创建并提示使用已有租客。【严禁场景】不要直接当成最终新增。",
       "_meta": {
         "ui": {
           "componentPath": "components/tenant-result/index",

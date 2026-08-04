@@ -1,29 +1,6 @@
 {
   "apis": [
     {
-      "name": "getUnpaidBills",
-      "description": "查询待收租金账单列表（业务对象：收租结果卡片）。调用前置条件：用户表达收租或查欠租诉求。【严禁场景】不要用于水电费抄表。",
-      "_meta": {
-        "ui": {
-          "componentPath": "components/rent-result/index"
-        }
-      },
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "keyword": {
-            "type": "string",
-            "description": "房屋或租客关键词"
-          }
-        },
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "additionalProperties": true
-      }
-    },
-    {
       "name": "previewCollectRent",
       "description": "预览收租金额并生成确认记录（业务对象：收租确认卡片）。调用前置条件：已明确待收账单和收款金额。【严禁场景】不要直接替代最终确认。",
       "_meta": {
@@ -62,8 +39,8 @@
       }
     },
     {
-      "name": "getPaymentHistory",
-      "description": "查询合同或账单的付款记录（业务对象：收租结果卡片）。调用前置条件：用户想查看付款流水。【严禁场景】不要用于新增收款。",
+      "name": "getPaymentsByDateRange",
+      "description": "按明确日期范围查询付款流水（业务对象：收租结果卡片）。仅适用于“今天/昨天/本月/今年/某日期范围实际收了多少钱、付款明细、收款记录”。startDate 和 endDate 均为必填；若用户给出的开始日期晚于结束日期，本接口返回“未执行查询”的终止校验结果，此时必须直接告知用户、不得自动交换日期、不得再次调用本接口、也不得任意选择某份合同。合同专属付款历史由 lease-skill/getLeasePaymentHistory 查询。【严禁场景】不要用于新增收款或无日期范围的合同历史。",
       "_meta": {
         "ui": {
           "componentPath": "components/rent-result/index"
@@ -72,15 +49,30 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "leaseId": {
+          "startDate": {
             "type": "string",
-            "description": "合同 ID"
+            "description": "付款日期范围开始，YYYY-MM-DD，必填"
           },
-          "billId": {
+          "endDate": {
             "type": "string",
-            "description": "账单 ID"
+            "description": "付款日期范围结束，YYYY-MM-DD；日期范围查询时必填，若早于开始日期不得自动交换"
+          },
+          "houseId": {
+            "type": "string",
+            "description": "可选房屋 ID，仅来自已确认的房屋查询结果"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "可选租客 ID，仅来自已确认的租客查询结果"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
           }
         },
+        "required": ["startDate", "endDate"],
         "additionalProperties": false
       },
       "outputSchema": {
