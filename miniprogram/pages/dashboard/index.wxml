@@ -13,38 +13,20 @@
             <text class="biz-label">房屋总数</text>
             <view class="biz-value-row">
               <text class="biz-value blue">{{stats.houses}}</text>
-              <text class="biz-unit">套房</text>
+              <text class="biz-unit">套</text>
             </view>
+            <text class="biz-note">已出租 {{stats.activeLeases}} 套</text>
           </view>
         </view>
         <view class="biz-tile">
           <view class="line-icon icon-green symbol-contract"></view>
           <view class="biz-copy">
-            <text class="biz-label">活跃合同</text>
+            <text class="biz-label">租客总数</text>
             <view class="biz-value-row">
-              <text class="biz-value green">{{stats.activeLeases}}</text>
-              <text class="biz-unit">份</text>
+              <text class="biz-value green">{{stats.tenants}}</text>
+              <text class="biz-unit">人</text>
             </view>
-          </view>
-        </view>
-        <view class="biz-tile">
-          <view class="line-icon icon-orange symbol-money"></view>
-          <view class="biz-copy">
-            <text class="biz-label">待收金额</text>
-            <view class="biz-value-row">
-              <text class="biz-value red">¥{{stats.unpaidAmount}}</text>
-              <text class="biz-unit">元</text>
-            </view>
-          </view>
-        </view>
-        <view class="biz-tile">
-          <view class="line-icon icon-violet symbol-shield"></view>
-          <view class="biz-copy">
-            <text class="biz-label">在管押金</text>
-            <view class="biz-value-row">
-              <text class="biz-value violet">¥{{stats.managedDeposit}}</text>
-              <text class="biz-unit">元</text>
-            </view>
+            <text class="biz-note">入住 {{stats.activeTenants}} 人</text>
           </view>
         </view>
       </view>
@@ -53,43 +35,73 @@
     <view class="glass-panel">
       <view class="section-head">
         <view>
-          <text class="section-title">临近收费提醒</text>
-          <text class="section-note">按未缴租金账单和应缴日期自动汇总</text>
+          <text class="section-title">当前待收</text>
+          <text class="section-note">已生成但尚未结清的账单已按房屋、租客和费用类别合并</text>
         </view>
         <view class="reminder-summary">
-          <text>本月待提醒 <text class="summary-count">{{reminderSummary.count}}</text> 笔</text>
-          <text>合计 <text class="summary-money">¥{{reminderSummary.amount}}</text></text>
+          <text class="summary-money">¥{{stats.currentReceivableAmount}}</text>
+          <text>共 {{receivableGroups.length}} 类</text>
         </view>
       </view>
 
-      <view wx:if="{{visibleReminderBills.length === 0}}" class="soft-empty">
+      <view wx:if="{{receivableGroups.length === 0}}" class="soft-empty">
         <view class="empty-line-icon symbol-wave"></view>
-        <text>本月暂无临近收费</text>
+        <text>暂无待收账单</text>
       </view>
 
       <view wx:else class="reminder-list">
-        <view wx:for="{{visibleReminderBills}}" wx:key="_id" class="reminder-row tap-card" bindtap="openReminder" data-item="{{item}}">
+        <view wx:for="{{receivableGroups}}" wx:key="id" class="reminder-row tap-card" bindtap="openReceivableGroup" data-item="{{item}}">
           <view class="reminder-house">
             <view class="mini-house-icon symbol-home"></view>
             <view>
-              <text class="reminder-main">{{item.houseCode}} · {{item.houseAddress}}</text>
-              <text class="reminder-sub">{{item.tenantName || '未知租客'}}</text>
+              <text class="reminder-main">{{item.houseLabel}} · {{item.tenantName}}</text>
+              <text class="reminder-sub">{{item.typeText}} · {{item.periodText}}</text>
             </view>
           </view>
           <view class="reminder-date">
-            <text>{{item.dueDateStr}} 应缴</text>
-            <text class="status-pill {{item.statusClass}}">{{item.statusText}}</text>
+            <text class="status-pill {{item.overdueCount ? 'status-red' : 'status-blue'}}">{{item.statusText}}</text>
           </view>
           <view class="reminder-amount">
-            <text>¥{{item.remaining}}</text>
+            <text>¥{{item.amount}}</text>
             <view class="chevron"></view>
           </view>
         </view>
       </view>
 
-      <view wx:if="{{reminderSummary.count > 4}}" class="view-all-row" bindtap="goToBills">
-        <text>查看全部提醒</text>
+      <view wx:if="{{receivableGroups.length > 4}}" class="view-all-row" bindtap="goToBills">
+        <text>查看全部待收账单</text>
         <view class="chevron"></view>
+      </view>
+    </view>
+
+    <view wx:if="{{contractRentReminders.length}}" class="glass-panel upcoming-rent-panel">
+      <view class="section-head">
+        <view>
+          <text class="section-title">即将收租</text>
+          <text class="section-note">未来 15 天的合同提醒，未计入当前待收</text>
+        </view>
+        <view class="reminder-summary upcoming-summary">
+          <text class="summary-money">¥{{stats.futureRentReminderAmount}}</text>
+          <text>共 {{contractRentReminders.length}} 笔</text>
+        </view>
+      </view>
+
+      <view class="reminder-list upcoming-rent-list">
+        <view wx:for="{{contractRentReminders}}" wx:key="id" class="reminder-row upcoming-rent-row">
+          <view class="reminder-house">
+            <view class="mini-house-icon upcoming-house-icon symbol-home"></view>
+            <view>
+              <text class="reminder-main">{{item.houseCode}} - {{item.houseAddress}} · {{item.tenantName}}</text>
+              <text class="reminder-sub">租金 · 到期 {{item.dueDate}}</text>
+            </view>
+          </view>
+          <view class="reminder-date">
+            <text class="status-pill status-blue">{{item.statusText}}</text>
+          </view>
+          <view class="reminder-amount">
+            <text>¥{{item.expectedAmount}}</text>
+          </view>
+        </view>
       </view>
     </view>
 

@@ -63,7 +63,8 @@ describe('首页临近收费提醒', () => {
     await ctx.loadBills.call(ctx);
 
     expect(ctx.data.reminderSummary.count).toBe(0);
-    expect(ctx.data.reminderSummary.amount).toBe(0);
+    expect(ctx.data.reminderSummary.currentCount).toBe(0);
+    expect(ctx.data.reminderSummary.futureCount).toBe(0);
     expect(ctx.data.visibleReminderBills).toEqual([]);
   });
 
@@ -74,7 +75,8 @@ describe('首页临近收费提醒', () => {
     await ctx.loadBills.call(ctx);
 
     expect(ctx.data.reminderSummary.count).toBe(1);
-    expect(ctx.data.reminderSummary.amount).toBe(1000);
+    expect(ctx.data.reminderSummary.currentCount).toBe(1);
+    expect(ctx.data.reminderSummary.futureCount).toBe(0);
     expect(ctx.data.visibleReminderBills[0].reminderKind).toBe('bill');
     expect(ctx.data.visibleReminderBills[0].billId).toBe('rent_july');
   });

@@ -38,11 +38,19 @@ function isBillPaid(bill = {}) {
 Page({
   data: {
     loading: true,
-    stats: { houses: 0, activeLeases: 0, unpaidAmount: 0, managedDeposit: 0 },
+    stats: {
+      houses: 0, activeLeases: 0, cashReceived: 0, netCashChange: 0,
+      tenants: 0, activeTenants: 0,
+      currentReceivableAmount: 0, overdueAmount: 0, futureRentReminderAmount: 0, managedDeposit: 0,
+      rentReceived: 0, utilityReceived: 0, depositReceived: 0,
+      settlementReceived: 0, cashRefunded: 0
+    },
     overdueBills: [],
     upcomingBills: [],
     visibleReminderBills: [],
-    reminderSummary: { count: 0, amount: 0 },
+    reminderSummary: { count: 0, currentCount: 0, futureCount: 0 },
+    contractRentReminders: [],
+    receivableGroups: [],
     recentActivities: []
   },
 
@@ -53,11 +61,7 @@ Page({
   async loadAll() {
     this.setData({ loading: true });
     try {
-      await Promise.all([
-        this.loadStats(),
-        this.loadBills(),
-        this.loadRecentActivities()
-      ]);
+      await this.loadStats();
     } catch (e) {
       console.error('加载仪表盘失败', e);
     } finally {
@@ -67,24 +71,28 @@ Page({
 
   async loadStats() {
     try {
-      const [housesRes, leasesRes, billsRes] = await Promise.all([
-        api.getHouses(),
-        api.getLeases({ status: 'active' }),
-        api.getBills()
-      ]);
-
-      const bills = billsRes.data || [];
-
-      const stats = {
-        houses: (housesRes.data || []).length,
-        activeLeases: (leasesRes.data || []).length,
-        unpaidAmount: bills
-          .filter(b => !isBillPaid(b))
-          .reduce((s, b) => s + billRemaining(b), 0),
-        managedDeposit: (leasesRes.data || []).reduce((s, l) => s + Number(l.deposit || 0), 0)
-      };
-
-      this.setData({ stats });
+      const data = await api.callRentalDomain('getOperatingOverview');
+      this.setData({
+        stats: {
+          houses: data.houseCount || 0,
+          activeLeases: data.activeLeaseCount || 0,
+          tenants: data.tenantCount || 0,
+          activeTenants: data.activeTenantCount || 0,
+          cashReceived: data.monthCashReceived || 0,
+          netCashChange: data.monthNetCashChange || 0,
+          currentReceivableAmount: data.currentReceivableAmount || data.unpaidAmount || 0,
+          overdueAmount: data.overdueAmount || data.currentArrearsAmount || 0,
+          futureRentReminderAmount: data.futureRentReminderAmount || 0,
+          managedDeposit: data.managedDeposit || 0,
+          rentReceived: data.monthRentReceived || 0,
+          utilityReceived: data.monthUtilityReceived || 0,
+          depositReceived: data.monthDepositReceived || 0,
+          settlementReceived: data.monthSettlementReceived || 0,
+          cashRefunded: data.monthCashRefunded || 0
+        },
+        contractRentReminders: data.futureRentReminders || [],
+        receivableGroups: data.currentReceivableGroups || []
+      });
     } catch (e) {
       console.error('加载统计失败', e);
     }
@@ -118,16 +126,16 @@ Page({
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-      const unpaidBills = (billsRes.data || [])
-        .filter(b => !isBillPaid(b) && b.type === 'rent')
+      const currentReceivableBills = (billsRes.data || [])
+        .filter(b => !isBillPaid(b) && ['unpaid', 'partial'].includes(b.status || 'unpaid'))
         .map(b => {
           const lease = leaseMap[b.leaseId] || {};
           const house = houseMap[lease.houseId] || {};
           const tenant = tenantMap[lease.tenantId] || {};
           const dueDate = startOfDay(b.dueDate);
           const daysUntilDue = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / DAY) : 0;
+          const isOverdue = dueDate && dueDate < today;
+          const isToday = dueDate && dueDate.getTime() === today.getTime();
           return {
             ...b,
             reminderKind: 'bill',
@@ -138,65 +146,37 @@ Page({
             dueDateStr: api.formatDate(b.dueDate),
             remaining: billRemaining(b),
             daysUntilDue,
-            isOverdue: daysUntilDue < 0,
-            statusText: daysUntilDue < 0 ? '已逾期' : daysUntilDue === 0 ? '今日应缴' : '本月到期',
-            statusClass: daysUntilDue < 0 ? 'status-red' : daysUntilDue === 0 ? 'status-orange' : 'status-blue'
+            isOverdue,
+            statusText: isOverdue ? `已逾期${Math.abs(daysUntilDue)}天` : isToday ? '今日应收' : dueDate ? `账单已生成 · ${daysUntilDue}天后到期` : '账单已生成 · 未标到期日',
+            statusClass: isOverdue ? 'status-red' : isToday ? 'status-orange' : 'status-blue'
           };
-        })
-        .filter(b => b.isOverdue || startOfDay(b.dueDate) <= monthEnd);
+        });
 
-      const unpaidBillKeys = new Set(unpaidBills.map(b => `${b.leaseId}:${dateKey(b.dueDate)}`));
-      const rentBillKeys = new Set((billsRes.data || [])
-        .filter(b => b.type === 'rent')
-        .map(b => `${b.leaseId}:${dateKey(b.dueDate)}`));
-      const leaseReminders = leases
-        .map(lease => {
-          const dueDate = startOfDay(lease.nextRentDueDate || (lease.rentCoveredUntil ? new Date(startOfDay(lease.rentCoveredUntil).getTime() + DAY) : null));
-          if (!dueDate || dueDate > monthEnd) return null;
-          const key = `${lease._id}:${dateKey(dueDate)}`;
-          if (unpaidBillKeys.has(key)) return null;
-          if (rentBillKeys.has(key)) return null;
-          const house = houseMap[lease.houseId] || {};
-          const tenant = tenantMap[lease.tenantId] || {};
-          const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / DAY);
-          return {
-            _id: `lease_due_${lease._id}`,
-            reminderKind: 'lease_due',
-            leaseId: lease._id,
-            houseCode: house.code || '',
-            houseAddress: house.address || '',
-            tenantName: tenant.name || '',
-            dueDate,
-            dueDateStr: api.formatDate(dueDate),
-            remaining: Number(lease.rent || 0),
-            daysUntilDue,
-            isOverdue: daysUntilDue < 0,
-            statusText: daysUntilDue < 0 ? '已逾期' : daysUntilDue === 0 ? '今日应收' : `${daysUntilDue}天后应收`,
-            statusClass: daysUntilDue < 0 ? 'status-red' : daysUntilDue === 0 ? 'status-orange' : 'status-blue'
-          };
-        })
-        .filter(Boolean);
-
-      const reminderBills = unpaidBills.concat(leaseReminders)
+      // 合同预计提醒由 rentalDomain 权威生成：仅有效合同、未来 15 天、且没有对应未结清租金账单。
+      const leaseReminders = (this.data.contractRentReminders || []).map(item => ({
+        ...item,
+        _id: item.id,
+        dueDateStr: api.formatDate(item.dueDate),
+        remaining: Number(item.expectedAmount || 0),
+        isOverdue: false
+      }));
+      const reminderBills = currentReceivableBills.concat(leaseReminders)
         .sort((a, b) => {
           if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
           if (a.daysUntilDue !== b.daysUntilDue) return a.daysUntilDue - b.daysUntilDue;
           return String(a.houseCode || '').localeCompare(String(b.houseCode || ''), 'zh-CN', { numeric: true });
         });
 
-      const overdueBills = reminderBills.filter(b => b.isOverdue);
+      const overdueBills = currentReceivableBills.filter(b => b.isOverdue);
       const upcomingBills = reminderBills.filter(b => !b.isOverdue);
       const visibleReminderBills = reminderBills.slice(0, 4);
       const reminderSummary = {
         count: reminderBills.length,
-        amount: reminderBills.reduce((sum, b) => sum + Number(b.remaining || 0), 0)
+        currentCount: currentReceivableBills.length,
+        futureCount: leaseReminders.length
       };
 
-      const stats = this.data.stats;
-      const allUnpaidBills = (billsRes.data || []).filter(b => !isBillPaid(b));
-      stats.unpaidAmount = allUnpaidBills.reduce((s, b) => s + billRemaining(b), 0);
-
-      this.setData({ overdueBills, upcomingBills, visibleReminderBills, reminderSummary, stats });
+      this.setData({ overdueBills, upcomingBills, visibleReminderBills, reminderSummary });
     } catch (e) {
       console.error('加载账单提醒失败', e);
     }
@@ -257,6 +237,17 @@ Page({
   },
 
   goToBills() {
+    wx.switchTab({ url: '/pages/payments/index' });
+  },
+
+  openReceivableGroup(e) {
+    const item = e && e.currentTarget ? e.currentTarget.dataset.item : null;
+    const billIds = item && Array.isArray(item.billIds) ? item.billIds.filter(Boolean) : [];
+    if (!billIds.length) {
+      wx.showToast({ title: '未找到对应待收账单，请刷新后重试', icon: 'none' });
+      return;
+    }
+    wx.setStorageSync('dashboardPayBillIds', billIds);
     wx.switchTab({ url: '/pages/payments/index' });
   },
 

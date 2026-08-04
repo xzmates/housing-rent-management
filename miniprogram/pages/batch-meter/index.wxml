@@ -22,6 +22,16 @@
         <text style="display:block;margin-top:4rpx;">电表 {{item.lastElec}} 度 ｜ 水表 {{item.lastWater}} 吨</text>
       </view>
 
+      <view class="meter-date-card">
+        <text class="meter-date-label">本次抄表日期</text>
+        <picker mode="date" value="{{item.calculationDate}}" start="{{item.lastReadDateKey}}" end="{{today}}" data-index="{{index}}" bindchange="onCalculationDateChange">
+          <view class="meter-date-picker">
+            <text>{{item.calculationDate}}</text>
+            <text class="meter-date-hint">滑动选择 ›</text>
+          </view>
+        </picker>
+      </view>
+
       <view class="flex-row" style="gap:16rpx;margin-bottom:12rpx;">
         <view style="flex:1;">
           <text style="font-size:22rpx;color:var(--gray-500);margin-bottom:4rpx;display:block;">本次电表读数</text>

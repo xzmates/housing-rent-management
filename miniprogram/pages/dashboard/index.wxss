@@ -57,6 +57,13 @@
   color: var(--home-muted);
 }
 
+.biz-note {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--home-muted);
+}
+
 .icon-blue { background: var(--home-blue-soft); color: var(--home-blue); }
 .icon-green { background: var(--home-green-bg); color: var(--home-green); }
 .icon-orange { background: var(--home-orange-bg); color: var(--home-orange); }
@@ -80,9 +87,17 @@
 
 .summary-money {
   color: var(--home-red);
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 700;
 }
+
+.upcoming-rent-panel { border: 1rpx solid #D8E9FF; }
+.upcoming-summary .summary-money { color: var(--home-blue); }
+.upcoming-rent-list { border-color: #D8E9FF; }
+.upcoming-rent-row { background: #F7FBFF; }
+.upcoming-rent-row .reminder-amount { color: var(--home-blue); }
+.upcoming-house-icon { background: #E8F2FF; color: var(--home-blue); }
+
 
 .reminder-list {
   border: 1rpx solid var(--home-line);
@@ -321,3 +336,10 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+.cashflow-panel { margin-top: 24rpx; }
+.cashflow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14rpx; margin-top: 18rpx; }
+.cashflow-grid view { display: flex; justify-content: space-between; gap: 10rpx; padding: 18rpx; border-radius: 18rpx; background: #F5F8FC; color: var(--home-muted); font-size: 24rpx; }
+.cashflow-grid text:last-child { color: var(--home-ink); font-size: 28rpx; font-weight: 800; }
+.cashflow-receivable { margin-top: 16rpx; padding: 16rpx 18rpx; border-radius: 16rpx; background: #FFF5F1; color: #B45A30; font-size: 24rpx; font-weight: 600; }
+.cashflow-receivable-sub { margin-top: 8rpx; color: #B45A30; font-size: 23rpx; }
+.cashflow-reminder { margin-top: 12rpx; padding: 14rpx 18rpx; border-radius: 16rpx; background: #F1F7FF; color: var(--home-blue); font-size: 24rpx; font-weight: 600; }

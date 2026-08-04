@@ -1,16 +1,38 @@
 const api = require('../../services/api');
 
+function dateKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatDateText(value) {
+  return dateKey(value).replace(/-/g, '/');
+}
+
 Page({
   data: {
     loading: true, submitting: false,
     meters: [],
     utilityPrices: { electricityPrice: 0.8, waterPrice: 3.5 },
+    today: dateKey(),
     totalCost: 0,
     totalCostText: '0.0'
   },
 
-  onLoad() { this.loadData(); },
+  onLoad() {
+    const today = dateKey();
+    this.setData({ today });
+    this.loadData();
+  },
   onShow() { this.loadData(); },
+
+  onCalculationDateChange(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const calculationDate = e.detail.value;
+    if (!calculationDate || !Number.isInteger(index)) return;
+    this.setData({ [`meters[${index}].calculationDate`]: calculationDate });
+  },
 
   async loadData() {
     this.setData({ loading: true });
@@ -33,10 +55,11 @@ Page({
         let lastElec = lease.moveInElectricity || 0;
         let lastWater = lease.moveInWater || 0;
         let lastReadDate = '入住读数';
+        let latest = null;
         try {
           const records = await api.getUtilityRecords({ houseId: lease.houseId });
           if (records.data && records.data.length > 0) {
-            const latest = records.data[0];
+            latest = records.data[0];
             lastElec = latest.electricityReading || lastElec;
             lastWater = latest.waterReading || lastWater;
             lastReadDate = api.formatDate(latest.calculationDate || latest.createdAt) || '未知时间';
@@ -49,6 +72,8 @@ Page({
           houseLabel: house ? `${house.code} - ${house.address}` : '未知房屋',
           tenantName: tenant?.name || '未知租客',
           lastElec, lastWater, lastReadDate,
+          lastReadDateKey: lastReadDate === '入住读数' ? dateKey(lease.startDate) : dateKey(latest && (latest.calculationDate || latest.createdAt)),
+          calculationDate: this.data.today || dateKey(),
           currentElec: '', currentWater: '',
           elecUsage: 0, waterUsage: 0,
           elecCost: 0, waterCost: 0, rowCost: 0,
@@ -132,9 +157,15 @@ Page({
       return;
     }
 
+    const dateConflict = toSubmit.find(m => m.lastReadDateKey && (m.calculationDate || dateKey()) < m.lastReadDateKey);
+    if (dateConflict) {
+      wx.showToast({ title: `${dateConflict.houseLabel} 的抄表日期不能早于 ${formatDateText(dateConflict.lastReadDateKey)}`, icon: 'none' });
+      return;
+    }
+
     wx.showModal({
       title: '确认提交',
-      content: `将提交 ${toSubmit.length} 条抄表记录，合计 ¥${this.data.totalCost.toFixed(1)}`,
+      content: `将按各房屋选择的日期提交 ${toSubmit.length} 条抄表记录，合计 ¥${this.data.totalCost.toFixed(1)}`,
       success: async (res) => {
         if (!res.confirm) return;
         this.setData({ submitting: true });
@@ -145,7 +176,8 @@ Page({
             await api.addMeterReading({
               leaseId: m.leaseId,
               electricityReading: Number(m.currentElec) || 0,
-              waterReading: Number(m.currentWater) || 0
+              waterReading: Number(m.currentWater) || 0,
+              calculationDate: m.calculationDate || dateKey()
             });
             successCount++;
           } catch (e) {
