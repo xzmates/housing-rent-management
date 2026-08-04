@@ -94,6 +94,7 @@ describe('合约安全', () => {
       .filter(p => p.leaseId === leaseResult.leaseId && p.paymentMethod === 'deposit_offset');
     expect(offsetPayments.length).toBeGreaterThan(0);
     expect(offsetPayments.reduce((sum, p) => sum + p.amount, 0)).toBe(4000);
+    expect(offsetPayments.every(p => p.cashImpact === false)).toBe(true);
 
     const lease = await api.getLeaseById(leaseResult.leaseId);
     expect(lease.status).toBe('terminated');

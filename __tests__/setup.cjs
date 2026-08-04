@@ -240,7 +240,10 @@ global.wx = {
   showToast() {},
   showModal({ success }) { if (success) success({ confirm: true }); },
   showLoading() {},
-  hideLoading() {}
+  hideLoading() {},
+  getStorageSync() { return []; },
+  setStorageSync() {},
+  removeStorageSync() {}
 };
 
 global.getApp = () => ({
@@ -670,6 +673,7 @@ registerCloudFunction('terminateLease', ({ leaseId, endDate, damageDeduction, re
       tenantId: lease.tenantId,
       amount: offsetAmount,
       direction: 'in',
+      cashImpact: false,
       paymentDate: actualEndDate,
       paymentMethod: 'deposit_offset',
       remark: '退租押金自动抵扣',
@@ -1130,7 +1134,7 @@ const auditableRentalActions = new Set([
   'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease', 'previewPrepayRent', 'previewRentCollection',
   'previewCollectRent', 'previewMeterReading', 'previewMoveOutSettlement',
   'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease', 'confirmPrepayRent', 'confirmRentCollection',
-  'confirmCollectRent', 'confirmMeterReading', 'settleMoveOut'
+  'confirmCollectRent', 'confirmCollectBillBatch', 'confirmMeterReading', 'settleMoveOut'
 ]);
 
 function createRentalActions(caller) {
@@ -1166,13 +1170,22 @@ function createRentalActions(caller) {
     searchHouses: query.searchHouses,
     getHouseDetail: query.getHouseDetail,
     searchTenants: query.searchTenants,
+    resolveTenant: query.resolveTenant,
     getTenantDetail: query.getTenantDetail,
     getActiveLeases: query.getActiveLeases,
     getUnpaidBills: query.getUnpaidBills,
     getPaymentHistory: query.getPaymentHistory,
     getMeterTargets: query.getMeterTargets,
     getMoveOutTargets: query.getMoveOutTargets,
+    getSubjectProfile: query.getSubjectProfile,
     auditLeaseRentCoverage: query.auditLeaseRentCoverage,
+    getFinancialReport: query.getFinancialReport,
+    getLeaseActivity: query.getLeaseActivity,
+    getSettlementReport: query.getSettlementReport,
+    getLeaseReport: query.getLeaseReport,
+    getArrearsReport: query.getArrearsReport,
+    getFutureReceivables: query.getFutureReceivables,
+    getOperatingOverview: query.getOperatingOverview,
     getOperationConfirmation,
     previewCreateHouse: preview.previewCreateHouse,
     previewCreateTenant: preview.previewCreateTenant,
@@ -1190,6 +1203,7 @@ function createRentalActions(caller) {
     confirmRentCollection: rentalCommand.confirmRentCollection,
     confirmPrepayRent: rentalCommand.confirmPrepayRent,
     confirmCollectRent: rentalCommand.confirmCollectRent,
+    confirmCollectBillBatch: rentalCommand.confirmCollectBillBatch,
     confirmMeterReading: rentalCommand.confirmMeterReading,
     settleMoveOut: rentalCommand.settleMoveOut
   };

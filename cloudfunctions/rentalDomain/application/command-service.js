@@ -2,6 +2,7 @@ const { invariant } = require('../infrastructure/errors')
 const { idempotencyKey, loadPendingConfirmation, findExecutedOperation } = require('../infrastructure/idempotency')
 const { createRepository } = require('../repositories/rental-repository')
 const { number } = require('../domain/presenters')
+const { assertNoDuplicateHouse, assertNoDuplicateTenant, assertNoDuplicateLease } = require('../domain/duplicate-guard')
 const rentCoverage = require('../domain/rent-coverage')
 const {
   buildMoveOutSettlementSnapshot,
@@ -372,6 +373,9 @@ function createCommandService(app, db) {
     const input = mapParams(resolved.input)
     try {
       await assertLegacyTargetOwner(action, input, caller)
+      if (action === 'confirmCreateLease') {
+        await assertNoDuplicateLease(repo.forOwner(caller.openId), input)
+      }
       const result = await legacyCall(app, legacyName, input)
       if (resolved.confirmation) await markExecuted(params.confirmationId, result)
       return { ...result, confirmationId: params && params.confirmationId, idempotencyKey: resolved.key }
@@ -544,10 +548,89 @@ function createCommandService(app, db) {
     }
   }
 
+  async function collectBillBatch(params, caller) {
+    const billIds = [...new Set((params.billIds || []).filter(Boolean))]
+    invariant(billIds.length, 'VALIDATION_ERROR', '缺少待缴账单')
+    invariant(Number(params.amount) > 0, 'VALIDATION_ERROR', '请输入有效金额')
+    const transaction = await db.startTransaction()
+    try {
+      const bills = []
+      for (const billId of billIds) {
+        const res = await transaction.collection('bills').where({ _id: billId, _openid: caller.openId }).get()
+        const bill = res.data && res.data[0]
+        invariant(bill, 'FORBIDDEN', '不能操作其他用户的账单')
+        const remaining = number(number(bill.amount) - number(bill.paidAmount))
+        if (remaining > 0 && bill.status !== 'paid') bills.push(bill)
+      }
+      invariant(bills.length, 'CONFLICT', '所选账单已结清，请刷新后重试')
+      const totalRemaining = number(bills.reduce((sum, bill) => sum + Math.max(0, number(bill.amount) - number(bill.paidAmount)), 0))
+      const requestedAmount = number(params.amount)
+      invariant(requestedAmount <= totalRemaining, 'VALIDATION_ERROR', `缴费金额超出所选账单待收金额，最多可缴 ${totalRemaining} 元`)
+
+      // 租金必须按账期从早到晚分配，避免先缴后期却留下前期欠租。
+      bills.sort((a, b) => {
+        const left = a.type === 'rent' ? parseDateInput(a.rentCoverageStart || a.dueDate) : parseDateInput(a.dueDate)
+        const right = b.type === 'rent' ? parseDateInput(b.rentCoverageStart || b.dueDate) : parseDateInput(b.dueDate)
+        return Number(left || 0) - Number(right || 0)
+      })
+      const now = new Date()
+      const paymentDate = params.paymentDate ? parseDateInput(params.paymentDate) : now
+      let remainingToAllocate = requestedAmount
+      const payments = []
+      const updatedByLease = new Map()
+      for (const bill of bills) {
+        if (remainingToAllocate <= 0) break
+        const before = number(number(bill.amount) - number(bill.paidAmount))
+        const allocation = number(Math.min(before, remainingToAllocate))
+        if (allocation <= 0) continue
+        const paidAmount = number(number(bill.paidAmount) + allocation)
+        const status = paidAmount >= number(bill.amount) ? 'paid' : 'partial'
+        const paymentData = {
+          _openid: caller.openId, billId: bill._id, leaseId: bill.leaseId,
+          houseId: bill.houseId, tenantId: bill.tenantId, amount: allocation,
+          direction: 'in', paymentDate, paymentMethod: params.paymentMethod || 'cash',
+          remark: params.remark || '首页待收批量缴费', createdAt: now
+        }
+        const paymentRes = await transaction.collection('payments').add(paymentData)
+        await transaction.collection('bills').where({ _id: bill._id, _openid: caller.openId }).update({
+          paidAmount, status, paidAt: status === 'paid' ? now : bill.paidAt, updatedAt: now
+        })
+        const updated = { ...bill, paidAmount, status, paidAt: status === 'paid' ? now : bill.paidAt, updatedAt: now }
+        if (bill.type === 'rent' && bill.leaseId) {
+          if (!updatedByLease.has(bill.leaseId)) updatedByLease.set(bill.leaseId, [])
+          updatedByLease.get(bill.leaseId).push(updated)
+        }
+        payments.push({ ...paymentData, _id: paymentRes.id || paymentRes._id })
+        remainingToAllocate = number(remainingToAllocate - allocation)
+      }
+      for (const [leaseId, changedBills] of updatedByLease.entries()) {
+        const leaseRes = await transaction.collection('lease_agreements').where({ _id: leaseId, _openid: caller.openId }).get()
+        const lease = leaseRes.data && leaseRes.data[0]
+        if (!lease) continue
+        const rentRes = await transaction.collection('bills').where({ leaseId, type: 'rent', _openid: caller.openId }).get()
+        const changedMap = new Map(changedBills.map(item => [item._id, item]))
+        const coverage = rentCoverage.recalculateContinuousRentCoverage(lease, (rentRes.data || []).map(item => changedMap.get(item._id) || item))
+        await transaction.collection('lease_agreements').where({ _id: leaseId, _openid: caller.openId }).update({
+          rentCoveredUntil: coverage.rentCoveredUntil, nextRentDueDate: coverage.nextRentDueDate, updatedAt: now
+        })
+      }
+      await transaction.commit()
+      return {
+        billIds: payments.map(item => item.billId), paymentIds: payments.map(item => item._id),
+        paidAmount: requestedAmount, remaining: number(totalRemaining - requestedAmount),
+        settledCount: payments.length
+      }
+    } catch (err) {
+      await transaction.rollback()
+      throw err
+    }
+  }
+
   async function createHouse(params, caller) {
     invariant(params.code, 'VALIDATION_ERROR', '缺少房屋编号')
     invariant(params.address, 'VALIDATION_ERROR', '缺少房屋地址')
     invariant(Number(params.rent) > 0, 'VALIDATION_ERROR', '月租金必须大于 0')
+    await assertNoDuplicateHouse(repo.forOwner(caller.openId), params)
     const now = new Date()
     const data = {
       _openid: caller.openId,
@@ -564,6 +647,7 @@ function createCommandService(app, db) {
 
   async function createTenant(params, caller) {
     invariant(params.name, 'VALIDATION_ERROR', '缺少租客姓名')
+    await assertNoDuplicateTenant(repo.forOwner(caller.openId), params)
     // orderNo 是 tenants.orderNo_unique 的业务唯一字符串，不使用“最大值+1”。
     // 唯一索引是最后一道并发保护；极小概率冲突时重试。
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -607,6 +691,9 @@ function createCommandService(app, db) {
     confirmPrepayRent,
     confirmCollectRent(params, caller) {
       return runDirect(params, caller, 'confirmCollectRent', collectSingleBillPayment)
+    },
+    confirmCollectBillBatch(params, caller) {
+      return runDirect(params, caller, 'confirmCollectBillBatch', collectBillBatch)
     },
     confirmMeterReading(params, caller) {
       return runLegacy(params, caller, 'confirmMeterReading', 'addUtilityRecord')

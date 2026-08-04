@@ -350,6 +350,8 @@ exports.main = async (event = {}) => {
         billId: bill._id,
         amount: offsetAmount,
         direction: 'in',
+        // 押金抵扣只会结清账单，不会产生新的现金/转账收款。
+        cashImpact: false,
         paymentDate: actualEndDate,
         paymentMethod: 'deposit_offset',
         remark: '退租押金自动抵扣',

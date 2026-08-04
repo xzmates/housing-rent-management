@@ -1,5 +1,5 @@
 const cloud = require('@cloudbase/node-sdk');
-const rentCoverage = require('../rentalDomain/domain/rent-coverage');
+const rentCoverage = require('./rent-coverage');
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
 

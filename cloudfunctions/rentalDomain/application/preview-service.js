@@ -3,6 +3,7 @@ const { createConfirmation, digest } = require('../infrastructure/confirmations'
 const { billView, houseView, tenantView, leaseView, number, dateText } = require('../domain/presenters')
 const { calculateMeterPreview, calculateSettlement } = require('../domain/settlement')
 const rentCoverage = require('../domain/rent-coverage')
+const { assertNoDuplicateHouse, assertNoDuplicateTenant, assertNoDuplicateLease } = require('../domain/duplicate-guard')
 
 function dateValue(value) {
   if (!value) return ''
@@ -600,6 +601,7 @@ function createPreviewService(db, repo) {
     invariant(params.code, 'VALIDATION_ERROR', '缺少房屋编号')
     invariant(params.address, 'VALIDATION_ERROR', '缺少房屋地址')
     invariant(number(params.rent) > 0, 'VALIDATION_ERROR', '月租金必须大于 0')
+    await assertNoDuplicateHouse(repo, params)
     const snapshot = {
       house: houseView({
         code: String(params.code).trim(),
@@ -613,6 +615,7 @@ function createPreviewService(db, repo) {
 
   async function previewCreateTenant(params, caller) {
     invariant(params.name, 'VALIDATION_ERROR', '缺少租客姓名')
+    await assertNoDuplicateTenant(repo, params)
     const snapshot = {
       tenant: tenantView({
         name: String(params.name).trim(),
@@ -631,13 +634,8 @@ function createPreviewService(db, repo) {
     const [house, tenant] = await Promise.all([repo.byId('houses', params.houseId), repo.byId('tenants', params.tenantId)])
     invariant(house, 'NOT_FOUND', '房屋不存在')
     invariant(tenant, 'NOT_FOUND', '租客不存在')
-    const [houseLeases, tenantLeases] = await Promise.all([
-      repo.queryAll('lease_agreements', { houseId: params.houseId, status: 'active' }),
-      repo.queryAll('lease_agreements', { tenantId: params.tenantId, status: 'active' })
-    ])
     invariant(house.status !== 'maintenance', 'CONFLICT', '房屋维护中，无法创建合同')
-    invariant(houseLeases.length === 0, 'CONFLICT', '该房屋已有生效合同')
-    invariant(tenantLeases.length === 0, 'CONFLICT', '该租客已有生效合同')
+    await assertNoDuplicateLease(repo, params)
     const snapshot = {
       lease: leaseView({
         houseId: params.houseId,

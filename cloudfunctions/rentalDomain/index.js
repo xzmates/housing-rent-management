@@ -41,8 +41,10 @@ function createActions(caller) {
   }
   return {
     searchHouses: query.searchHouses,
+    resolveHouse: query.resolveHouse,
     getHouseDetail: query.getHouseDetail,
     searchTenants: query.searchTenants,
+    resolveTenant: query.resolveTenant,
     getTenantDetail: query.getTenantDetail,
     getActiveLeases: query.getActiveLeases,
     getUnpaidBills: query.getUnpaidBills,
@@ -54,6 +56,11 @@ function createActions(caller) {
     getFinancialReport: query.getFinancialReport,
     getLeaseActivity: query.getLeaseActivity,
     getSettlementReport: query.getSettlementReport,
+    getLeaseReport: query.getLeaseReport,
+    getArrearsReport: query.getArrearsReport,
+    getFutureReceivables: query.getFutureReceivables,
+    getOperatingOverview: query.getOperatingOverview,
+    getSubjectProfile: query.getSubjectProfile,
     auditLeaseRentCoverage: query.auditLeaseRentCoverage,
     getOperationConfirmation,
     previewCreateHouse: preview.previewCreateHouse,
@@ -72,6 +79,7 @@ function createActions(caller) {
     confirmRentCollection: command.confirmRentCollection,
     confirmPrepayRent: command.confirmPrepayRent,
     confirmCollectRent: command.confirmCollectRent,
+    confirmCollectBillBatch: command.confirmCollectBillBatch,
     confirmMeterReading: command.confirmMeterReading,
     settleMoveOut: command.settleMoveOut
   }
@@ -80,7 +88,7 @@ const auditableActions = new Set([
   'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease', 'previewPrepayRent', 'previewRentCollection',
   'previewCollectRent', 'previewMeterReading', 'previewMoveOutSettlement',
   'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease', 'confirmPrepayRent', 'confirmRentCollection',
-  'confirmCollectRent', 'confirmMeterReading', 'settleMoveOut'
+  'confirmCollectRent', 'confirmCollectBillBatch', 'confirmMeterReading', 'settleMoveOut'
 ])
 
 exports.main = async (event = {}, context = {}) => {

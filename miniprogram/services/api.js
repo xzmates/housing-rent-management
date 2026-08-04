@@ -66,6 +66,11 @@ async function payBill(billId, amount, paymentDate, paymentMethod) {
   return callRentalDomain('confirmCollectRent', { billId, amount, paymentDate, paymentMethod });
 }
 
+/** 对首页同一待收分组内的多笔账单一次确认缴费，云端事务按账期顺序分配金额。 */
+async function payBillBatch(billIds, amount, paymentDate, paymentMethod) {
+  return callRentalDomain('confirmCollectBillBatch', { billIds, amount, paymentDate, paymentMethod });
+}
+
 /** 退租结算 */
 async function terminateLease(paramsOrLeaseId, endDate, damageDeduction) {
   if (typeof paramsOrLeaseId === 'object') {
@@ -498,6 +503,7 @@ module.exports = {
   createLease,
   addMeterReading,
   payBill,
+  payBillBatch,
   terminateLease,
   deleteLease,
   generateMonthlyBills,

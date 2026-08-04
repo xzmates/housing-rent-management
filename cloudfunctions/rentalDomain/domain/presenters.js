@@ -1,3 +1,5 @@
+const { businessDateKey } = require('./business-date')
+
 function number(value) {
   const result = Number(value || 0)
   return Number.isFinite(result) ? Math.round(result * 100) / 100 : 0
@@ -6,9 +8,7 @@ function number(value) {
 function dateText(value) {
   if (!value) return ''
   const raw = value.$date || value
-  const date = new Date(raw)
-  if (Number.isNaN(date.getTime())) return String(raw)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return businessDateKey(raw) || String(raw)
 }
 
 function houseView(house = {}) {
@@ -28,12 +28,15 @@ function tenantView(tenant = {}) {
     id: tenant._id || '',
     name: tenant.name || '',
     phone: tenant.phone || '',
+    idCard: tenant.idCard || '',
     status: tenant.status || 'inactive',
     statusText: tenant.status === 'active' ? '在租' : '未在租'
   }
 }
 
 function leaseView(lease = {}, house = {}, tenant = {}) {
+  const actualMoveOutDate = dateText(lease.actualMoveOutDate)
+  const terminationRecordedAt = dateText(lease.endedAt || lease.terminatedAt)
   return {
     id: lease._id || '',
     house: houseView(house),
@@ -45,6 +48,10 @@ function leaseView(lease = {}, house = {}, tenant = {}) {
     endDate: dateText(lease.endDate),
     rentCoveredUntil: dateText(lease.rentCoveredUntil),
     nextRentDueDate: dateText(lease.nextRentDueDate),
+    // endDate 仅为合同结束日；没有 actualMoveOutDate 时不能推断实际搬离日期。
+    actualMoveOutDate,
+    actualMoveOutEvidence: lease.status === 'terminated' ? (actualMoveOutDate ? 'direct' : 'insufficient') : 'not_applicable',
+    terminationRecordedAt,
     status: lease.status || '',
     statusText: lease.status === 'active' ? '生效中' : lease.status === 'terminated' ? '已退租' : lease.status || '未知'
   }
@@ -62,6 +69,8 @@ function billView(bill = {}, lease = {}, house = {}, tenant = {}) {
   return {
     id: bill._id || '',
     leaseId: bill.leaseId || '',
+    houseId: lease.houseId || bill.houseId || '',
+    tenantId: lease.tenantId || bill.tenantId || '',
     houseLabel: houseView(house).label,
     tenantName: tenant.name || '',
     type: bill.type || '',
@@ -72,7 +81,10 @@ function billView(bill = {}, lease = {}, house = {}, tenant = {}) {
     status,
     statusText: status === 'paid' ? '已缴' : status === 'partial' ? '部分缴' : '待缴',
     period: bill.period || '',
-    dueDate: dateText(bill.dueDate)
+    dueDate: dateText(bill.dueDate),
+    rentCoverageStart: dateText(bill.rentCoverageStart),
+    rentCoverageEnd: dateText(bill.rentCoverageEnd),
+    meterReadingDate: dateText(bill.meterReadingDate || bill.readingDate)
   }
 }
 
