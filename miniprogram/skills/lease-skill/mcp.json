@@ -285,7 +285,7 @@
     },
     {
       "name": "getFinancialReport",
-      "description": "查询指定时间范围内的实际收款、实际退款及构成。实际收款只统计 direction=in、cashImpact 不为 false 且 paymentMethod 不是 deposit_offset 的真实入账；押金单列为保证金。退款后净进账只是资金变化，不是利润。extra_due 和 damage 统一称为退租补缴；无可识别账单类型的流水只能列为其他，不能猜测用途。",
+      "description": "查询指定时间范围内的实际收款、实际退款及构成。实际收款只统计 direction=in、cashImpact 不为 false 且 paymentMethod 不是 deposit_offset 的真实入账；押金单列为保证金。extra_due 和 damage 统一称为退租补缴；无可识别账单类型的流水只能列为其他，不能猜测用途。",
       "_meta": { "ui": { "componentPath": "components/lease-result/index" } },
       "inputSchema": { "type": "object", "properties": { "startDate": { "type": "string" }, "endDate": { "type": "string" }, "houseId": { "type": "string" }, "tenantId": { "type": "string" } }, "additionalProperties": false },
       "outputSchema": { "type": "object", "additionalProperties": true }

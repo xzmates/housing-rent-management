@@ -45,17 +45,19 @@ describe('只读查询服务', () => {
     await expect(query.getFinancialReport({ startDate: '2026-06-01', endDate: '2026-05-01' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
   })
 
-  it('AI 财务查询使用实际收款、实际退款和净进账口径，不展示经营性净收入', async () => {
+  it('AI 财务查询只展示实际收款和实际退款，不展示资金净进账', async () => {
     await createQuery()
     const result = await leaseSkill.getFinancialReport({ startDate: '2026-05-01', endDate: '2026-05-01' })
     expect(result.isError, result.content[0].text).toBe(false)
     expect(result.structuredContent.title).toBe('收款与退款汇总')
     expect(result.structuredContent.fields).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: '实际收款', value: '¥1000' }),
-      expect.objectContaining({ label: '实际退款', value: '¥0' }),
-      expect.objectContaining({ label: '退款后净进账', value: '¥1000' })
+      expect.objectContaining({ label: '实际退款', value: '¥0' })
     ]))
     expect(result.content[0].text).toContain('不能等同利润')
+    expect(result.structuredContent.fields).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: '退款后净进账' })
+    ]))
     expect(result.content[0].text).not.toContain('经营性净收入')
   })
 
@@ -182,6 +184,30 @@ describe('只读查询服务', () => {
     const result = await query.getSettlementReport({})
     const settlement = result.settlements.find(item => item.leaseId === lease._id)
     expect(settlement).toMatchObject({ damageAmount: 300, damageReceived: 0, damageEvidence: 'insufficient' })
+  })
+
+  it('历史房损可由押金实收、抵扣和退款完整对平时，标记为可复核的押金扣除', async () => {
+    const { query, house, tenant } = await createQuery()
+    const db = wx.cloud.database()
+    const lease = await db.collection('lease_agreements').add({
+      data: { houseId: house._id, tenantId: tenant._id, status: 'terminated', deposit: 1000, damageAmount: 100, depositOffsetAmount: 680, totalRefund: 220 }
+    })
+    const depositBill = await db.collection('bills').add({ data: { leaseId: lease._id, type: 'deposit', amount: 1000, paidAmount: 1000, status: 'paid' } })
+    const refundBill = await db.collection('bills').add({ data: { leaseId: lease._id, type: 'deposit_return', amount: 220, paidAmount: 220, status: 'paid' } })
+    const rentRefundBill = await db.collection('bills').add({ data: { leaseId: lease._id, type: 'rent_refund', amount: 2700, paidAmount: 2700, status: 'paid' } })
+    await db.collection('payments').add({ data: { leaseId: lease._id, billId: depositBill._id, amount: 1000, direction: 'in' } })
+    await db.collection('payments').add({ data: { leaseId: lease._id, billId: refundBill._id, amount: 220, direction: 'out' } })
+    await db.collection('payments').add({ data: { leaseId: lease._id, billId: rentRefundBill._id, amount: 2700, direction: 'out' } })
+
+    const result = await query.getSettlementReport({})
+    const settlement = result.settlements.find(item => item.leaseId === lease._id)
+    expect(settlement).toMatchObject({
+      damageAmount: 100,
+      damageReceived: 0,
+      damageDepositDeducted: 100,
+      damageEvidence: 'derived',
+      damageUnconfirmedAmount: 0
+    })
   })
 
   it('对象档案与缴费历史将内部抵扣同实际收款分开', async () => {

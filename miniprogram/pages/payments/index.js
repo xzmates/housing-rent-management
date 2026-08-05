@@ -67,10 +67,9 @@ function calculateManagedDeposit(leases = [], bills = [], payments = [], houseId
   ));
   const received = money(incoming.reduce((sum, item) => sum + Number(item.amount || 0), 0));
   const reduced = money(reductions.reduce((sum, item) => sum + Number(item.amount || 0), 0));
-  const agreed = money(activeLeases.reduce((sum, item) => sum + Number(item.deposit || 0), 0));
   return {
-    managedDeposit: depositBillIds.size && received >= agreed ? money(Math.max(0, received - reduced)) : agreed,
-    managedDepositEvidence: depositBillIds.size && received >= agreed ? 'direct' : (agreed ? 'insufficient' : 'not_applicable')
+    managedDeposit: money(Math.max(0, received - reduced)),
+    managedDepositEvidence: received > 0 ? 'direct' : 'not_applicable'
   };
 }
 
@@ -145,15 +144,18 @@ Page({
     showPayModal: false, showDetailModal: false,
     showFinancialDetail: false,
     detailBill: null,
-    bills: [], allBills: [], allPayments: [],
+    bills: [], visibleBills: [], allBills: [], allPayments: [],
     allHouses: [], allLeases: [],
     filters: { status: '', type: '', dateStart: '', dateEnd: '' },
     houseFilterId: '',
     houseFilterLabel: '全部房屋',
     houseOptions: ['全部房屋'],
+    displayLimitOptions: [10, 20, 50],
+    displayLimit: 10,
+    displayLimitIndex: 0,
     stats: {
       cashReceived: 0, rentReceived: 0, utilityReceived: 0, depositReceived: 0, settlementReceived: 0, otherReceived: 0,
-      cashRefunded: 0, depositRefund: 0, rentRefund: 0, otherRefund: 0, netCashChange: 0,
+      cashRefunded: 0, depositRefund: 0, rentRefund: 0, otherRefund: 0,
       currentReceivableAmount: 0, currentReceivableCount: 0, overdueAmount: 0, overdueCount: 0, upcomingAmount: 0, undatedOutstandingAmount: 0,
       operatingReceived: 0, rentSettled: 0, utilitySettled: 0, damageSettled: 0, operatingSettlementTotal: 0,
       damageDepositDeducted: 0, depositOffsetRent: 0, depositOffsetUtility: 0, depositOffsetOther: 0,
@@ -222,7 +224,7 @@ Page({
 
       const leaseIds = leases.map(l => l._id);
       if (leaseIds.length === 0) {
-        this.setData({ bills: [], loading: false });
+        this.setData({ bills: [], visibleBills: [], loading: false });
         await this.loadFinancialSummary();
         return;
       }
@@ -313,7 +315,7 @@ Page({
         return (a.dueDate || '').localeCompare(b.dueDate || '');
       });
 
-      this.setData({ bills, allBills });
+      this.setData({ bills, visibleBills: bills.slice(0, this.data.displayLimit), allBills });
       await this.loadFinancialSummary();
     } catch (e) {
       console.error('加载账单失败', e);
@@ -419,6 +421,16 @@ Page({
 
   clearDateRange() {
     this.setData({ filters: { ...this.data.filters, dateStart: '', dateEnd: '' } }, () => this.loadBills());
+  },
+
+  onDisplayLimitChange(e) {
+    const displayLimitIndex = Number(e.detail.value);
+    const displayLimit = this.data.displayLimitOptions[displayLimitIndex] || 10;
+    this.setData({
+      displayLimit,
+      displayLimitIndex,
+      visibleBills: (this.data.bills || []).slice(0, displayLimit)
+    });
   },
 
   toggleFinancialDetail() {

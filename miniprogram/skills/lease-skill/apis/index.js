@@ -71,7 +71,6 @@ async function getFinancialReport(params = {}) {
       { label: '退还押金', value: `¥${data.depositRefund || 0}` },
       { label: '退还多收租金', value: `¥${data.rentRefund || 0}` },
       { label: '其他退款', value: `¥${data.otherRefund || 0}` },
-      { label: '退款后净进账', value: `¥${data.netCashChange || 0}` },
       { label: `当前待收（截至 ${data.receivableAsOf || '今天'}）`, value: `¥${data.currentReceivableAmount || data.unpaidAmount || 0}` },
       { label: '其中逾期欠费', value: `¥${data.overdueAmount || 0}` }
     ]
@@ -79,7 +78,7 @@ async function getFinancialReport(params = {}) {
     if (data.unclassifiedIncomingCount) limitations.push(`有 ${data.unclassifiedIncomingCount} 笔实际收款未关联可识别账单类型，已列入其他收款。`)
     if (data.unclassifiedRefundCount) limitations.push(`有 ${data.unclassifiedRefundCount} 笔实际退款未关联可识别账单类型，已列入其他退款。`)
     if (data.undatedOutstandingAmount) limitations.push(`有 ¥${data.undatedOutstandingAmount} 未结清账单未记录到期日，已计入当前待收，但无法判断是否逾期。`)
-    return successResult('已按真实付款流水汇总实际收款和实际退款。押金单列为保证金；退款后净进账是资金变化，未扣维修、税费等支出，不能等同利润。', {
+    return successResult('已按真实付款流水汇总实际收款和实际退款，押金单列为保证金。上述金额未扣维修、税费等支出，不能等同利润。', {
       title: '收款与退款汇总',
       subtitle: `${data.startDate || '全部时间'} 至 ${data.endDate || '今天'}`,
       fields,
@@ -175,10 +174,15 @@ async function getSettlementReport(params = {}) {
     const settlementFields = settlements.flatMap(item => {
       const fields = [{ label: `退租结算 · ${item.tenantName || '未标注租客'}`, value: `${item.houseLabel || '未标注房屋'}，现金结算 ¥${item.cashSettlementAmount || 0}` }]
       if (Number(item.damageAmount || 0) !== 0) {
+        const damageDepositText = Number(item.damageDepositDeducted || 0) > 0
+          ? `；从押金扣除 ¥${item.damageDepositDeducted}（非现金）`
+          : ''
         const actualText = item.damageEvidence === 'direct'
-          ? `实际到账 ¥${item.damageReceived || 0}`
+          ? `已证实结算：现金到账 ¥${item.damageReceived || 0}${damageDepositText}`
+          : item.damageEvidence === 'derived'
+            ? `已由押金收款、抵扣和退款流水复核${damageDepositText}`
           : item.damageEvidence === 'partial'
-            ? `已证实到账 ¥${item.damageReceived || 0}，其余 ¥${item.damageUnconfirmedAmount || 0} 当前无法确认`
+            ? `已证实结算 ¥${(item.damageReceived || 0) + (item.damageDepositDeducted || 0)}，其余 ¥${item.damageUnconfirmedAmount || 0} 当前无法确认`
             : '当前无付款流水，无法确认实际到账'
         fields.push({ label: `房损结算 · ${item.tenantName || '未标注租客'}`, value: `结算金额 ¥${item.damageAmount}；${actualText}` })
       }
@@ -524,7 +528,7 @@ async function getOperatingOverview() {
     ])
     const byTenant = groupArrearsByTenant(arrears.bills || [])
     const byTenantText = byTenant.map(t => `${t.tenantName} ¥${t.totalRemaining}`).join('；')
-    return successResult('已汇总当前经营概况。本月实际收款包含押金；退款后净进账是资金变化，不代表利润。', {
+    return successResult('已汇总当前经营概况。本月实际收款包含押金，且未扣维修、税费等支出，不能等同利润。', {
       title: '经营概况',
       fields: [
         { label: '房屋总数', value: String(data.houseCount) },
@@ -536,7 +540,6 @@ async function getOperatingOverview() {
         { label: `未来${data.futureRentReminderDays || 15}天即将收租（预计）`, value: `¥${data.futureRentReminderAmount || 0}` },
         { label: '本月实际收款', value: `¥${data.monthCashReceived || 0}` },
         { label: '本月实际退款', value: `¥${data.monthCashRefunded || 0}` },
-        { label: '本月退款后净进账', value: `¥${data.monthNetCashChange || 0}` },
         { label: '本月收取押金', value: `¥${data.monthDepositReceived || 0}` }
       ],
       byTenant,

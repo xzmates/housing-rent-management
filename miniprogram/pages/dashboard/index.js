@@ -39,7 +39,7 @@ Page({
   data: {
     loading: true,
     stats: {
-      houses: 0, activeLeases: 0, cashReceived: 0, netCashChange: 0,
+      houses: 0, activeLeases: 0, cashReceived: 0,
       tenants: 0, activeTenants: 0,
       currentReceivableAmount: 0, overdueAmount: 0, futureRentReminderAmount: 0, managedDeposit: 0,
       rentReceived: 0, utilityReceived: 0, depositReceived: 0,
@@ -79,7 +79,6 @@ Page({
           tenants: data.tenantCount || 0,
           activeTenants: data.activeTenantCount || 0,
           cashReceived: data.monthCashReceived || 0,
-          netCashChange: data.monthNetCashChange || 0,
           currentReceivableAmount: data.currentReceivableAmount || data.unpaidAmount || 0,
           overdueAmount: data.overdueAmount || data.currentArrearsAmount || 0,
           futureRentReminderAmount: data.futureRentReminderAmount || 0,

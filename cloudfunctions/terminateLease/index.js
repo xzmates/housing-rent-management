@@ -334,6 +334,37 @@ exports.main = async (event = {}) => {
       ? Number(inputDamageAmount)
       : (refundDepositValue !== undefined ? deposit - Number(refundDepositValue) : Number(damageDeduction || 0));
     const actualRefundDeposit = deposit - damageAmount;
+    // 房损从押金中扣除不是新的现金收入，但必须留下可追溯的独立凭证。
+    // 否则查询侧只能看到合同上的房损金额，无法区分它与租金/水电的押金抵扣。
+    const damageDepositDeducted = Math.round(Math.min(Math.max(deposit, 0), Math.max(damageAmount, 0)) * 100) / 100;
+    let damageDepositBillId = null;
+    if (damageDepositDeducted > 0) {
+      const damageBillRes = await transaction.collection('bills').add({
+        ...relation,
+        type: 'damage',
+        period: formatDate(actualEndDate),
+        amount: damageDepositDeducted,
+        paidAmount: damageDepositDeducted,
+        status: 'paid',
+        dueDate: actualEndDate,
+        paidAt: now,
+        remark: `退租房损：从押金扣除${damageDepositDeducted}元`,
+        createdAt: now,
+        updatedAt: now
+      });
+      damageDepositBillId = damageBillRes.id || damageBillRes._id;
+      await transaction.collection('payments').add({
+        ...relation,
+        billId: damageDepositBillId,
+        amount: damageDepositDeducted,
+        direction: 'in',
+        cashImpact: false,
+        paymentDate: actualEndDate,
+        paymentMethod: 'deposit_damage',
+        remark: '退租房损从押金扣除',
+        createdAt: now
+      });
+    }
     const originalUnsettledAmount = Math.round(settlementBills.reduce((sum, bill) => sum + billRemaining(bill), 0) * 100) / 100;
     let depositBalance = Math.max(0, actualRefundDeposit);
     let depositOffsetAmount = 0;
@@ -409,6 +440,7 @@ exports.main = async (event = {}) => {
       endedAt: now,
       refundDepositValue: actualRefundDeposit,
       damageAmount,
+      damageDepositDeducted,
       depositOffsetAmount,
       extraPayment,
       cashSettlementAmount,
@@ -495,6 +527,8 @@ exports.main = async (event = {}) => {
         deposit,
         refundDepositValue: actualRefundDeposit,
         damageAmount,
+        damageDepositDeducted,
+        damageDepositBillId,
         originalUnsettledAmount,
         depositOffsetAmount,
         remainingDueAfterDeposit,

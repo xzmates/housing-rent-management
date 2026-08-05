@@ -31,6 +31,8 @@ describe('缴费记录收付款汇总', () => {
 
   it('收付款汇总由 rentalDomain 返回，页面只补充在管押金', async () => {
     const ctx = createContext({ dateStart: '2026-07-01', dateEnd: '2026-07-31' })
+    ctx.data.allBills = [{ _id: 'deposit-bill', leaseId: 'l1', type: 'deposit' }]
+    ctx.data.allPayments = [{ billId: 'deposit-bill', leaseId: 'l1', direction: 'in', amount: 1000 }]
     const original = api.callRentalDomain
     const calls = []
     api.callRentalDomain = async (action, params) => {
@@ -46,7 +48,6 @@ describe('缴费记录收付款汇总', () => {
         depositRefund: 100,
         rentRefund: 20,
         otherRefund: 0,
-        netCashChange: 2180,
         overdueAmount: 600,
         upcomingAmount: 1000,
         undatedOutstandingAmount: 0
@@ -55,7 +56,7 @@ describe('缴费记录收付款汇总', () => {
     try {
       await ctx.loadFinancialSummary()
       expect(calls).toEqual([{ action: 'getFinancialReport', params: { startDate: '2026-07-01', endDate: '2026-07-31' } }])
-      expect(ctx.data.stats).toMatchObject({ cashReceived: 2300, cashRefunded: 120, netCashChange: 2180, managedDeposit: 1000 })
+      expect(ctx.data.stats).toMatchObject({ cashReceived: 2300, cashRefunded: 120, managedDeposit: 1000 })
     } finally {
       api.callRentalDomain = original
     }
@@ -64,6 +65,8 @@ describe('缴费记录收付款汇总', () => {
   it('房屋筛选仅作为云端汇总的主体条件', async () => {
     const ctx = createContext()
     ctx.data.houseFilterId = 'h1'
+    ctx.data.allBills = [{ _id: 'deposit-bill', leaseId: 'l1', type: 'deposit' }]
+    ctx.data.allPayments = [{ billId: 'deposit-bill', leaseId: 'l1', direction: 'in', amount: 1000 }]
     const original = api.callRentalDomain
     let params = null
     api.callRentalDomain = async (_, input) => {
@@ -88,6 +91,18 @@ describe('缴费记录收付款汇总', () => {
       { _id: 'future', dueDate: '2026-08-01' }
     ]
     expect(ctx.filterBillsByDateRange(rows).map(item => item._id)).toEqual(['rent', 'utility'])
+  })
+
+  it('账单明细默认显示10条，并可切换为20条或50条', () => {
+    const ctx = createContext()
+    ctx.data.bills = Array.from({ length: 27 }, (_, index) => ({ _id: `b${index}` }))
+    ctx.onDisplayLimitChange.call(ctx, { detail: { value: '1' } })
+    expect(ctx.data).toMatchObject({ displayLimit: 20, displayLimitIndex: 1 })
+    expect(ctx.data.visibleBills).toHaveLength(20)
+
+    ctx.onDisplayLimitChange.call(ctx, { detail: { value: '2' } })
+    expect(ctx.data).toMatchObject({ displayLimit: 50, displayLimitIndex: 2 })
+    expect(ctx.data.visibleBills).toHaveLength(27)
   })
 
   it('押金抵扣按其关联账单类型拆分，不会把水电写成租金', async () => {

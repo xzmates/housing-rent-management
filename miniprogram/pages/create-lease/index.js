@@ -39,6 +39,8 @@ Page({
     // 预填参数
     presetTenantId: '',
     presetHouseId: '',
+    // 外部流程明确提供的押金；未提供时随房屋月租自动带入
+    presetDeposit: null,
     confirmationId: ''
   },
 
@@ -49,14 +51,17 @@ Page({
     const handoff = app && app.takeAgentHandoff && pageId ? app.takeAgentHandoff(pageId) : null;
     const payload = handoff && handoff.payload;
     const input = payload && payload.type === 'createLease' ? (payload.input || {}) : {};
+    const inputDeposit = Number(input.deposit);
+    const hasPresetDeposit = Number.isFinite(inputDeposit) && inputDeposit > 0;
     this.setData({
       'form.startDate': today,
       presetTenantId: input.tenantId || options.tenantId || '',
       presetHouseId: input.houseId || options.houseId || '',
       confirmationId: payload && payload.confirmationId || '',
+      presetDeposit: hasPresetDeposit ? inputDeposit : null,
       'form.startDate': input.startDate || today,
       'form.rent': input.rent || 0,
-      'form.deposit': input.deposit || 0,
+      'form.deposit': hasPresetDeposit ? inputDeposit : 0,
       'form.paymentCycle': input.paymentCycle || 'month',
       'form.moveInElectricity': Number(input.moveInElectricity || 0),
       'form.moveInWater': Number(input.moveInWater || 0),
@@ -110,6 +115,7 @@ Page({
           updates['form.houseId'] = this.data.presetHouseId;
           updates['form.houseIndex'] = idx;
           updates['form.rent'] = houses[idx].rent;
+          updates['form.deposit'] = this.data.presetDeposit || houses[idx].rent;
         }
       }
 
@@ -144,6 +150,7 @@ Page({
     };
     if (house) {
       updates['form.rent'] = house.rent;
+      updates['form.deposit'] = house.rent;
     }
     this.setData(updates, () => {
       if (house) this.loadHouseMeterBaseline(house._id);

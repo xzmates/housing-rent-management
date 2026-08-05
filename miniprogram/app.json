@@ -67,7 +67,7 @@
     "skills": [
       { "name": "house", "description": "房屋管理：查询房屋、按用户原始房号安全查看单套房详情或完整财务档案，以及新增房屋。用户点名房屋时必须保留房号/楼栋，不得猜测或复用房屋 ID。", "path": "skills/house-skill" },
       { "name": "tenant", "description": "租客管理：查询指定租客的资料、当前住处、先后住过哪些房和全部历史合同，以及新增租客。用户点名租客姓名或手机号、询问住哪里或住过哪些房时，优先使用此 Skill。", "path": "skills/tenant-skill" },
-      { "name": "lease", "description": "租赁合同与经营查询：查询未指定租客的合同清单、到期合同、入住/退租名单，以及实际收款、实际退款、退款后净进账、房租/水电/押金/退租补缴分类、当前待收、逾期欠费、未来15天即将收租提醒和经营概览。凡询问“收了多少钱、退了多少钱、收入/退款/欠费/经营情况”必须使用本 Skill 的只读查询；已点名租客时住处与档案优先使用租客管理。", "path": "skills/lease-skill" },
+      { "name": "lease", "description": "租赁合同与经营查询：查询未指定租客的合同清单、到期合同、入住/退租名单，以及实际收款、实际退款、房租/水电/押金/退租补缴分类、当前待收、逾期欠费、未来15天即将收租提醒和经营概览。凡询问“收了多少钱、退了多少钱、收入/退款/欠费/经营情况”必须使用本 Skill 的只读查询；已点名租客时住处与档案优先使用租客管理。", "path": "skills/lease-skill" },
       { "name": "rent-collection", "description": "收租：查询待收租金、预览收租、确认收款和查看记录。", "path": "skills/rent-collection-skill" },
       { "name": "meter-reading", "description": "水电抄表：查询对象、预览费用并确认抄表。", "path": "skills/meter-reading-skill" },
       { "name": "move-out", "description": "退租办理：查找合同、预览结算并确认退租。", "path": "skills/move-out-skill" }

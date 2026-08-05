@@ -318,21 +318,51 @@ function createQueryService(repo, command) {
       const leaseBills = billsByLease[lease._id] || []
       const leasePayments = paymentsByLease[lease._id] || []
       const damageBillIds = new Set(leaseBills.filter(item => ['extra_due', 'damage'].includes(item.type)).map(item => item._id))
+      const depositBillIds = new Set(leaseBills.filter(item => item.type === 'deposit').map(item => item._id))
       const refundBillIds = new Set(leaseBills.filter(item => ['deposit_return', 'rent_refund'].includes(item.type)).map(item => item._id))
       const damageReceived = leasePayments
         .filter(item => isCashIncoming(item) && (damageBillIds.has(item.billId) || ['extra_due', 'damage'].includes(item.type)))
         .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+      const recordedDamageDepositDeducted = leasePayments
+        .filter(item => !isCashIncoming(item) && damageBillIds.has(item.billId) && item.paymentMethod === 'deposit_damage')
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0)
       const refundPaidAmount = leasePayments
         .filter(item => item.direction === 'out' && (refundBillIds.has(item.billId) || ['deposit_return', 'rent_refund'].includes(item.type)))
         .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+      const depositRefundPaidAmount = leasePayments
+        .filter(item => item.direction === 'out' && (leaseBills.find(bill => bill._id === item.billId)?.type === 'deposit_return' || item.type === 'deposit_return'))
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0)
       const damageAmount = Number(lease.damageAmount || 0)
+      const deposit = Number(lease.deposit || 0)
+      const depositReceivedAmount = leasePayments
+        .filter(item => isCashIncoming(item) && depositBillIds.has(item.billId))
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+      const depositOffsetAmount = Number(lease.depositOffsetAmount || 0)
+      // 旧合同没有“房损押金扣除”流水时，只在押金收款、其他抵扣与实际退款可完整
+      // 对平房损金额时，才作为推导证据；不能把合同字段本身当作付款证据。
+      const canDeriveDamageDepositDeduction = recordedDamageDepositDeducted <= 0
+        && damageAmount > 0
+        && damageAmount <= deposit
+        && depositReceivedAmount >= deposit
+        && Math.abs((deposit - depositOffsetAmount - depositRefundPaidAmount) - damageAmount) < 0.01
+      const damageDepositDeducted = recordedDamageDepositDeducted > 0
+        ? recordedDamageDepositDeducted
+        : canDeriveDamageDepositDeduction
+          ? damageAmount
+          : 0
+      const damageEvidenceSource = recordedDamageDepositDeducted > 0
+        ? 'direct'
+        : canDeriveDamageDepositDeduction
+          ? 'derived'
+          : ''
+      const damageSettledAmount = damageReceived + damageDepositDeducted
       const refundSettlementAmount = Number(lease.totalRefund || 0)
       const damageEvidence = damageAmount <= 0
         ? 'not_applicable'
-        : damageReceived >= damageAmount
-          ? 'direct'
-          : damageReceived > 0
-          ? 'partial'
+        : damageSettledAmount >= damageAmount
+          ? (damageEvidenceSource === 'derived' ? 'derived' : 'direct')
+          : damageSettledAmount > 0
+            ? 'partial'
             : 'insufficient'
       const refundEvidence = refundSettlementAmount <= 0 && refundPaidAmount <= 0
         ? 'not_applicable'
@@ -346,12 +376,13 @@ function createQueryService(repo, command) {
         houseLabel: houseView(houseMap[lease.houseId] || {}).label,
         tenantName: tenantMap[lease.tenantId]?.name || '',
         endedAt: businessDateKey(lease.endedAt || lease.terminatedAt || lease.actualMoveOutDate),
-        deposit: Number(lease.deposit || 0),
+        deposit,
         damageAmount,
         damageReceived,
+        damageDepositDeducted,
         damageEvidence,
-        damageUnconfirmedAmount: Math.max(0, damageAmount - damageReceived),
-        depositOffsetAmount: Number(lease.depositOffsetAmount || 0),
+        damageUnconfirmedAmount: Math.max(0, damageAmount - damageSettledAmount),
+        depositOffsetAmount,
         cashSettlementAmount: Number(lease.cashSettlementAmount || 0),
         totalRefund: refundSettlementAmount,
         refundPaidAmount,
