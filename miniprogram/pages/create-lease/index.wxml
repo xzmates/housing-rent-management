@@ -1,6 +1,7 @@
 <view class="page-container">
   <view style="margin-bottom:20rpx;">
-    <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">创建租赁合同</text>
+    <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);">{{mode === 'history' ? '历史合同建档' : '创建租赁合同'}}</text>
+    <text wx:if="{{mode === 'history'}}" style="font-size:23rpx;color:var(--gray-500);display:block;margin-top:8rpx;line-height:1.6;">OCR 结果仅供预填，请按纸质合同逐项核对。</text>
   </view>
 
   <view wx:if="{{loading}}" class="loading">
@@ -8,30 +9,124 @@
   </view>
 
   <view wx:else>
-    <view class="form-group">
+    <view wx:if="{{mode === 'history' && history.uncertainLabels.length}}" style="background:#FFF7ED;border-left:6rpx solid #D97706;border-radius:10rpx;padding:18rpx 20rpx;margin-bottom:20rpx;">
+      <text style="font-size:24rpx;font-weight:600;color:#9A3412;display:block;">以下内容识别不确定</text>
+      <text style="font-size:23rpx;color:#9A3412;display:block;margin-top:6rpx;">{{history.uncertainText}}</text>
+    </view>
+
+    <view wx:if="{{mode === 'history' && history.ocrText}}" class="card" style="border-left-color:var(--gray-400);">
+      <view class="flex-row justify-between align-center" bindtap="toggleOcrText">
+        <text class="form-label" style="margin-bottom:0;">OCR 识别原文</text>
+        <text style="font-size:23rpx;color:var(--primary);">{{history.ocrExpanded ? '收起' : '查看'}}</text>
+      </view>
+      <text wx:if="{{history.ocrExpanded}}" selectable="true" style="font-size:22rpx;color:var(--gray-700);display:block;white-space:pre-wrap;line-height:1.65;margin-top:16rpx;padding-top:16rpx;border-top:1rpx solid var(--gray-200);">{{history.ocrText}}</text>
+      <text wx:else style="font-size:22rpx;color:var(--gray-500);display:block;margin-top:8rpx;">仅用于本次人工核对，不写入业务数据库。</text>
+    </view>
+
+    <view wx:if="{{mode === 'history' && history.houseOriginalText}}" class="card" style="border-left-color:#D97706;">
+      <text class="form-label">合同中的房屋原文</text>
+      <text style="font-size:25rpx;color:var(--gray-800);display:block;line-height:1.6;">{{history.houseOriginalText}}</text>
+      <text style="font-size:22rpx;color:var(--gray-500);display:block;margin-top:8rpx;">原文不会保存为房屋别名，请在下方人工绑定。</text>
+    </view>
+
+    <view wx:if="{{mode === 'history'}}" class="form-group">
+      <text class="form-label">租客处理方式</text>
+      <view class="flex-row" style="gap:14rpx;">
+        <button class="btn {{history.tenantMode === 'existing' ? 'btn-primary' : ''}}" style="flex:1;" data-mode="existing" bindtap="chooseTenantMode">选择现有租客</button>
+        <button class="btn {{history.tenantMode === 'create' ? 'btn-primary' : ''}}" style="flex:1;" data-mode="create" bindtap="chooseTenantMode">创建新租客</button>
+      </view>
+    </view>
+
+    <view class="form-group" wx:if="{{mode !== 'history' || history.tenantMode === 'existing'}}">
       <text class="form-label">租客</text>
       <picker mode="selector" range="{{tenantLabels}}" value="{{form.tenantIndex}}" bindchange="onTenantChange">
         <view class="form-picker">{{tenantLabels[form.tenantIndex] || '请选择租客'}}</view>
       </picker>
     </view>
 
-    <view class="form-group">
+    <view wx:if="{{mode === 'history' && history.tenantMode === 'create'}}" class="card" style="border-left-color:var(--primary);">
+      <view class="form-group">
+        <text class="form-label">租客姓名</text>
+        <input class="form-input" value="{{history.newTenantName}}" data-field="newTenantName" bindinput="onHistoryInput" placeholder="姓名" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">身份证号</text>
+        <input class="form-input" value="{{history.newTenantIdCard}}" data-field="newTenantIdCard" bindinput="onHistoryInput" placeholder="未识别可留空" maxlength="18" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">手机号</text>
+        <input class="form-input" value="{{history.newTenantPhone}}" data-field="newTenantPhone" bindinput="onHistoryInput" type="number" placeholder="未识别可留空" maxlength="11" />
+      </view>
+      <view class="form-group" style="margin-bottom:0;">
+        <text class="form-label">租客备注</text>
+        <input class="form-input" value="{{history.newTenantRemark}}" data-field="newTenantRemark" bindinput="onHistoryInput" placeholder="可选" />
+      </view>
+    </view>
+
+    <view wx:if="{{mode === 'history'}}" class="form-group">
+      <text class="form-label">房屋处理方式</text>
+      <view class="flex-row" style="gap:14rpx;">
+        <button class="btn {{history.houseMode === 'existing' ? 'btn-primary' : ''}}" style="flex:1;" data-mode="existing" bindtap="chooseHouseMode">绑定现有房屋</button>
+        <button class="btn {{history.houseMode === 'create' ? 'btn-primary' : ''}}" style="flex:1;" data-mode="create" bindtap="chooseHouseMode">创建新房屋</button>
+      </view>
+    </view>
+
+    <view class="form-group" wx:if="{{mode !== 'history' || history.houseMode === 'existing'}}">
       <text class="form-label">房屋</text>
       <picker mode="selector" range="{{houseLabels}}" value="{{form.houseIndex}}" bindchange="onHouseChange">
         <view class="form-picker">{{houseLabels[form.houseIndex] || '请选择房屋'}}</view>
       </picker>
     </view>
 
-    <view class="form-group">
+    <view wx:if="{{mode === 'history' && history.houseMode === 'existing' && form.houseId}}" class="card" style="border-left-color:#16A34A;">
+      <text style="font-size:24rpx;color:var(--gray-700);display:block;">系统当前月租：¥{{history.systemHouseRent}}</text>
+      <text style="font-size:24rpx;color:var(--gray-700);display:block;margin-top:6rpx;">本合同月租：¥{{form.rent || 0}}</text>
+      <view class="flex-row justify-between align-center" style="margin-top:14rpx;">
+        <text style="font-size:24rpx;color:var(--gray-800);">同步更新房屋月租</text>
+        <switch checked="{{history.updateHouseRent}}" bindchange="onUpdateHouseRentChange" />
+      </view>
+    </view>
+
+    <view wx:if="{{mode === 'history' && history.houseMode === 'create'}}" class="card" style="border-left-color:var(--primary);">
+      <view class="form-group">
+        <text class="form-label">新房屋编号</text>
+        <input class="form-input" value="{{history.newHouseCode}}" data-field="newHouseCode" bindinput="onHistoryInput" placeholder="例如 220" />
+      </view>
+      <view class="form-group" style="margin-bottom:0;">
+        <text class="form-label">新房屋地址</text>
+        <input class="form-input" value="{{history.newHouseAddress}}" data-field="newHouseAddress" bindinput="onHistoryInput" placeholder="例如 东楼" />
+      </view>
+    </view>
+
+    <view wx:if="{{mode === 'history'}}" class="card" style="border-left-color:#D97706;">
+      <view class="card-header"><text class="card-title">纸质合同留档</text></view>
+      <text style="font-size:23rpx;color:var(--gray-500);display:block;margin-bottom:16rpx;">仅用于核对和留档，不决定后续收租。</text>
+      <view class="flex-row" style="gap:20rpx;">
+        <view class="form-group" style="flex:1;"><text class="form-label">纸面起租日</text><picker mode="date" value="{{history.documentStartDate}}" data-field="documentStartDate" bindchange="onHistoryDateChange"><view class="form-picker">{{history.documentStartDate || '未识别/留空'}}</view></picker></view>
+        <view class="form-group" style="flex:1;"><text class="form-label">纸面结束日</text><picker mode="date" value="{{history.documentEndDate}}" data-field="documentEndDate" bindchange="onHistoryDateChange"><view class="form-picker">{{history.documentEndDate || '未约定/留空'}}</view></picker></view>
+      </view>
+      <view class="flex-row" style="gap:20rpx;">
+        <view class="form-group" style="flex:1;"><text class="form-label">纸面月租</text><input class="form-input" value="{{history.documentRent}}" data-field="documentRent" bindinput="onHistoryInput" type="digit" placeholder="可选" /></view>
+        <view class="form-group" style="flex:1;"><text class="form-label">纸面押金</text><input class="form-input" value="{{history.documentDeposit}}" data-field="documentDeposit" bindinput="onHistoryInput" type="digit" placeholder="可选" /></view>
+      </view>
+      <view class="form-group" style="margin-bottom:0;"><text class="form-label">纸面付款方式</text><picker mode="selector" range="{{['月付','季付','半年付','年付']}}" value="{{history.documentPaymentIndex}}" bindchange="onDocumentPaymentChange"><view class="form-picker">{{['月付','季付','半年付','年付'][history.documentPaymentIndex] || '月付'}}</view></picker></view>
+    </view>
+
+    <view wx:if="{{mode === 'history'}}" class="card" style="border-left-color:var(--primary);">
+      <view class="card-header"><text class="card-title">实际入住与当前租约</text></view>
+      <view class="form-group"><text class="form-label">实际入住/计费开始日</text><picker mode="date" value="{{form.startDate}}" bindchange="onStartDateChange"><view class="form-picker">{{form.startDate || '必须确认'}}</view></picker></view>
+      <view class="form-group"><text class="form-label">实际状态</text><view class="flex-row" style="gap:12rpx;"><button class="btn {{history.occupancyState === 'active_contract' ? 'btn-primary' : ''}}" style="flex:1;font-size:24rpx;" data-state="active_contract" bindtap="chooseOccupancyState">合同期内/无固定期</button><button class="btn {{history.occupancyState === 'continued_without_renewal' ? 'btn-primary' : ''}}" style="flex:1;font-size:24rpx;" data-state="continued_without_renewal" bindtap="chooseOccupancyState">到期后续住</button><button class="btn {{history.occupancyState === 'ended' ? 'btn-primary' : ''}}" style="flex:1;font-size:24rpx;" data-state="ended" bindtap="chooseOccupancyState">已退租</button></view></view>
+      <view wx:if="{{history.occupancyState === 'ended'}}" class="form-group" style="margin-bottom:0;"><text class="form-label">实际退租日</text><picker mode="date" value="{{history.actualEndDate}}" data-field="actualEndDate" bindchange="onHistoryDateChange"><view class="form-picker">{{history.actualEndDate || '必须确认'}}</view></picker></view>
+    </view>
+
+    <view wx:if="{{mode !== 'history'}}" class="form-group">
       <text class="form-label">起租日期</text>
-      <picker mode="date" value="{{form.startDate}}" bindchange="onStartDateChange">
-        <view class="form-picker">{{form.startDate || '选择日期'}}</view>
-      </picker>
+      <picker mode="date" value="{{form.startDate}}" bindchange="onStartDateChange"><view class="form-picker">{{form.startDate || '选择日期'}}</view></picker>
     </view>
 
     <view class="flex-row" style="gap:20rpx;">
       <view class="form-group" style="flex:1;">
-        <text class="form-label">月租金（元）</text>
+      <text class="form-label">{{mode === 'history' ? '当前月租金（元）' : '月租金（元）'}}</text>
         <input class="form-input" value="{{form.rent}}" data-field="rent" bindinput="onFormInput" type="digit" placeholder="月租金" />
       </view>
       <view class="form-group" style="flex:1;">
@@ -41,13 +136,13 @@
     </view>
 
     <view class="form-group">
-      <text class="form-label">付款方式</text>
+      <text class="form-label">{{mode === 'history' ? '当前付款方式' : '付款方式'}}</text>
       <picker mode="selector" range="{{['月付','季付','半年付','年付']}}" value="{{form.paymentIndex}}" bindchange="onPaymentChange">
         <view class="form-picker">{{['月付','季付','半年付','年付'][form.paymentIndex] || '月付'}}</view>
       </picker>
     </view>
 
-    <view class="card" style="border-left-color:var(--primary);">
+    <view wx:if="{{mode !== 'history'}}" class="card" style="border-left-color:var(--primary);">
       <view class="card-header">
         <text class="card-title">入住水电读数</text>
       </view>
@@ -81,17 +176,44 @@
       </view>
     </view>
 
+    <view wx:if="{{mode === 'history'}}" class="card" style="border-left-color:#16A34A;">
+      <view class="card-header"><text class="card-title">最近一次水电结清基准</text></view>
+      <text style="font-size:23rpx;color:var(--gray-500);display:block;margin-bottom:16rpx;line-height:1.6;">三项都不填写则不创建水电记录；填写后，下次抄表从该读数计算。</text>
+      <view class="form-group">
+        <text class="form-label">水电最后结清日期</text>
+        <picker mode="date" value="{{history.utilityDate}}" data-field="utilityDate" bindchange="onHistoryDateChange">
+          <view class="form-picker">{{history.utilityDate || '可选'}}</view>
+        </picker>
+      </view>
+      <view class="flex-row" style="gap:20rpx;">
+        <view class="form-group" style="flex:1;margin-bottom:0;">
+          <text class="form-label">电表读数</text>
+          <input class="form-input" value="{{history.utilityElectricity}}" data-field="utilityElectricity" bindinput="onHistoryInput" type="digit" placeholder="可选" />
+        </view>
+        <view class="form-group" style="flex:1;margin-bottom:0;">
+          <text class="form-label">水表读数</text>
+          <input class="form-input" value="{{history.utilityWater}}" data-field="utilityWater" bindinput="onHistoryInput" type="digit" placeholder="可选" />
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{mode === 'history'}}" class="form-group">
+      <text class="form-label">租金已缴至</text>
+      <picker mode="date" value="{{history.rentCoveredUntil}}" data-field="rentCoveredUntil" bindchange="onHistoryDateChange"><view class="form-picker">{{history.rentCoveredUntil || '必须确认'}}</view></picker>
+      <text style="font-size:22rpx;color:var(--gray-500);display:block;margin-top:8rpx;">后续待收从已缴截止日的次日开始，不要求按整月或付款周期对齐。</text>
+    </view>
+
     <view class="form-group">
       <text class="form-label">备注</text>
       <textarea class="form-input" value="{{form.remark}}" data-field="remark" bindinput="onFormInput" placeholder="可选备注" style="height:120rpx;" />
     </view>
 
     <view style="background:var(--primary-bg);border-radius:12rpx;padding:20rpx;margin-bottom:20rpx;">
-      <text style="color:var(--primary);font-size:24rpx;">创建合同后会自动生成租金账单，并写入本次入住水电基准读数。</text>
+      <text style="color:var(--primary);font-size:24rpx;">{{mode === 'history' ? '历史已缴内容不生成历史账单或收款流水；仅从已缴截止日次日生成当前待收。' : '创建合同后会自动生成租金账单，并写入本次入住水电基准读数。'}}</text>
     </view>
 
     <button class="btn btn-primary" style="width:100%;margin-top:20rpx;" bindtap="submit" disabled="{{saving}}">
-      {{saving ? '创建中...' : '创建合同'}}
+      {{saving ? '处理中...' : (mode === 'history' ? '预览并确认建档' : '创建合同')}}
     </button>
   </view>
 </view>

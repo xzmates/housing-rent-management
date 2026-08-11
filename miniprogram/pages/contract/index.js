@@ -34,6 +34,12 @@ function cycleLabel(cycle) {
   return ({ month: '月付', quarter: '季付', half_year: '半年付', year: '年付' })[cycle] || cycle || '';
 }
 
+function occupancyText(lease) {
+  if (lease.occupancyState === 'continued_without_renewal') return '到期后继续居住';
+  if (lease.occupancyState === 'ended') return '已退租';
+  return lease.status === 'active' ? '合同期内/无固定期限' : '历史合同';
+}
+
 function groupBy(rows, key) {
   return (rows || []).reduce((map, row) => {
     const id = row[key];
@@ -137,7 +143,9 @@ Page({
           houseCode: house.code || '',
           houseAddress: house.address || '',
           tenantName: tenant.name || '',
-          statusText: lease.status === 'active' ? '生效中' : '历史合同',
+          statusText: lease.status === 'active' ? (lease.occupancyState === 'continued_without_renewal' ? '续住中' : '生效中') : '历史合同',
+          occupancyText: occupancyText(lease),
+          documentPeriodText: lease.documentStartDate ? `${api.formatDate(lease.documentStartDate)} 至 ${lease.documentEndDate ? api.formatDate(lease.documentEndDate) : '未约定'}` : '',
           paymentCycleText: cycleLabel(lease.paymentCycle),
           startDateText: api.formatDate(lease.startDate),
           endDateText: lease.endDate ? api.formatDate(lease.endDate) : '至今',
@@ -276,6 +284,10 @@ Page({
     wx.navigateTo({ url: `/pages/contract/index?leaseId=${id}` });
   },
 
+  goToHistoricalImport() {
+    wx.navigateTo({ url: '/pages/historical-contract-ocr/index' });
+  },
+
   deleteContract(e) {
     const id = e.currentTarget.dataset.id || (this.data.contract && this.data.contract.id);
     if (!id || this.data.deleting) return;
@@ -335,11 +347,15 @@ Page({
         id: leaseId,
         contractNo: `HT-${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}-${leaseId.substring(0, 6)}`,
         signDate: startDate.toLocaleDateString('zh-CN'),
-        statusText: lease.status === 'active' ? '生效中' : '历史合同',
+        statusText: lease.status === 'active' ? (lease.occupancyState === 'continued_without_renewal' ? '续住中' : '生效中') : '历史合同',
+        occupancyText: occupancyText(lease),
         houseCode: house?.code || '未知',
         houseAddress: house?.address || '未知',
         moveInDate: api.formatDate(lease.startDate),
         endDate: lease.endDate ? api.formatDate(lease.endDate) : '至今',
+        documentPeriod: lease.documentStartDate ? `${api.formatDate(lease.documentStartDate)} 至 ${lease.documentEndDate ? api.formatDate(lease.documentEndDate) : '未约定'}` : '',
+        rentCoveredUntil: lease.rentCoveredUntil ? api.formatDate(lease.rentCoveredUntil) : '未确认',
+        nextRentDueDate: lease.nextRentDueDate ? api.formatDate(lease.nextRentDueDate) : '未生成',
         monthlyRent,
         paymentCycleLabel: cycleLabel(cycle),
         paymentMonths,

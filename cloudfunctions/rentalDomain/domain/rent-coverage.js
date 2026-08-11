@@ -170,7 +170,11 @@ function detectAnomalies(rows) {
 function recalculateContinuousRentCoverage(lease = {}, rentBills = [], plannedAllocations = []) {
   const rows = buildCoverageRows(lease, rentBills, plannedAllocations)
   const anomalies = detectAnomalies(rows)
-  let cursor = parseDateInput(lease.startDate)
+  // 历史导入的已缴截止日是人工核对基准，并不对应一张历史已付账单。
+  // 有明确 nextRentDueDate 时，从该基准继续覆盖，避免后续收款把基准回退到起租日。
+  const hasHistoricalBaseline = lease.coverageBaselineSource === 'historical_import'
+  const storedCoveredUntil = hasHistoricalBaseline ? parseDateInput(lease.rentCoveredUntil) : null
+  let cursor = (hasHistoricalBaseline ? parseDateInput(lease.nextRentDueDate) : null) || parseDateInput(lease.startDate)
   if (!cursor) {
     return {
       rentCoveredUntil: null,
@@ -180,7 +184,7 @@ function recalculateContinuousRentCoverage(lease = {}, rentBills = [], plannedAl
       anomalies: [{ type: 'missing_lease_start_date' }, ...anomalies]
     }
   }
-  let coveredUntil = null
+  let coveredUntil = storedCoveredUntil || null
   const continuousPaidPeriods = []
   let advanced = true
 

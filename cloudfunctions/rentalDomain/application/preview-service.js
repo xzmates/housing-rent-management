@@ -4,6 +4,7 @@ const { billView, houseView, tenantView, leaseView, number, dateText } = require
 const { calculateMeterPreview, calculateSettlement } = require('../domain/settlement')
 const rentCoverage = require('../domain/rent-coverage')
 const { assertNoDuplicateHouse, assertNoDuplicateTenant, assertNoDuplicateLease } = require('../domain/duplicate-guard')
+const { buildHistoricalImportSnapshot } = require('./historical-import-service')
 
 function dateValue(value) {
   if (!value) return ''
@@ -650,6 +651,17 @@ function createPreviewService(db, repo) {
     return { ...snapshot, ...(await createConfirmation(db, caller, 'confirmCreateLease', params, snapshot)) }
   }
 
+  async function previewHistoricalLeaseImport(params, caller) {
+    const snapshot = await buildHistoricalImportSnapshot(repo, params)
+    return {
+      historicalImportView: snapshot.historicalImportView,
+      normalizedInput: snapshot.normalizedInput,
+      sourceDigest: snapshot.sourceDigest,
+      targetId: snapshot.targetId,
+      ...(await createConfirmation(db, caller, 'confirmHistoricalLeaseImport', snapshot.normalizedInput, snapshot))
+    }
+  }
+
   async function previewRenewLease(params, caller) {
     invariant(params.leaseId, 'VALIDATION_ERROR', '缺少合同 ID')
     const ctx = await context(params.leaseId)
@@ -711,7 +723,7 @@ function createPreviewService(db, repo) {
     }
   }
 
-  return { previewCreateHouse, previewCreateTenant, previewCreateLease, previewRenewLease, previewPrepayRent, previewRentCollection, previewCollectRent, previewMeterReading, previewMoveOutSettlement }
+  return { previewCreateHouse, previewCreateTenant, previewCreateLease, previewHistoricalLeaseImport, previewRenewLease, previewPrepayRent, previewRentCollection, previewCollectRent, previewMeterReading, previewMoveOutSettlement }
 }
 
 module.exports = {
@@ -720,6 +732,7 @@ module.exports = {
   buildPrepayRentSnapshot,
   buildRentCollectionSnapshot,
   buildRentCollectionPlan,
+  buildHistoricalImportSnapshot,
   calculateContinuousRentCoverage,
   inferRentBillCoverage,
   calculatePrepayPeriod,

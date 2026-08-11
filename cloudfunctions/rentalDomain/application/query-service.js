@@ -640,16 +640,20 @@ function createQueryService(repo, command) {
   }
 
   async function getOperatingOverview() {
-    const [houses, tenants, leases] = await Promise.all([repo.queryAll('houses'), repo.queryAll('tenants'), repo.queryAll('lease_agreements')])
-    const activeLeases = leases.filter(item => item.status === 'active')
     const todayKey = businessDateKey(new Date())
     const monthStart = `${todayKey.slice(0, 7)}-01`
     const monthEnd = businessDateKey(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
-    const financial = await getFinancialReport({ startDate: monthStart, endDate: monthEnd })
-    const [futureRentReminder, currentReceivableGroups] = await Promise.all([
+    // Agent 原子工具有较短的结果等待窗口。以下查询彼此独立，必须并行，
+    // 避免先完成财务汇总后再重复读取账单导致超时。
+    const [houses, tenants, leases, financial, futureRentReminder, currentReceivableGroups] = await Promise.all([
+      repo.queryAll('houses'),
+      repo.queryAll('tenants'),
+      repo.queryAll('lease_agreements'),
+      getFinancialReport({ startDate: monthStart, endDate: monthEnd }),
       getFutureRentReminders({ days: 15 }),
       getCurrentReceivableGroups({})
     ])
+    const activeLeases = leases.filter(item => item.status === 'active')
     return {
       houseCount: houses.length,
       rentedHouseCount: new Set(activeLeases.map(item => item.houseId)).size,

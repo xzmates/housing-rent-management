@@ -1,0 +1,12 @@
+.workflow-head { display:flex;align-items:stretch;gap:18rpx;margin-bottom:24rpx; }
+.workflow-mark { width:8rpx;border-radius:8rpx;background:#1677FF; }
+.privacy-card { border-left-color:#16A34A;background:#F0FDF4; }
+.photo-list { display:grid;grid-template-columns:repeat(2,1fr);gap:16rpx;margin-bottom:22rpx; }
+.photo-item { position:relative;height:260rpx;border-radius:14rpx;overflow:hidden;background:#E5E7EB; }
+.photo-preview { width:100%;height:100%; }
+.photo-order { position:absolute;left:12rpx;top:12rpx;min-width:42rpx;height:42rpx;line-height:42rpx;text-align:center;border-radius:21rpx;background:#1677FF;color:#FFFFFF;font-size:22rpx;font-weight:700; }
+.photo-remove { position:absolute;right:10rpx;bottom:10rpx;margin:0;background:rgba(255,255,255,.92);color:#B91C1C;font-size:21rpx;line-height:1.8; }
+.empty-capture { position:relative;padding:76rpx 32rpx;margin-bottom:22rpx;border:2rpx dashed #93C5FD;border-radius:16rpx;background:#F8FBFF;text-align:left;overflow:hidden; }
+.capture-frame { position:absolute;right:-32rpx;top:-36rpx;width:180rpx;height:180rpx;border:18rpx solid #DBEAFE;transform:rotate(12deg); }
+.manual-button { margin-top:14rpx;background:transparent;color:#4B5563;font-size:24rpx; }
+.status-strip { margin-top:20rpx;padding:18rpx 20rpx;border-left:6rpx solid #D97706;background:#FFF7ED;color:#9A3412;font-size:23rpx;line-height:1.6; }

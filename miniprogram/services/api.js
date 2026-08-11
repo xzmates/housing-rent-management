@@ -95,6 +95,18 @@ async function previewCreateLease(params) {
   return callRentalDomain('previewCreateLease', params);
 }
 
+async function previewHistoricalLeaseImport(params) {
+  return callRentalDomain('previewHistoricalLeaseImport', params);
+}
+
+async function confirmHistoricalLeaseImport(confirmationId) {
+  return callRentalDomain('confirmHistoricalLeaseImport', { confirmationId });
+}
+
+async function recognizeHistoricalLeaseImages(fileIds) {
+  return _callCloud('recognizeHistoricalLeaseImages', { fileIds });
+}
+
 async function previewRenewLease(params) {
   return callRentalDomain('previewRenewLease', params);
 }
@@ -199,10 +211,6 @@ async function voiceDialogueTurn(params = {}) {
 
 async function voiceSynthesize(params = {}) {
   return _callCloud('voiceSynthesize', params);
-}
-
-async function importLeaseSnapshot(params = {}) {
-  return _callCloud('importLeaseSnapshot', params);
 }
 
 // ==================== 直接查询（读操作）====================
@@ -514,11 +522,13 @@ module.exports = {
   voicePlanCommand,
   voiceDialogueTurn,
   voiceSynthesize,
-  importLeaseSnapshot,
+  recognizeHistoricalLeaseImages,
   callRentalDomain,
   previewCreateHouse,
   previewCreateTenant,
   previewCreateLease,
+  previewHistoricalLeaseImport,
+  confirmHistoricalLeaseImport,
   previewRenewLease,
   previewPrepayRent,
   confirmPrepayRent,

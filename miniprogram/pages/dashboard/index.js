@@ -239,6 +239,15 @@ Page({
     wx.switchTab({ url: '/pages/payments/index' });
   },
 
+  openWechatAiChat() {
+    wx.showModal({
+      title: '打开微信 AI 对话',
+      content: '请点击右上角的扳手图标，打开微信 AI 对话。',
+      showCancel: false,
+      confirmText: '我知道了'
+    });
+  },
+
   openReceivableGroup(e) {
     const item = e && e.currentTarget ? e.currentTarget.dataset.item : null;
     const billIds = item && Array.isArray(item.billIds) ? item.billIds.filter(Boolean) : [];

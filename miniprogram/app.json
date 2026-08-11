@@ -12,6 +12,7 @@
     "pages/import/index",
     "pages/settings/index",
     "pages/contract/index",
+    "pages/historical-contract-ocr/index",
     "pages/create-lease/index"
   ],
   "window": {

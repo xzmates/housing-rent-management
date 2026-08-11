@@ -150,9 +150,11 @@ Page({
     houseFilterId: '',
     houseFilterLabel: '全部房屋',
     houseOptions: ['全部房屋'],
-    displayLimitOptions: [10, 20, 50],
+    displayLimitOptions: [10, 20],
     displayLimit: 10,
     displayLimitIndex: 0,
+    currentPage: 1,
+    totalPages: 1,
     stats: {
       cashReceived: 0, rentReceived: 0, utilityReceived: 0, depositReceived: 0, settlementReceived: 0, otherReceived: 0,
       cashRefunded: 0, depositRefund: 0, rentRefund: 0, otherRefund: 0,
@@ -224,7 +226,7 @@ Page({
 
       const leaseIds = leases.map(l => l._id);
       if (leaseIds.length === 0) {
-        this.setData({ bills: [], visibleBills: [], loading: false });
+        this.updateVisibleBills([], 1, { allBills: [] });
         await this.loadFinancialSummary();
         return;
       }
@@ -315,7 +317,7 @@ Page({
         return (a.dueDate || '').localeCompare(b.dueDate || '');
       });
 
-      this.setData({ bills, visibleBills: bills.slice(0, this.data.displayLimit), allBills });
+      this.updateVisibleBills(bills, 1, { allBills });
       await this.loadFinancialSummary();
     } catch (e) {
       console.error('加载账单失败', e);
@@ -374,7 +376,7 @@ Page({
     const { key, val } = e.currentTarget.dataset;
     const filters = { ...this.data.filters };
     filters[key] = filters[key] === val ? '' : val;
-    this.setData({ filters }, () => this.loadBills());
+    this.setData({ filters, currentPage: 1 }, () => this.loadBills());
   },
 
   filterBillsByDateRange(bills = []) {
@@ -406,7 +408,7 @@ Page({
       wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' });
       return;
     }
-    this.setData({ filters: { ...this.data.filters, dateStart } }, () => this.loadBills());
+    this.setData({ filters: { ...this.data.filters, dateStart }, currentPage: 1 }, () => this.loadBills());
   },
 
   onDateEndChange(e) {
@@ -416,21 +418,36 @@ Page({
       wx.showToast({ title: '结束日期不能早于开始日期', icon: 'none' });
       return;
     }
-    this.setData({ filters: { ...this.data.filters, dateEnd } }, () => this.loadBills());
+    this.setData({ filters: { ...this.data.filters, dateEnd }, currentPage: 1 }, () => this.loadBills());
   },
 
   clearDateRange() {
-    this.setData({ filters: { ...this.data.filters, dateStart: '', dateEnd: '' } }, () => this.loadBills());
+    this.setData({ filters: { ...this.data.filters, dateStart: '', dateEnd: '' }, currentPage: 1 }, () => this.loadBills());
   },
 
   onDisplayLimitChange(e) {
     const displayLimitIndex = Number(e.detail.value);
     const displayLimit = this.data.displayLimitOptions[displayLimitIndex] || 10;
+    this.updateVisibleBills(this.data.bills || [], 1, { displayLimit, displayLimitIndex });
+  },
+
+  updateVisibleBills(bills = [], page = 1, extraData = {}) {
+    const displayLimit = extraData.displayLimit || this.data.displayLimit || 10;
+    const totalPages = Math.max(1, Math.ceil(bills.length / displayLimit));
+    const currentPage = Math.min(Math.max(1, page), totalPages);
+    const start = (currentPage - 1) * displayLimit;
     this.setData({
-      displayLimit,
-      displayLimitIndex,
-      visibleBills: (this.data.bills || []).slice(0, displayLimit)
+      ...extraData,
+      bills,
+      currentPage,
+      totalPages,
+      visibleBills: bills.slice(start, start + displayLimit)
     });
+  },
+
+  changePage(e) {
+    const direction = Number(e.currentTarget.dataset.direction || 0);
+    this.updateVisibleBills(this.data.bills || [], this.data.currentPage + direction);
   },
 
   toggleFinancialDetail() {
@@ -440,14 +457,14 @@ Page({
   onHouseFilterChange(e) {
     const idx = Number(e.detail.value);
     if (idx === 0) {
-      this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋' }, () => this.loadBills());
+      this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋', currentPage: 1 }, () => this.loadBills());
     } else {
       const house = this.data.allHouses[idx - 1];
       if (!house) {
-        this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋' }, () => this.loadBills());
+        this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋', currentPage: 1 }, () => this.loadBills());
         return;
       }
-      this.setData({ houseFilterId: house._id, houseFilterLabel: house.code }, () => this.loadBills());
+      this.setData({ houseFilterId: house._id, houseFilterLabel: house.code, currentPage: 1 }, () => this.loadBills());
     }
   },
 

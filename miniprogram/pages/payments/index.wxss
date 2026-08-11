@@ -165,6 +165,35 @@
   gap: 16rpx;
 }
 
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 24rpx 4rpx 8rpx;
+}
+
+.pagination-button {
+  margin: 0;
+  min-width: 136rpx;
+  padding: 0 20rpx;
+  line-height: 60rpx;
+  border: 1rpx solid #BFD2EC;
+  border-radius: 12rpx;
+  background: #F7FAFF;
+  color: #247BFF;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.pagination-button[disabled] {
+  border-color: #E1E7EF;
+  background: #F7F8FA;
+  color: #A7B2C1;
+}
+
+.pagination-status { color: #67768D; font-size: 24rpx; }
+
 .payment-card {
   position: relative;
   overflow: hidden;

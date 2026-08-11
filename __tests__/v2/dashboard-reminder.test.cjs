@@ -56,6 +56,23 @@ function seedLeaseWithJulyRentBill(status = 'paid') {
 }
 
 describe('首页临近收费提醒', () => {
+  it('微信 AI 对话入口提示用户点击右上角扳手', () => {
+    const ctx = createContext();
+    const original = wx.showModal;
+    let modal = null;
+    wx.showModal = (options) => { modal = options; };
+    try {
+      ctx.openWechatAiChat.call(ctx);
+      expect(modal).toMatchObject({
+        title: '打开微信 AI 对话',
+        content: '请点击右上角的扳手图标，打开微信 AI 对话。',
+        showCancel: false
+      });
+    } finally {
+      wx.showModal = original;
+    }
+  });
+
   it('nextRentDueDate 指向已缴租金账单时，不再生成合同应缴提醒', async () => {
     seedLeaseWithJulyRentBill('paid');
     const ctx = createContext();

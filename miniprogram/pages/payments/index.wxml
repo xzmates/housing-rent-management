@@ -91,10 +91,10 @@
     <view class="section-head compact-head">
       <view class="bill-title-group">
         <view class="bill-title-icon"></view><text class="section-title">账单明细</text>
-        <text class="section-note">共 {{bills.length}} 条，当前 {{visibleBills.length}} 条</text>
+        <text class="section-note">共 {{bills.length}} 条，第 {{currentPage}} / {{totalPages}} 页</text>
       </view>
       <picker mode="selector" range="{{displayLimitOptions}}" value="{{displayLimitIndex}}" bindchange="onDisplayLimitChange">
-        <view class="bill-limit-picker">显示 {{displayLimit}} 条</view>
+        <view class="bill-limit-picker">{{displayLimit}} 条/页</view>
       </picker>
     </view>
 
@@ -137,6 +137,11 @@
           <text class="payment-balance">已缴 ¥{{item.paidAmount}} / 待缴 ¥{{item.remaining}}</text>
           <button wx:if="{{item.status !== 'paid'}}" class="primary-pill pay-pill" catchtap="showPayModal" data-bill="{{item}}">缴费</button>
         </view>
+      </view>
+      <view wx:if="{{totalPages > 1}}" class="pagination-bar">
+        <button class="pagination-button" size="mini" disabled="{{currentPage === 1}}" bindtap="changePage" data-direction="-1">上一页</button>
+        <text class="pagination-status">第 {{currentPage}} / {{totalPages}} 页</text>
+        <button class="pagination-button" size="mini" disabled="{{currentPage === totalPages}}" bindtap="changePage" data-direction="1">下一页</button>
       </view>
     </view>
   </view>

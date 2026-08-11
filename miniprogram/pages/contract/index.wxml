@@ -8,6 +8,16 @@
   </view>
 
   <block wx:elif="{{mode === 'list'}}">
+    <view class="card" style="border-left-color:var(--primary);">
+      <view class="flex-row justify-between align-center" style="gap:20rpx;">
+        <view style="flex:1;min-width:0;">
+          <text class="card-title" style="display:block;">历史纸质合同建档</text>
+          <text style="font-size:23rpx;color:var(--gray-500);display:block;margin-top:8rpx;line-height:1.6;">拍照识别后人工绑定房屋、核对租客和已缴日期，不会生成历史收款流水。</text>
+        </view>
+        <button class="btn btn-primary btn-small" bindtap="goToHistoricalImport">拍照导入</button>
+      </view>
+    </view>
+
     <view class="card">
       <view class="card-header">
         <text class="card-title">合同查询</text>
@@ -78,6 +88,7 @@
           </view>
           <text style="font-size:24rpx;color:var(--gray-500);display:block;">{{item.tenantName || '未知租客'}} · {{item.houseAddress}}</text>
           <text style="font-size:22rpx;color:var(--gray-400);display:block;margin-top:6rpx;">{{item.startDateText}} 至 {{item.endDateText}} · {{item.paymentCycleText}}</text>
+          <text wx:if="{{item.documentPeriodText}}" style="font-size:22rpx;color:#B45309;display:block;margin-top:6rpx;">纸面合同：{{item.documentPeriodText}} · {{item.occupancyText}}</text>
         </view>
         <view style="text-align:right;">
           <text style="font-size:28rpx;font-weight:700;color:var(--success);display:block;">￥{{item.paymentIncome}}</text>
@@ -152,6 +163,9 @@
         <view style="background:#F8FAFC;border-radius:8rpx;padding:18rpx;">
           <text style="font-size:26rpx;display:block;margin-bottom:8rpx;">{{contract.houseCode}} · {{contract.houseAddress}}</text>
           <text style="font-size:24rpx;color:var(--gray-500);display:block;">{{contract.moveInDate}} 至 {{contract.endDate}}</text>
+          <text wx:if="{{contract.documentPeriod}}" style="font-size:24rpx;color:#B45309;display:block;margin-top:8rpx;">纸面合同：{{contract.documentPeriod}}</text>
+          <text style="font-size:24rpx;color:var(--gray-500);display:block;margin-top:8rpx;">实际状态：{{contract.occupancyText}}</text>
+          <text style="font-size:24rpx;color:var(--gray-500);display:block;margin-top:8rpx;">租金已缴至：{{contract.rentCoveredUntil}} · 下一期起算：{{contract.nextRentDueDate}}</text>
         </view>
       </view>
 

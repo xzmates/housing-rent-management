@@ -422,6 +422,22 @@ function groupArrearsByTenant(bills = []) {
   return byTenant
 }
 
+function groupOverdueGroupsByTenant(groups = []) {
+  const byTenant = []
+  const index = {}
+  for (const item of groups) {
+    if (Number(item.overdueAmount || 0) <= 0) continue
+    const key = item.tenantId || item.tenantName || '未标注租客'
+    if (!index[key]) {
+      index[key] = { tenantName: item.tenantName || '未标注租客', billCount: 0, totalRemaining: 0 }
+      byTenant.push(index[key])
+    }
+    index[key].billCount += Number(item.overdueCount || 0)
+    index[key].totalRemaining += Number(item.overdueAmount || 0)
+  }
+  return byTenant
+}
+
 async function getArrearsReport(params = {}) {
   try {
     const data = await callRentalDomain('getArrearsReport', params)
@@ -522,11 +538,9 @@ async function getRelativeFutureReceivables(params = {}) {
 
 async function getOperatingOverview() {
   try {
-    const [data, arrears] = await Promise.all([
-      callRentalDomain('getOperatingOverview', {}),
-      callRentalDomain('getArrearsReport', {})
-    ])
-    const byTenant = groupArrearsByTenant(arrears.bills || [])
+    const data = await callRentalDomain('getOperatingOverview', {})
+    // 经营概览已同时返回当前待收分组；直接据其逾期部分汇总，避免再发起一次重型欠费查询。
+    const byTenant = groupOverdueGroupsByTenant(data.currentReceivableGroups || [])
     const byTenantText = byTenant.map(t => `${t.tenantName} ¥${t.totalRemaining}`).join('；')
     return successResult('已汇总当前经营概况。本月实际收款包含押金，且未扣维修、税费等支出，不能等同利润。', {
       title: '经营概况',

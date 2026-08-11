@@ -10,6 +10,10 @@ const {
   buildRentCollectionSnapshot,
   buildRentCollectionPlan
 } = require('./preview-service')
+const {
+  buildHistoricalImportSnapshot,
+  buildBillingPlan
+} = require('./historical-import-service')
 
 async function legacyCall(app, name, data) {
   const res = await app.callFunction({ name, data })
@@ -35,7 +39,7 @@ function sameValue(left, right) {
 }
 
 function assertConfirmationParamsNotOverridden(action, params, confirmation) {
-  if (!['settleMoveOut', 'confirmPrepayRent', 'confirmRentCollection'].includes(action)) return
+  if (!['settleMoveOut', 'confirmPrepayRent', 'confirmRentCollection', 'confirmHistoricalLeaseImport'].includes(action)) return
   const supplied = cleanParams(params)
   const normalized = confirmation.normalizedInput || {}
   const changedKeys = Object.keys(supplied).filter(key => !sameValue(supplied[key], normalized[key]))
@@ -193,6 +197,215 @@ function createCommandService(app, db) {
     const snapshot = await buildRentCollectionSnapshot(repo.forOwner(caller.openId), input)
     invariant(!snapshot.needPeriod, 'STALE_CONFIRMATION', '租金收款预览已过期，请重新生成预览')
     invariant(snapshot.sourceDigest === confirmation.sourceDigest, 'STALE_CONFIRMATION', '租金收款数据已变化，请重新生成预览')
+  }
+
+  async function assertHistoricalImportConfirmationFresh(input, caller, confirmation) {
+    invariant(confirmation, 'VALIDATION_ERROR', '历史合同建档必须先生成预览确认记录')
+    invariant(confirmation.sourceDigest, 'STALE_CONFIRMATION', '历史合同预览已过期，请重新生成预览')
+    const snapshot = await buildHistoricalImportSnapshot(repo.forOwner(caller.openId), input)
+    invariant(snapshot.sourceDigest === confirmation.sourceDigest, 'STALE_CONFIRMATION', '房屋、租客或合同状态已变化，请重新生成预览')
+  }
+
+  function generateHistoricalLeaseId() {
+    const now = new Date()
+    const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+    const suffix = require('crypto').randomBytes(6).toString('hex').toUpperCase()
+    return `LA_${date}_${suffix}`
+  }
+
+  async function executeHistoricalLeaseImport(input, caller) {
+    const transaction = await db.startTransaction()
+    try {
+      const now = new Date()
+      const plan = buildBillingPlan(input, now)
+      let houseId = input.house.houseId || ''
+      let tenantId = input.tenant.tenantId || ''
+
+      if (input.house.mode === 'existing') {
+        const houseRes = await transaction.collection('houses').where({ _id: houseId, _openid: caller.openId }).get()
+        const house = houseRes.data && houseRes.data[0]
+        invariant(house, 'FORBIDDEN', '不能操作其他用户的房屋')
+        invariant(house.status !== 'maintenance', 'CONFLICT', '房屋维护中，不能导入合同')
+      } else {
+        const duplicateRes = await transaction.collection('houses').where({
+          _openid: caller.openId,
+          code: input.house.code,
+          address: input.house.address
+        }).get()
+        invariant(!duplicateRes.data || duplicateRes.data.length === 0, 'CONFLICT', '该房屋已存在，不能重复创建')
+        const houseData = {
+          _openid: caller.openId,
+          code: input.house.code,
+          address: input.house.address,
+          rent: number(input.house.rent),
+          status: 'rented',
+          createdAt: now,
+          updatedAt: now
+        }
+        const houseAdd = await transaction.collection('houses').add(houseData)
+        houseId = houseAdd.id || houseAdd._id
+      }
+
+      if (input.tenant.mode === 'existing') {
+        const tenantRes = await transaction.collection('tenants').where({ _id: tenantId, _openid: caller.openId }).get()
+        const tenant = tenantRes.data && tenantRes.data[0]
+        invariant(tenant, 'FORBIDDEN', '不能操作其他用户的租客')
+      } else {
+        const duplicateQueries = []
+        if (input.tenant.phone) duplicateQueries.push(transaction.collection('tenants').where({ _openid: caller.openId, phone: input.tenant.phone }).get())
+        if (input.tenant.idCard) duplicateQueries.push(transaction.collection('tenants').where({ _openid: caller.openId, idCard: input.tenant.idCard }).get())
+        if (!input.tenant.phone && !input.tenant.idCard) duplicateQueries.push(transaction.collection('tenants').where({ _openid: caller.openId, name: input.tenant.name }).get())
+        const duplicateRows = await Promise.all(duplicateQueries)
+        invariant(!duplicateRows.some(item => item.data && item.data.length), 'CONFLICT', '该租客已存在，不能重复创建')
+        const suffix = require('crypto').randomBytes(8).toString('hex')
+        const tenantData = {
+          _openid: caller.openId,
+          orderNo: `T_${String(caller.openId).slice(-12)}_${now.getTime()}_${suffix}`,
+          name: input.tenant.name,
+          idCard: input.tenant.idCard || '',
+          phone: input.tenant.phone || '',
+          remark: input.tenant.remark || '',
+          status: 'active',
+          createdAt: now,
+          updatedAt: now
+        }
+        const tenantAdd = await transaction.collection('tenants').add(tenantData)
+        tenantId = tenantAdd.id || tenantAdd._id
+      }
+
+      const [houseLeaseRes, tenantLeaseRes] = await Promise.all([
+        transaction.collection('lease_agreements').where({ _openid: caller.openId, houseId, status: 'active' }).get(),
+        transaction.collection('lease_agreements').where({ _openid: caller.openId, tenantId, status: 'active' }).get()
+      ])
+      if (input.lease.occupancyState !== 'ended') {
+        invariant(!houseLeaseRes.data || houseLeaseRes.data.length === 0, 'CONFLICT', '该房屋已有生效合同')
+        invariant(!tenantLeaseRes.data || tenantLeaseRes.data.length === 0, 'CONFLICT', '该租客已有生效合同')
+      }
+
+      const leaseId = generateHistoricalLeaseId()
+      const startDate = parseDateInput(input.lease.startDate)
+      const endDate = input.lease.endDate ? parseDateInput(input.lease.endDate) : null
+      const coveredUntil = parseDateInput(input.lease.rentCoveredUntil)
+      const nextRentDueDate = parseDateInput(plan.nextRentDueDate)
+      const leaseData = {
+        _id: leaseId,
+        _openid: caller.openId,
+        houseId,
+        tenantId,
+        startDate,
+        endDate,
+        documentStartDate: parseDateInput(input.lease.documentStartDate || input.lease.startDate),
+        documentEndDate: input.lease.documentEndDate ? parseDateInput(input.lease.documentEndDate) : null,
+        documentTerms: input.lease.documentTerms || {},
+        occupancyState: input.lease.occupancyState || 'active_contract',
+        rent: number(input.lease.rent),
+        deposit: number(input.lease.deposit),
+        paymentCycle: input.lease.paymentCycle,
+        moveInElectricity: 0,
+        moveInWater: 0,
+        meterReplaced: false,
+        status: input.lease.occupancyState === 'ended' ? 'terminated' : 'active',
+        rentCoveredUntil: coveredUntil,
+        nextRentDueDate,
+        coverageBaselineSource: 'historical_import',
+        endedAt: input.lease.occupancyState === 'ended' ? now : null,
+        remark: input.lease.remark || '历史合同建档',
+        createdAt: now,
+        updatedAt: now
+      }
+      await transaction.collection('lease_agreements').add(leaseData)
+
+      // 历史租金和押金仅作为合同事实保存，不创建历史账单或收款流水。
+      let billsCreated = 0
+
+      for (const period of plan.unpaidPeriods) {
+        await transaction.collection('bills').add({
+          _openid: caller.openId,
+          leaseId,
+          houseId,
+          tenantId,
+          type: 'rent',
+          period: period.period,
+          amount: period.amount,
+          paidAmount: 0,
+          status: 'unpaid',
+          dueDate: parseDateInput(period.periodStart),
+          rentCoverageStart: parseDateInput(period.periodStart),
+          rentCoverageEnd: parseDateInput(period.periodEnd),
+          coverageMonths: period.coverageMonths,
+          coverageDays: 0,
+          remark: `逾期租金，覆盖${period.periodStart}至${period.periodEnd}`,
+          createdAt: now,
+          updatedAt: now
+        })
+        billsCreated += 1
+      }
+
+      let utilityRecordId = ''
+      if (input.utilityBaseline) {
+        const record = {
+          _openid: caller.openId,
+          leaseId,
+          houseId,
+          tenantId,
+          electricityReading: number(input.utilityBaseline.electricityReading),
+          waterReading: number(input.utilityBaseline.waterReading),
+          electricityUsage: 0,
+          waterUsage: 0,
+          electricityCost: 0,
+          waterCost: 0,
+          totalCost: 0,
+          calculationDate: parseDateInput(input.utilityBaseline.calculationDate),
+          recordType: 'regular',
+          meterReplaced: false,
+          remark: '历史合同建档水电结清基准',
+          createdAt: now
+        }
+        const recordAdd = await transaction.collection('utility_records').add(record)
+        utilityRecordId = recordAdd.id || recordAdd._id
+      }
+
+      const isActiveLease = input.lease.occupancyState !== 'ended'
+      const housePatch = { status: isActiveLease ? 'rented' : (input.house.mode === 'create' ? 'available' : undefined), updatedAt: now }
+      if (input.house.mode === 'create' || input.house.updateRent) housePatch.rent = number(input.house.rent || input.lease.rent)
+      if (housePatch.status === undefined) delete housePatch.status
+      await transaction.collection('houses').where({ _id: houseId, _openid: caller.openId }).update(housePatch)
+      if (isActiveLease || input.tenant.mode === 'create') {
+        await transaction.collection('tenants').where({ _id: tenantId, _openid: caller.openId }).update({ status: isActiveLease ? 'active' : 'inactive', updatedAt: now })
+      }
+
+      await transaction.commit()
+      return {
+        leaseId,
+        houseId,
+        tenantId,
+        utilityRecordId,
+        billsCreated,
+        paymentsCreated: 0,
+        rentCoveredUntil: input.lease.rentCoveredUntil,
+        nextRentDueDate: plan.nextRentDueDate
+      }
+    } catch (err) {
+      await transaction.rollback()
+      throw err
+    }
+  }
+
+  async function confirmHistoricalLeaseImport(params, caller) {
+    invariant(params && params.confirmationId, 'VALIDATION_ERROR', '历史合同建档必须从预览确认记录执行')
+    invariant(caller && caller.openId, 'FORBIDDEN', '缺少调用者身份')
+    const resolved = await resolveParams(params, caller, 'confirmHistoricalLeaseImport')
+    if (resolved.replay) return { replayed: true, idempotencyKey: resolved.key, result: resolved.result }
+    await assertHistoricalImportConfirmationFresh(resolved.input, caller, resolved.confirmation)
+    await markExecuting(params.confirmationId)
+    try {
+      const result = await executeHistoricalLeaseImport(resolved.input, caller)
+      await markExecuted(params.confirmationId, result)
+      return { ...result, confirmationId: params.confirmationId, idempotencyKey: resolved.key }
+    } catch (err) {
+      await markPendingAfterFailure(params.confirmationId)
+      throw err
+    }
   }
 
   function groupNewBillAllocations(allocations = []) {
@@ -684,6 +897,7 @@ function createCommandService(app, db) {
     confirmCreateLease(params, caller) {
       return runLegacy(params, caller, 'confirmCreateLease', 'createLeaseAgreement')
     },
+    confirmHistoricalLeaseImport,
     confirmRenewLease(params, caller) {
       return runLegacy(params, caller, 'confirmRenewLease', 'createNextRentBill')
     },

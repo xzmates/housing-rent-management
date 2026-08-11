@@ -1,0 +1,9 @@
+{
+  "name": "recognize-historical-lease-images",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3",
+    "tencentcloud-sdk-nodejs-ocr": "latest"
+  }
+}

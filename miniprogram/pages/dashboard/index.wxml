@@ -120,11 +120,11 @@
           <text>提前收租</text>
           <view class="quick-arrow chevron"></view>
         </navigator>
-        <navigator url="/pages/import/index" class="quick-tile tap-card">
-          <view class="quick-icon icon-violet symbol-upload"></view>
-          <text>语音助手</text>
+        <view class="quick-tile tap-card" bindtap="openWechatAiChat">
+          <view class="quick-icon icon-blue symbol-wrench"></view>
+          <text>微信AI对话</text>
           <view class="quick-arrow chevron"></view>
-        </navigator>
+        </view>
         <navigator url="/pages/batch-meter/index" class="quick-tile tap-card">
           <view class="quick-icon icon-orange symbol-meter"></view>
           <text>批量抄表</text>

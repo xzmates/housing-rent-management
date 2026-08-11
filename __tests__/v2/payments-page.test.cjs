@@ -93,16 +93,20 @@ describe('缴费记录收付款汇总', () => {
     expect(ctx.filterBillsByDateRange(rows).map(item => item._id)).toEqual(['rent', 'utility'])
   })
 
-  it('账单明细默认显示10条，并可切换为20条或50条', () => {
+  it('账单明细支持10条或20条每页，并可翻页', () => {
     const ctx = createContext()
     ctx.data.bills = Array.from({ length: 27 }, (_, index) => ({ _id: `b${index}` }))
     ctx.onDisplayLimitChange.call(ctx, { detail: { value: '1' } })
     expect(ctx.data).toMatchObject({ displayLimit: 20, displayLimitIndex: 1 })
     expect(ctx.data.visibleBills).toHaveLength(20)
 
-    ctx.onDisplayLimitChange.call(ctx, { detail: { value: '2' } })
-    expect(ctx.data).toMatchObject({ displayLimit: 50, displayLimitIndex: 2 })
-    expect(ctx.data.visibleBills).toHaveLength(27)
+    ctx.changePage.call(ctx, { currentTarget: { dataset: { direction: '1' } } })
+    expect(ctx.data).toMatchObject({ currentPage: 2, totalPages: 2 })
+    expect(ctx.data.visibleBills).toHaveLength(7)
+
+    ctx.onDisplayLimitChange.call(ctx, { detail: { value: '0' } })
+    expect(ctx.data).toMatchObject({ displayLimit: 10, currentPage: 1, totalPages: 3 })
+    expect(ctx.data.visibleBills).toHaveLength(10)
   })
 
   it('押金抵扣按其关联账单类型拆分，不会把水电写成租金', async () => {

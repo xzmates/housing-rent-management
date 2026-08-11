@@ -1131,9 +1131,9 @@ const mockRentalApp = {
 const rentalRepo = createRepository(mockDb);
 const rentalCommand = createCommandService(mockRentalApp, mockDb);
 const auditableRentalActions = new Set([
-  'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewRenewLease', 'previewPrepayRent', 'previewRentCollection',
+  'previewCreateHouse', 'previewCreateTenant', 'previewCreateLease', 'previewHistoricalLeaseImport', 'previewRenewLease', 'previewPrepayRent', 'previewRentCollection',
   'previewCollectRent', 'previewMeterReading', 'previewMoveOutSettlement',
-  'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmRenewLease', 'confirmPrepayRent', 'confirmRentCollection',
+  'confirmCreateHouse', 'confirmCreateTenant', 'confirmCreateLease', 'confirmHistoricalLeaseImport', 'confirmRenewLease', 'confirmPrepayRent', 'confirmRentCollection',
   'confirmCollectRent', 'confirmCollectBillBatch', 'confirmMeterReading', 'settleMoveOut'
 ]);
 
@@ -1190,6 +1190,7 @@ function createRentalActions(caller) {
     previewCreateHouse: preview.previewCreateHouse,
     previewCreateTenant: preview.previewCreateTenant,
     previewCreateLease: preview.previewCreateLease,
+    previewHistoricalLeaseImport: preview.previewHistoricalLeaseImport,
     previewRenewLease: preview.previewRenewLease,
     previewPrepayRent: preview.previewPrepayRent,
     previewRentCollection: preview.previewRentCollection,
@@ -1199,6 +1200,7 @@ function createRentalActions(caller) {
     confirmCreateHouse: rentalCommand.confirmCreateHouse,
     confirmCreateTenant: rentalCommand.confirmCreateTenant,
     confirmCreateLease: rentalCommand.confirmCreateLease,
+    confirmHistoricalLeaseImport: rentalCommand.confirmHistoricalLeaseImport,
     confirmRenewLease: rentalCommand.confirmRenewLease,
     confirmRentCollection: rentalCommand.confirmRentCollection,
     confirmPrepayRent: rentalCommand.confirmPrepayRent,

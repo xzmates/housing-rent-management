@@ -1,0 +1,36 @@
+<view class="page-container">
+  <view class="workflow-head">
+    <view class="workflow-mark"></view>
+    <view style="flex:1;">
+      <text style="font-size:36rpx;font-weight:700;color:var(--gray-900);display:block;">拍摄历史合同</text>
+      <text style="font-size:24rpx;color:var(--gray-500);display:block;margin-top:10rpx;line-height:1.7;">按合同页码依次拍摄，避免阴影和反光。照片识别完成后立即删除。</text>
+    </view>
+  </view>
+
+  <view class="card privacy-card">
+    <text style="font-size:25rpx;font-weight:600;color:#166534;display:block;">隐私处理</text>
+    <text style="font-size:23rpx;color:#166534;display:block;margin-top:8rpx;line-height:1.6;">原图只用于本次 OCR，不保存到业务数据库；识别结果必须在下一页人工核对。</text>
+  </view>
+
+  <view class="photo-list" wx:if="{{photos.length}}">
+    <view class="photo-item" wx:for="{{photos}}" wx:key="path">
+      <image src="{{item.path}}" mode="aspectFill" class="photo-preview" />
+      <view class="photo-order">{{index + 1}}</view>
+      <button class="photo-remove" size="mini" catchtap="removePhoto" data-index="{{index}}">移除</button>
+    </view>
+  </view>
+
+  <view wx:else class="empty-capture" bindtap="choosePhotos">
+    <view class="capture-frame"></view>
+    <text style="font-size:28rpx;font-weight:600;color:var(--gray-800);display:block;">添加合同照片</text>
+    <text style="font-size:23rpx;color:var(--gray-500);display:block;margin-top:8rpx;">最多 9 页，支持拍照和相册</text>
+  </view>
+
+  <button class="btn" bindtap="choosePhotos" disabled="{{recognizing}}">{{photos.length ? '重新选择照片' : '拍摄或选择照片'}}</button>
+  <button class="btn btn-primary" style="margin-top:18rpx;" bindtap="recognize" loading="{{recognizing}}" disabled="{{recognizing || !photos.length}}">{{recognizing ? '正在识别' : '识别并进入合同建档'}}</button>
+  <button class="manual-button" bindtap="startManual" disabled="{{recognizing}}">不拍照，直接手工建档</button>
+
+  <view wx:if="{{statusText}}" class="status-strip">
+    <text>{{statusText}}</text>
+  </view>
+</view>
