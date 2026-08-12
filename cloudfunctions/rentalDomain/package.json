@@ -4,6 +4,7 @@
   "main": "index.js",
   "dependencies": {
     "@cloudbase/node-sdk": "latest",
+    "wx-server-sdk": "latest",
     "ws": "latest"
   }
 }

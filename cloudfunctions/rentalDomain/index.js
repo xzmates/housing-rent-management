@@ -6,11 +6,20 @@ const { createQueryService } = require('./application/query-service')
 const { createPreviewService } = require('./application/preview-service')
 const { createCommandService } = require('./application/command-service')
 const { safeAudit } = require('./infrastructure/audit')
+const { createNotificationService } = require('./application/notification-service')
+const { createWechatSubscribeSender } = require('./infrastructure/wechat-subscribe-client')
+const wxCloud = require('wx-server-sdk')
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV })
 const db = app.database()
 const repo = createRepository(db)
 const command = createCommandService(app, db)
+wxCloud.init({ env: wxCloud.DYNAMIC_CURRENT_ENV })
+const notification = createNotificationService({
+  db,
+  repo,
+  sendMessage: createWechatSubscribeSender()
+})
 
 function createActions(caller) {
   const scopedRepo = repo.forOwner(caller.openId)
@@ -62,6 +71,9 @@ function createActions(caller) {
     getOperatingOverview: query.getOperatingOverview,
     getSubjectProfile: query.getSubjectProfile,
     auditLeaseRentCoverage: query.auditLeaseRentCoverage,
+    getDailyReminderSubscription: notification.getDailyReminderSubscription,
+    recordDailyReminderConsent: notification.recordDailyReminderConsent,
+    disableDailyReminder: notification.disableDailyReminder,
     getOperationConfirmation,
     previewCreateHouse: preview.previewCreateHouse,
     previewCreateTenant: preview.previewCreateTenant,
@@ -98,6 +110,16 @@ exports.main = async (event = {}, context = {}) => {
   let action = ''
   let caller = null
   try {
+    const wxContext = wxCloud.getWXContext() || {}
+    const triggerName = process.env.WECHAT_REMINDER_TRIGGER_NAME || 'dailyReceivableReminder0900'
+    const triggerSecret = String(process.env.WECHAT_REMINDER_TRIGGER_SECRET || '')
+    const hasTrustedManualSecret = Boolean(triggerSecret) && String(event.TriggerSecret || '') === triggerSecret
+    const isTimer = event.Type === 'Timer' && event.TriggerName === triggerName && (!wxContext.OPENID || hasTrustedManualSecret)
+    if (isTimer) {
+      const data = await notification.runDailyReceivableReminders()
+      console.info('[rentalDomain] daily reminder completed', { requestId, ...data })
+      return { code: 0, message: 'ok', data, requestId }
+    }
     action = String(event.action || '')
     caller = getCaller(app)
     const actions = createActions(caller)

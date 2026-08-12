@@ -91,6 +91,53 @@
   font-weight: 700;
 }
 
+.wechat-reminder-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-bottom: 18rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  background: #F1F7FF;
+  border: 1rpx solid #D8E9FF;
+}
+
+.wechat-reminder-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.wechat-reminder-title {
+  display: block;
+  color: var(--home-ink);
+  font-size: 27rpx;
+  font-weight: 700;
+}
+
+.wechat-reminder-status {
+  display: block;
+  margin-top: 6rpx;
+  color: var(--home-muted);
+  font-size: 22rpx;
+}
+
+.wechat-reminder-action {
+  flex-shrink: 0;
+  min-width: 176rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 32rpx;
+  text-align: center;
+  color: #FFFFFF;
+  background: var(--home-blue);
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.wechat-reminder-action.is-disabled {
+  opacity: 0.52;
+}
+
 .upcoming-rent-panel { border: 1rpx solid #D8E9FF; }
 .upcoming-summary .summary-money { color: var(--home-blue); }
 .upcoming-rent-list { border-color: #D8E9FF; }
@@ -326,6 +373,14 @@
 }
 
 @media (max-width: 360px) {
+  .wechat-reminder-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .wechat-reminder-action {
+    width: 100%;
+    box-sizing: border-box;
+  }
   .reminder-row {
     grid-template-columns: 1fr;
   }

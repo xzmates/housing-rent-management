@@ -614,12 +614,15 @@ function createQueryService(repo, command) {
         billIds: [],
         periods: [],
         rentRanges: [],
+        dueDates: [],
         overdueAmount: 0,
         overdueCount: 0
       }
       current.amount = money(current.amount + Number(bill.remaining || 0))
       current.billCount += 1
       current.billIds.push(bill.id)
+      const dueDate = businessDateKey(bill.dueDate)
+      if (dueDate && !current.dueDates.includes(dueDate)) current.dueDates.push(dueDate)
       const range = bill.type === 'rent' ? rentRangeForBill(bill) : null
       if (range) current.rentRanges.push(range)
       else {
@@ -634,6 +637,7 @@ function createQueryService(repo, command) {
     })
     return [...groups.values()].map(item => ({
       ...item,
+      earliestDueDate: [...item.dueDates].sort()[0] || '',
       periodText: item.type === 'rent' ? mergeRentRanges(item.rentRanges).join('、') || item.periods.join('、') : item.periods.join('、'),
       statusText: item.overdueCount ? `含 ${item.overdueCount} 笔逾期` : '待收'
     })).sort((a, b) => Number(b.overdueAmount > 0) - Number(a.overdueAmount > 0) || String(a.houseLabel).localeCompare(String(b.houseLabel), 'zh-CN', { numeric: true }))
