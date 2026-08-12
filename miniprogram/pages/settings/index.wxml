@@ -25,6 +25,19 @@
       </view>
     </view>
 
+    <view class="reminder-setting-card glass-panel">
+      <view class="reminder-setting-main">
+        <view class="reminder-setting-icon"><view class="reminder-bell"></view></view>
+        <view class="reminder-setting-copy">
+          <text class="reminder-setting-title">微信每日提醒</text>
+          <text class="reminder-setting-status">{{notificationSubscription.statusText}}</text>
+        </view>
+      </view>
+      <view class="reminder-setting-action {{!notificationSubscription.templateConfigured || notificationLoading ? 'is-disabled' : ''}}" bindtap="requestDailyReminder">
+        <text>{{notificationLoading ? '处理中' : notificationSubscription.actionText}}</text>
+      </view>
+    </view>
+
     <view class="glass-panel">
       <view class="section-head">
         <view>

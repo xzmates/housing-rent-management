@@ -6,7 +6,14 @@
 
 const db = () => wx.cloud.database();
 const _ = () => db().command;
+const dataRefresh = require('../utils/data-refresh');
 const PAGE_SIZE = 20;
+
+async function mutation(promise) {
+  const result = await promise;
+  dataRefresh.markChanged();
+  return result;
+}
 
 async function queryAll(collectionName, options = {}) {
   const { where = {}, orderBy, pageSize = PAGE_SIZE } = options;
@@ -53,30 +60,30 @@ async function callRentalDomain(action, params = {}) {
 /** 创建租赁合同（自动生成租金账单） */
 async function createLease(params) {
   await assertLeaseCreatable(params.houseId, params.tenantId);
-  return callRentalDomain('confirmCreateLease', params);
+  return mutation(callRentalDomain('confirmCreateLease', params));
 }
 
 /** 添加水电抄表记录（自动生成水电账单） */
 async function addMeterReading(params) {
-  return callRentalDomain('confirmMeterReading', params);
+  return mutation(callRentalDomain('confirmMeterReading', params));
 }
 
 /** 缴费（更新账单状态） */
 async function payBill(billId, amount, paymentDate, paymentMethod) {
-  return callRentalDomain('confirmCollectRent', { billId, amount, paymentDate, paymentMethod });
+  return mutation(callRentalDomain('confirmCollectRent', { billId, amount, paymentDate, paymentMethod }));
 }
 
 /** 对首页同一待收分组内的多笔账单一次确认缴费，云端事务按账期顺序分配金额。 */
 async function payBillBatch(billIds, amount, paymentDate, paymentMethod) {
-  return callRentalDomain('confirmCollectBillBatch', { billIds, amount, paymentDate, paymentMethod });
+  return mutation(callRentalDomain('confirmCollectBillBatch', { billIds, amount, paymentDate, paymentMethod }));
 }
 
 /** 退租结算 */
 async function terminateLease(paramsOrLeaseId, endDate, damageDeduction) {
   if (typeof paramsOrLeaseId === 'object') {
-    return callRentalDomain('settleMoveOut', paramsOrLeaseId);
+    return mutation(callRentalDomain('settleMoveOut', paramsOrLeaseId));
   }
-  return callRentalDomain('settleMoveOut', { leaseId: paramsOrLeaseId, endDate, damageDeduction });
+  return mutation(callRentalDomain('settleMoveOut', { leaseId: paramsOrLeaseId, endDate, damageDeduction }));
 }
 
 async function previewCollectRent(params) {
@@ -100,7 +107,7 @@ async function previewHistoricalLeaseImport(params) {
 }
 
 async function confirmHistoricalLeaseImport(confirmationId) {
-  return callRentalDomain('confirmHistoricalLeaseImport', { confirmationId });
+  return mutation(callRentalDomain('confirmHistoricalLeaseImport', { confirmationId }));
 }
 
 async function recognizeHistoricalLeaseImages(fileIds) {
@@ -116,7 +123,7 @@ async function previewPrepayRent(params) {
 }
 
 async function confirmPrepayRent(params) {
-  return callRentalDomain('confirmPrepayRent', params);
+  return mutation(callRentalDomain('confirmPrepayRent', params));
 }
 
 async function previewRentCollection(params) {
@@ -124,7 +131,7 @@ async function previewRentCollection(params) {
 }
 
 async function confirmRentCollection(params) {
-  return callRentalDomain('confirmRentCollection', params);
+  return mutation(callRentalDomain('confirmRentCollection', params));
 }
 
 async function previewMeterReading(params) {
@@ -147,17 +154,17 @@ async function getOperationConfirmation(confirmationId) {
 
 /** 删除合同，并同步删除该合同对应的账单、流水和水电记录 */
 async function deleteLease(leaseId) {
-  return _callCloud('deleteLeaseAgreement', { leaseId });
+  return mutation(_callCloud('deleteLeaseAgreement', { leaseId }));
 }
 
 /** 生成月租账单 */
 async function generateMonthlyBills(targetMonth) {
-  return _callCloud('generateMonthlyRentBills', targetMonth ? { targetMonth } : {});
+  return mutation(_callCloud('generateMonthlyRentBills', targetMonth ? { targetMonth } : {}));
 }
 
 /** 为生效合同生成下一期租金账单，可用于提前收租 */
 async function createNextRentBill(leaseId, options = {}) {
-  return callRentalDomain('confirmRenewLease', { leaseId, ...options });
+  return mutation(callRentalDomain('confirmRenewLease', { leaseId, ...options }));
 }
 
 /** 获取房屋当前租客信息 */
@@ -287,6 +294,7 @@ function normalizeCreatedHouseResult(result = {}) {
 
 async function addHouse(data) {
   const result = await callRentalDomain('confirmCreateHouse', data);
+  dataRefresh.markChanged();
   return normalizeCreatedHouseResult(result);
 }
 
@@ -301,9 +309,9 @@ async function updateHouse(id, data) {
       throw new Error('该房屋已有生效合同，请先退租后再设为可租');
     }
   }
-  return db().collection('houses').doc(id).update({
+  return mutation(db().collection('houses').doc(id).update({
     data: { ...data, updatedAt: db().serverDate() }
-  });
+  }));
 }
 
 async function deleteHouse(id) {
@@ -313,7 +321,7 @@ async function deleteHouse(id) {
   if ((leases.data && leases.data.length > 0) || house.status === 'rented') {
     throw new Error('该房屋正在出租中，请先退租再删除');
   }
-  return db().collection('houses').doc(id).remove();
+  return mutation(db().collection('houses').doc(id).remove());
 }
 
 // ---- 租客（纯人员信息）----
@@ -353,6 +361,7 @@ function normalizeCreatedTenantResult(result = {}) {
 
 async function addTenant(data) {
   const result = await callRentalDomain('confirmCreateTenant', data);
+  dataRefresh.markChanged();
   return normalizeCreatedTenantResult(result);
 }
 
@@ -363,7 +372,7 @@ async function updateTenant(id, data) {
   if (data.phone !== undefined) update.phone = data.phone;
   if (data.remark !== undefined) update.remark = data.remark;
   update.updatedAt = db().serverDate();
-  return db().collection('tenants').doc(id).update({ data: update });
+  return mutation(db().collection('tenants').doc(id).update({ data: update }));
 }
 
 async function deleteTenant(id) {
@@ -372,7 +381,7 @@ async function deleteTenant(id) {
   if (leases.data && leases.data.length > 0) {
     throw new Error('该租客有未结束的合同，无法删除');
   }
-  return db().collection('tenants').doc(id).remove();
+  return mutation(db().collection('tenants').doc(id).remove());
 }
 
 async function getTenantsWithOccupancy(filters) {
@@ -477,13 +486,13 @@ async function getSystemSettings() {
 async function updateSystemSettings(data) {
   const current = await getSystemSettings();
   if (current.data && current.data[0] && current.data[0]._id) {
-    return db().collection('system_settings').doc('global').update({
+    return mutation(db().collection('system_settings').doc('global').update({
       data: { ...data, updatedAt: db().serverDate() }
-    });
+    }));
   }
-  return db().collection('system_settings').add({
+  return mutation(db().collection('system_settings').add({
     data: { _id: 'global', ...data, updatedAt: db().serverDate() }
-  });
+  }));
 }
 
 async function getUtilityPrices() {

@@ -1,96 +1,38 @@
 <view class="home-page payments-page">
   <view class="home-hero">
-    <text class="home-hero-title">缴费记录</text>
-    <text class="home-hero-subtitle">收付款账单明细</text>
-    <button class="home-hero-action" bindtap="exportCSV"><view class="hero-action-icon export-mark"></view><text>导出</text></button>
+    <text class="home-hero-title">收租</text>
+    <text class="home-hero-subtitle">租金、水电及其他待收</text>
   </view>
 
   <view class="home-shell glass-panel">
+    <view class="collection-tabs">
+      <view class="collection-tab overdue-tab {{collectionTab === 'overdue' ? 'active' : ''}}" bindtap="setCollectionTab" data-tab="overdue">
+        <text>逾期 {{overdueCount}}</text><text class="collection-tab-amount">¥{{overdueAmount}}</text>
+      </view>
+      <view class="collection-tab pending-tab {{collectionTab === 'pending' ? 'active' : ''}}" bindtap="setCollectionTab" data-tab="pending">
+        <text>待缴 {{pendingCount}}</text><text class="collection-tab-amount">¥{{pendingAmount}}</text>
+      </view>
+    </view>
     <view class="payment-filter-block">
       <view class="filter-main-row">
         <picker class="filter-house-picker" mode="selector" range="{{houseOptions}}" bindchange="onHouseFilterChange">
           <view class="house-picker filter-control {{houseFilterId ? 'active' : ''}}">{{houseFilterLabel}}<text class="control-caret">⌄</text></view>
         </picker>
-        <view class="date-range-inline">
-          <picker class="date-picker-control" mode="date" value="{{filters.dateStart}}" bindchange="onDateStartChange">
-            <view class="date-range-picker"><text>{{filters.dateStart || '开始日期'}}</text><text class="calendar-mark"></text></view>
-          </picker>
-          <text class="date-range-separator">至</text>
-          <picker class="date-picker-control" mode="date" value="{{filters.dateEnd}}" bindchange="onDateEndChange">
-            <view class="date-range-picker"><text>{{filters.dateEnd || '结束日期'}}</text><text class="calendar-mark"></text></view>
-          </picker>
-          <view wx:if="{{filters.dateStart || filters.dateEnd}}" class="date-range-clear" bindtap="clearDateRange">清除</view>
+        <view class="bill-number-search soft-search">
+          <view class="search-mark"></view>
+          <input class="home-search-input" value="{{houseCodeSearch}}" placeholder="搜编号" bindinput="onHouseCodeSearch" />
         </view>
       </view>
-      <text class="date-range-hint">已收按收款日期统计；待收显示当前状态</text>
       <view class="filter-chip-group wrap-chips">
-        <view class="soft-chip {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
-        <view class="soft-chip {{filters.status === 'unpaid' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="unpaid">待缴</view>
-        <view class="soft-chip {{filters.status === 'paid' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="paid">已缴</view>
+        <view class="soft-chip {{filters.type === '' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="">全部</view>
         <view class="soft-chip {{filters.type === 'rent' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="rent">租金</view>
         <view class="soft-chip {{filters.type === 'utility' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="utility">水电</view>
       </view>
     </view>
 
-    <view class="payment-stats">
-      <view class="payment-stat stat-receivable">
-        <text class="stat-label-text">当前待收</text>
-        <text class="stat-number">¥{{stats.currentReceivableAmount}}</text>
-        <text class="stat-desc">逾期 ¥{{stats.overdueAmount}}</text>
-      </view>
-      <view class="payment-stat stat-settlement">
-        <text class="stat-label-text">本期经营结算</text>
-        <text class="stat-number">¥{{stats.operatingSettlementTotal}}</text>
-        <text class="stat-desc">租金、水电和房损</text>
-      </view>
-      <view class="payment-stat stat-deposit">
-        <text class="stat-label-text">在管押金</text>
-        <text class="stat-number">¥{{stats.managedDeposit}}</text>
-        <text class="stat-desc">尚未退还或抵扣</text>
-      </view>
-    </view>
-
-    <view class="cashflow-detail-toggle tap-card" bindtap="toggleFinancialDetail">
-      <view class="detail-toggle-title"><view class="detail-toggle-icon"></view><text>收付款明细</text></view>
-      <view class="cashflow-detail-toggle-right">
-        <text>{{showFinancialDetail ? '收起' : '展开详情'}}</text>
-        <text class="cashflow-detail-arrow">{{showFinancialDetail ? '⌃' : '›'}}</text>
-      </view>
-    </view>
-
-    <view wx:if="{{!showFinancialDetail}}" class="cashflow-collapsed-summary">结算：租金 ¥{{stats.rentSettled}} · 水电 ¥{{stats.utilitySettled}} · 房损 ¥{{stats.damageSettled}}</view>
-
-    <view wx:if="{{showFinancialDetail}}" class="cashflow-detail">
-      <text class="cashflow-detail-title">经营结算</text>
-      <view class="cashflow-detail-grid">
-        <text>租金 ¥{{stats.rentSettled}}</text><text>水电 ¥{{stats.utilitySettled}}</text>
-        <text>房屋损失费 ¥{{stats.damageSettled}}</text>
-        <text class="detail-total detail-settlement-total">经营结算合计 ¥{{stats.operatingSettlementTotal}}</text>
-      </view>
-      <text class="cashflow-detail-title refund-detail-title">现金流入</text>
-      <view class="cashflow-detail-grid">
-        <text>租金现金 ¥{{stats.rentReceived}}</text><text>水电现金 ¥{{stats.utilityReceived}}</text>
-        <text>收押金 ¥{{stats.depositReceived}}</text>
-        <text class="detail-total">现金流入合计 ¥{{stats.cashReceived}}</text>
-      </view>
-      <text class="cashflow-detail-title refund-detail-title">押金使用</text>
-      <view class="cashflow-detail-grid">
-        <text>房损扣除 ¥{{stats.damageDepositDeducted}}</text>
-        <text wx:if="{{stats.depositOffsetRent}}">抵扣租金 ¥{{stats.depositOffsetRent}}</text>
-        <text wx:if="{{stats.depositOffsetUtility}}">抵扣水电 ¥{{stats.depositOffsetUtility}}</text>
-        <text wx:if="{{stats.depositOffsetOther}}">抵扣其他费用 ¥{{stats.depositOffsetOther}}</text>
-      </view>
-      <text class="cashflow-detail-title refund-detail-title">实际退款构成</text>
-      <view class="cashflow-detail-grid">
-        <text>退押金 ¥{{stats.depositRefund}}</text><text>退多收租金 ¥{{stats.rentRefund}}</text>
-        <text>其他退款 ¥{{stats.otherRefund}}</text><text class="detail-total">本期实际退款 ¥{{stats.cashRefunded}}</text>
-      </view>
-      <text class="cashflow-detail-note">经营结算统计租金、水电和房损；现金流入只统计实际到账与收押金；押金使用是已收押金的去向，不会重复计入现金流入。</text>
-    </view>
-
     <view class="section-head compact-head">
       <view class="bill-title-group">
-        <view class="bill-title-icon"></view><text class="section-title">账单明细</text>
+        <view class="bill-title-icon"></view><text class="section-title">{{collectionTab === 'overdue' ? '逾期账单' : '待缴账单'}}</text>
         <text class="section-note">共 {{bills.length}} 条，第 {{currentPage}} / {{totalPages}} 页</text>
       </view>
       <picker mode="selector" range="{{displayLimitOptions}}" value="{{displayLimitIndex}}" bindchange="onDisplayLimitChange">

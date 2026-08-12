@@ -1,14 +1,18 @@
 <view class="home-page houses-page">
   <view class="home-hero">
-    <text class="home-hero-title">房屋管理</text>
-    <text class="home-hero-subtitle">共 {{houses.length}} 套房</text>
-    <button class="home-hero-action" bindtap="showAddModal">
+    <text class="home-hero-title">房屋与租客</text>
+    <text class="home-hero-subtitle">{{activeEntityTab === 'houses' ? '共 ' + houses.length + ' 套房' : '集中管理租客档案'}}</text>
+    <button class="home-hero-action" bindtap="handleAddEntity">
       <view class="hero-action-icon"></view>
       <text>添加</text>
     </button>
   </view>
 
-  <view class="home-shell glass-panel">
+  <view wx:if="{{activeEntityTab === 'houses'}}" class="home-shell glass-panel">
+    <view class="entity-tabs">
+      <view class="entity-tab active">房屋</view>
+      <view class="entity-tab" bindtap="openTenantTab">租客</view>
+    </view>
     <view class="home-filter-row">
       <view class="filter-chip-group">
         <view class="soft-chip {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
@@ -17,7 +21,7 @@
       </view>
       <view class="soft-search">
         <view class="search-mark"></view>
-        <input placeholder="搜编号" bindinput="onSearchInput" class="home-search-input" />
+        <input value="{{filters.code}}" placeholder="搜编号" bindinput="onSearchInput" class="home-search-input" />
       </view>
     </view>
 
@@ -79,6 +83,14 @@
         </view>
       </view>
     </view>
+  </view>
+
+  <view wx:else class="home-shell glass-panel tenant-shell">
+    <view class="entity-tabs">
+      <view class="entity-tab" bindtap="openHouseTab">房屋</view>
+      <view class="entity-tab active">租客</view>
+    </view>
+    <tenant-manager id="tenantManager" embedded="{{true}}" bind:switchhouse="openHouseTab" />
   </view>
 
   <!-- 添加/编辑模态框 -->

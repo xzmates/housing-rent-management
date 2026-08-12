@@ -1,10 +1,11 @@
 const api = require('../../services/api');
 const V = require('../../utils/validate');
+const dataRefresh = require('../../utils/data-refresh');
 
 Page({
   data: {
-    loading: false, saving: false, showModal: false,
-    editingHouse: null, houses: [],
+    loading: false, saving: false, showModal: false, activeEntityTab: 'houses',
+    editingHouse: null, houses: [], allHouses: [],
     filters: { status: '', code: '' },
     form: { code: '', address: '', rent: 0, status: 'available' },
     addressOptions: ['东楼', '里召'],
@@ -13,9 +14,36 @@ Page({
     statusIndex: 0
   },
 
-  onLoad() { this.consumeCreateHouseHandoff(); this.loadHouses(); },
-  onPullDownRefresh() { this.loadHouses().then(() => wx.stopPullDownRefresh()); },
-  onShow() { this.consumeCreateHouseHandoff(); this.loadHouses(); },
+  onLoad() { this.consumeCreateHouseHandoff(); },
+  onPullDownRefresh() { this.loadHouses(true).then(() => wx.stopPullDownRefresh()); },
+  onShow() {
+    const targetTab = wx.getStorageSync('propertyManagerTab');
+    if (targetTab === 'tenants') {
+      wx.removeStorageSync('propertyManagerTab');
+      this.setData({ activeEntityTab: 'tenants' });
+    }
+    this.consumeCreateHouseHandoff();
+    if (dataRefresh.needsRefresh(this)) this.loadHouses();
+  },
+
+  openTenantTab() {
+    this.setData({ activeEntityTab: 'tenants' });
+  },
+
+  openHouseTab() {
+    this.setData({ activeEntityTab: 'houses' });
+  },
+
+  handleAddEntity() {
+    if (this.data.activeEntityTab === 'houses') {
+      this.showAddModal();
+      return;
+    }
+    const tenantManager = this.selectComponent('#tenantManager');
+    if (tenantManager && typeof tenantManager.showAddModal === 'function') {
+      tenantManager.showAddModal();
+    }
+  },
 
   consumeCreateHouseHandoff() {
     const app = getApp();
@@ -31,11 +59,20 @@ Page({
   async loadHouses() {
     this.setData({ loading: true });
     try {
-      const [result, utilityRes] = await Promise.all([
-        api.getHousesWithOccupancy(this.data.filters),
-        api.getUtilityRecords().catch(() => ({ data: [] }))
+      const [result, utilityRes, tenantRes] = await Promise.all([
+        api.getHousesWithOccupancy(),
+        api.getUtilityRecords().catch(() => ({ data: [] })),
+        api.getTenants()
       ]);
       const houses = result.data || [];
+      const tenantMap = Object.fromEntries((tenantRes.data || []).map(item => [item._id, item]));
+      const activeLeaseIds = houses.map(item => item.activeLease && item.activeLease._id).filter(Boolean);
+      const billRes = activeLeaseIds.length ? await api.getBills({ leaseIds: activeLeaseIds }) : { data: [] };
+      const billsByLease = (billRes.data || []).reduce((map, item) => {
+        if (!map[item.leaseId]) map[item.leaseId] = [];
+        map[item.leaseId].push(item);
+        return map;
+      }, {});
       const latestMeterByHouse = {};
       (utilityRes.data || []).forEach(record => {
         if (record.houseId && !latestMeterByHouse[record.houseId]) {
@@ -52,7 +89,7 @@ Page({
       });
 
       // 为已租房屋批量加载租客信息
-      const enriched = await Promise.all(houses.map(async (house) => {
+      const enriched = houses.map((house) => {
         const h = { ...house };
         const latestMeter = latestMeterByHouse[house._id];
         if (latestMeter) {
@@ -60,20 +97,21 @@ Page({
           h.electricityReading = latestMeter.electricityReading;
           h.waterReading = latestMeter.waterReading;
         }
-        if (house.hasActiveLease) {
-          try {
-            const leaseData = await api.getHouseCurrentLease(house._id);
-            if (leaseData.tenant) {
+        if (house.hasActiveLease && house.activeLease) {
+          const currentLease = house.activeLease;
+          const tenant = tenantMap[currentLease.tenantId];
+          if (tenant) {
               h.tenantInfo = {
-                name: leaseData.tenant.name,
-                id: leaseData.tenant._id,
-                leaseId: leaseData.currentLease._id,
-                moveInDateStr: api.formatDate(leaseData.currentLease.startDate)
+                name: tenant.name,
+                id: tenant._id,
+                leaseId: currentLease._id,
+                moveInDateStr: api.formatDate(currentLease.startDate)
               };
-            }
-            // 计算下次收租日（从最近的 unpaid bill 的 dueDate）
-            const bills = leaseData.recentBills || [];
-            const unpaidBill = bills.find(b => b.status === 'unpaid' && b.type === 'rent');
+          }
+            const bills = billsByLease[currentLease._id] || [];
+            const unpaidBill = bills
+              .filter(b => b.status !== 'paid' && b.type === 'rent' && Number(b.amount || 0) > Number(b.paidAmount || 0))
+              .sort((a, b) => new Date(a.dueDate || 0) - new Date(b.dueDate || 0))[0];
             if (unpaidBill) {
               const dueDate = new Date(unpaidBill.dueDate);
               const today = new Date();
@@ -84,14 +122,12 @@ Page({
                 daysUntilDue
               };
             }
-          } catch (e) {
-            console.warn(`加载房屋 ${house.code} 租客信息失败`, e);
-          }
         }
         return h;
-      }));
+      });
 
-      this.setData({ houses: enriched });
+      this.setData({ allHouses: enriched }, () => this.applyHouseFilters());
+      dataRefresh.markLoaded(this);
     } catch (e) {
       console.error('加载房屋失败', e);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -102,15 +138,22 @@ Page({
 
   setFilter(e) {
     const { key, val } = e.currentTarget.dataset;
-    const filters = this.data.filters;
-    filters[key] = val;
-    this.setData({ filters }, () => this.loadHouses());
+    const filters = { ...this.data.filters, [key]: val };
+    this.setData({ filters }, () => this.applyHouseFilters());
   },
 
   onSearchInput(e) {
-    const filters = this.data.filters;
-    filters.code = e.detail.value;
-    this.setData({ filters }, () => this.loadHouses());
+    const filters = { ...this.data.filters, code: e.detail.value };
+    this.setData({ filters }, () => this.applyHouseFilters());
+  },
+
+  applyHouseFilters() {
+    const { status = '', code = '' } = this.data.filters || {};
+    const keyword = String(code).trim().toLowerCase();
+    let houses = this.data.allHouses || [];
+    if (status) houses = houses.filter(item => item.status === status);
+    if (keyword) houses = houses.filter(item => String(item.code || '').toLowerCase().includes(keyword));
+    this.setData({ houses });
   },
 
   showAddModal() {

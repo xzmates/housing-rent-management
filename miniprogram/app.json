@@ -5,6 +5,7 @@
     "pages/tenants/index",
     "pages/tenant-detail/index",
     "pages/payments/index",
+    "pages/bills/index",
     "pages/prepay-rent/index",
     "pages/utility/index",
     "pages/batch-meter/index",
@@ -31,32 +32,32 @@
       {
         "pagePath": "pages/dashboard/index",
         "text": "首页",
-        "iconPath": "images/tab-home.png",
-        "selectedIconPath": "images/tab-home-active.png"
+        "iconPath": "images/tab-dashboard.png",
+        "selectedIconPath": "images/tab-dashboard-active.png"
       },
       {
         "pagePath": "pages/houses/index",
-        "text": "房屋",
-        "iconPath": "images/tab-house.png",
-        "selectedIconPath": "images/tab-house-active.png"
-      },
-      {
-        "pagePath": "pages/tenants/index",
-        "text": "租客",
-        "iconPath": "images/tab-tenant.png",
-        "selectedIconPath": "images/tab-tenant-active.png"
+        "text": "房客",
+        "iconPath": "images/tab-property-tenant.png",
+        "selectedIconPath": "images/tab-property-tenant-active.png"
       },
       {
         "pagePath": "pages/payments/index",
-        "text": "缴费",
-        "iconPath": "images/tab-payment.png",
-        "selectedIconPath": "images/tab-payment-active.png"
+        "text": "收租",
+        "iconPath": "images/tab-rent.png",
+        "selectedIconPath": "images/tab-rent-active.png"
+      },
+      {
+        "pagePath": "pages/bills/index",
+        "text": "账单",
+        "iconPath": "images/tab-bill.png",
+        "selectedIconPath": "images/tab-bill-active.png"
       },
       {
         "pagePath": "pages/settings/index",
         "text": "我的",
-        "iconPath": "images/tab-settings.png",
-        "selectedIconPath": "images/tab-settings-active.png"
+        "iconPath": "images/tab-profile.png",
+        "selectedIconPath": "images/tab-profile-active.png"
       }
     ]
   },

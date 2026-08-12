@@ -1,4 +1,6 @@
 const api = require('../../services/api');
+const dataRefresh = require('../../utils/data-refresh');
+const { billTypeText } = require('../../utils/billing-labels');
 
 function toTime(value) {
   if (!value) return 0;
@@ -41,7 +43,7 @@ function effectiveBillStatus(bill = {}) {
 function billStatusText(bill = {}) {
   const status = effectiveBillStatus(bill);
   if (['deposit_return', 'rent_refund'].indexOf(bill.type) >= 0 && status === 'paid') return '已退';
-  if (status === 'paid') return '已经缴清';
+  if (status === 'paid') return '已缴清';
   const due = toTime(bill.dueDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -147,8 +149,14 @@ Page({
     bills: [], visibleBills: [], allBills: [], allPayments: [],
     allHouses: [], allLeases: [],
     filters: { status: '', type: '', dateStart: '', dateEnd: '' },
+    collectionTab: 'overdue',
+    overdueCount: 0,
+    pendingCount: 0,
+    overdueAmount: 0,
+    pendingAmount: 0,
     houseFilterId: '',
     houseFilterLabel: '全部房屋',
+    houseCodeSearch: '',
     houseOptions: ['全部房屋'],
     displayLimitOptions: [10, 20],
     displayLimit: 10,
@@ -181,11 +189,12 @@ Page({
     this.setData({ payDate: today });
   },
 
-  onPullDownRefresh() { this.loadAll().then(() => wx.stopPullDownRefresh()); },
-  onShow() { this.loadAll(); },
+  onPullDownRefresh() { this.loadAll(true).then(() => wx.stopPullDownRefresh()); },
+  onShow() { if (dataRefresh.needsRefresh(this)) this.loadAll(); },
 
   async loadAll() {
-    await Promise.all([this.loadHouses(), this.loadBills()]);
+    const housesPromise = this.loadHouses();
+    await this.loadBills(housesPromise);
     this.openDashboardSelectedBills();
   },
 
@@ -198,6 +207,12 @@ Page({
       wx.showToast({ title: '该待收账单已结清，请刷新首页', icon: 'none' });
       return;
     }
+    const firstBill = bills[0];
+    const due = toTime(firstBill && firstBill.dueDate);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const dueDay = due ? new Date(due) : null;
+    if (dueDay) dueDay.setHours(0, 0, 0, 0);
+    this.setData({ collectionTab: dueDay && dueDay < today ? 'overdue' : 'pending' });
     this.openPayBills(bills);
   },
 
@@ -213,10 +228,11 @@ Page({
       });
       const options = ['全部房屋'].concat(houses.map(h => `${h.code} - ${h.address}`));
       this.setData({ allHouses: houses, houseOptions: options });
+      return houses;
     } catch (e) { console.error(e); }
   },
 
-  async loadBills() {
+  async loadBills(housesPromise) {
     this.setData({ loading: true });
     try {
       // 获取所有合同，包含已退租合同，确保历史缴费记录仍可查看
@@ -241,11 +257,13 @@ Page({
         tenantIds.add(l.tenantId);
       });
 
-      // 批量加载房屋和租客
-      const [houseData, tenantData] = await Promise.all([
-        Promise.all([...houseIds].map(id => api.getHouseById(id).catch(() => null))),
-        Promise.all([...tenantIds].map(id => api.getTenantById(id).catch(() => null)))
+      // 一次读取房屋和租客，避免按合同逐条查询。
+      const [houseRes, tenantRes] = await Promise.all([
+        housesPromise ? housesPromise.then(data => ({ data: data || [] })) : api.getHouses(),
+        api.getTenants()
       ]);
+      const houseData = (houseRes.data || []).filter(item => houseIds.has(item._id));
+      const tenantData = (tenantRes.data || []).filter(item => tenantIds.has(item._id));
       const houseMap = {};
       houseData.forEach(h => { if (h) houseMap[h._id] = h; });
       const tenantMap = {};
@@ -275,7 +293,7 @@ Page({
           houseLabel: house.code ? `${house.code} - ${house.address}` : '',
           tenantName: tenant.name || '',
           houseId: lease.houseId,
-          typeText: { rent: '租金', deposit: '押金', utility: '水电费', deposit_return: '押金退还', rent_refund: '租金退还', extra_due: '退租补缴', damage: '退租补缴', other: '其他费用' }[bill.type] || bill.type,
+          typeText: billTypeText(bill.type),
           statusText: billStatusText(normalized),
           dueDateStr: api.formatDate(bill.dueDate),
           billDateText: bill.type === 'utility'
@@ -284,41 +302,8 @@ Page({
           utilityDetail: bill.type === 'utility' ? (bill.remark || '') : ''
         };
       });
-      let bills = allBills.slice();
-
-      // 筛选
-      const { status, type } = this.data.filters;
-      if (status === 'unpaid') {
-        bills = bills.filter(b => b.status === 'unpaid' || b.status === 'partial');
-      } else if (status) {
-        bills = bills.filter(b => b.status === status);
-      }
-      if (type) bills = bills.filter(b => b.type === type);
-      if (this.data.houseFilterId) {
-        const filterLeaseIds = leases.filter(l => l.houseId === this.data.houseFilterId).map(l => l._id);
-        bills = bills.filter(b => filterLeaseIds.indexOf(b.leaseId) >= 0);
-      }
-      this.setData({ allPayments: paymentsRes.data || [] });
-      bills = this.filterBillsByDateRange(bills);
-
-      // 排序：已逾期 → 今日应收 → 其他待收 → 已缴。
-      bills.sort((a, b) => {
-        const priority = item => {
-          if (item.status === 'paid') return 9;
-          const due = toTime(item.dueDate);
-          if (!due) return 3;
-          const today = new Date(); today.setHours(0, 0, 0, 0);
-          const dueDay = new Date(due); dueDay.setHours(0, 0, 0, 0);
-          if (dueDay < today) return 0;
-          if (dueDay.getTime() === today.getTime()) return 1;
-          return 2;
-        };
-        if (priority(a) !== priority(b)) return priority(a) - priority(b);
-        return (a.dueDate || '').localeCompare(b.dueDate || '');
-      });
-
-      this.updateVisibleBills(bills, 1, { allBills });
-      await this.loadFinancialSummary();
+      this.setData({ allBills, allPayments: paymentsRes.data || [] }, () => this.applyCollectionFilters());
+      dataRefresh.markLoaded(this);
     } catch (e) {
       console.error('加载账单失败', e);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -372,11 +357,51 @@ Page({
     });
   },
 
+  applyCollectionFilters() {
+    let bills = (this.data.allBills || []).filter(b => billRemaining(b) > 0 && b.status !== 'paid');
+    const { type } = this.data.filters;
+    if (type) bills = bills.filter(b => b.type === type);
+    if (this.data.houseFilterId) bills = bills.filter(b => b.houseId === this.data.houseFilterId);
+    const keyword = String(this.data.houseCodeSearch || '').trim().toLowerCase();
+    if (keyword) {
+      bills = bills.filter(b => {
+        const house = (this.data.allHouses || []).find(item => item._id === b.houseId);
+        return String((house && house.code) || '').toLowerCase().includes(keyword);
+      });
+    }
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const overdueBills = bills.filter(item => {
+      const due = toTime(item.dueDate);
+      if (!due) return false;
+      const dueDay = new Date(due); dueDay.setHours(0, 0, 0, 0);
+      return dueDay < today;
+    });
+    const pendingBills = bills.filter(item => !overdueBills.includes(item));
+    const overdueAmount = money(overdueBills.reduce((sum, item) => sum + billRemaining(item), 0));
+    const pendingAmount = money(pendingBills.reduce((sum, item) => sum + billRemaining(item), 0));
+    let collectionTab = this.data.collectionTab;
+    if (!overdueBills.length && collectionTab === 'overdue') collectionTab = 'pending';
+    bills = collectionTab === 'overdue' ? overdueBills : pendingBills;
+    bills.sort((a, b) => (toTime(a.dueDate) || Infinity) - (toTime(b.dueDate) || Infinity));
+    this.updateVisibleBills(bills, 1, { collectionTab, overdueCount: overdueBills.length, pendingCount: pendingBills.length, overdueAmount, pendingAmount });
+  },
+
+  onHouseCodeSearch(e) {
+    this.setData({ houseCodeSearch: e.detail.value, currentPage: 1 }, () => this.applyCollectionFilters());
+  },
+
   setFilter(e) {
     const { key, val } = e.currentTarget.dataset;
     const filters = { ...this.data.filters };
     filters[key] = filters[key] === val ? '' : val;
-    this.setData({ filters, currentPage: 1 }, () => this.loadBills());
+    this.setData({ filters, currentPage: 1 }, () => this.applyCollectionFilters());
+  },
+
+  setCollectionTab(e) {
+    const collectionTab = e.currentTarget.dataset.tab;
+    if (!collectionTab || collectionTab === this.data.collectionTab) return;
+    this.setData({ collectionTab, currentPage: 1 }, () => this.applyCollectionFilters());
   },
 
   filterBillsByDateRange(bills = []) {
@@ -457,14 +482,14 @@ Page({
   onHouseFilterChange(e) {
     const idx = Number(e.detail.value);
     if (idx === 0) {
-      this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋', currentPage: 1 }, () => this.loadBills());
+      this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋', currentPage: 1 }, () => this.applyCollectionFilters());
     } else {
       const house = this.data.allHouses[idx - 1];
       if (!house) {
-        this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋', currentPage: 1 }, () => this.loadBills());
+        this.setData({ houseFilterId: '', houseFilterLabel: '全部房屋', currentPage: 1 }, () => this.applyCollectionFilters());
         return;
       }
-      this.setData({ houseFilterId: house._id, houseFilterLabel: house.code, currentPage: 1 }, () => this.loadBills());
+      this.setData({ houseFilterId: house._id, houseFilterLabel: house.code, currentPage: 1 }, () => this.applyCollectionFilters());
     }
   },
 

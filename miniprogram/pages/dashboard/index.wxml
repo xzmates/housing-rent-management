@@ -44,16 +44,6 @@
         </view>
       </view>
 
-      <view class="wechat-reminder-bar">
-        <view class="wechat-reminder-copy">
-          <text class="wechat-reminder-title">微信每日提醒</text>
-          <text class="wechat-reminder-status">{{notificationSubscription.statusText}}</text>
-        </view>
-        <view class="wechat-reminder-action {{!notificationSubscription.templateConfigured || notificationLoading ? 'is-disabled' : ''}}" bindtap="requestDailyReminder">
-          <text>{{notificationLoading ? '处理中' : notificationSubscription.actionText}}</text>
-        </view>
-      </view>
-
       <view wx:if="{{receivableGroups.length === 0}}" class="soft-empty">
         <view class="empty-line-icon symbol-wave"></view>
         <text>暂无待收账单</text>

@@ -74,6 +74,58 @@
   flex-shrink: 0;
 }
 
+.reminder-setting-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.reminder-setting-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  gap: 18rpx;
+}
+
+.reminder-setting-icon {
+  position: relative;
+  flex: 0 0 76rpx;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  background: #FFF4E5;
+  color: #C96D13;
+}
+
+.reminder-bell::before {
+  content: '';
+  position: absolute;
+  left: 23rpx;
+  top: 17rpx;
+  width: 28rpx;
+  height: 31rpx;
+  border: 4rpx solid currentColor;
+  border-radius: 16rpx 16rpx 8rpx 8rpx;
+}
+
+.reminder-bell::after {
+  content: '';
+  position: absolute;
+  left: 31rpx;
+  top: 53rpx;
+  width: 16rpx;
+  border-top: 4rpx solid currentColor;
+  border-radius: 4rpx;
+}
+
+.reminder-setting-copy { min-width: 0; flex: 1; }
+.reminder-setting-title { display: block; color: var(--home-ink); font-size: 29rpx; font-weight: 800; }
+.reminder-setting-status { display: block; margin-top: 8rpx; color: var(--home-muted); font-size: 22rpx; line-height: 1.4; }
+.reminder-setting-action { flex-shrink: 0; padding: 16rpx 20rpx; border-radius: 18rpx; background: #E7F1FF; color: #1677FF; font-size: 23rpx; font-weight: 700; }
+.reminder-setting-action.is-disabled { background: #F1F5F9; color: #94A3B8; }
+
 .admin-metric {
   width: 96rpx;
   height: 92rpx;
@@ -261,4 +313,7 @@
   .setting-input-wrap {
     width: 100%;
   }
+
+  .reminder-setting-card { align-items: stretch; flex-direction: column; }
+  .reminder-setting-action { text-align: center; }
 }

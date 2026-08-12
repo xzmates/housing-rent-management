@@ -6,7 +6,7 @@
       "_meta": {
         "ui": {
           "componentPath": "components/tenant-result/index",
-          "pagePath": "/pages/tenants/index"
+          "pagePath": "/pages/houses/index"
         }
       },
       "inputSchema": {
@@ -70,7 +70,7 @@
       "_meta": {
         "ui": {
           "componentPath": "components/tenant-result/index",
-          "pagePath": "/pages/tenants/index"
+          "pagePath": "/pages/houses/index"
         }
       },
       "inputSchema": {
@@ -146,7 +146,7 @@
   "components": [
     {
       "path": "components/tenant-result/index",
-      "relatedPage": "/pages/tenants/index"
+      "relatedPage": "/pages/houses/index"
     }
   ]
 }

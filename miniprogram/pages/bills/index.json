@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "收租",
+  "navigationBarTitleText": "账单",
   "enablePullDownRefresh": true,
   "backgroundColor": "#EEF6FF",
   "navigationStyle": "custom"

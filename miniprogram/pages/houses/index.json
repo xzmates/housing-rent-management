@@ -2,5 +2,6 @@
   "navigationBarTitleText": "房屋管理",
   "enablePullDownRefresh": true,
   "backgroundColor": "#EEF6FF",
-  "navigationStyle": "custom"
+  "navigationStyle": "custom",
+  "usingComponents": { "tenant-manager": "/components/tenant-manager/index" }
 }

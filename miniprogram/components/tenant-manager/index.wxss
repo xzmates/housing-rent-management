@@ -1,0 +1,4 @@
+@import "../../pages/tenants/index.wxss";
+
+.tenants-page { min-height:0; background:transparent; }
+.tenants-page .home-shell { margin:0; padding:0; border-radius:0; background:transparent; box-shadow:none; }

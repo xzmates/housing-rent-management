@@ -142,3 +142,7 @@
     width: 100%;
   }
 }
+.entity-tabs { display:flex; gap:8rpx; margin-bottom:24rpx; padding:6rpx; border-radius:18rpx; background:#EDF3FA; }
+.entity-tab { flex:1; padding:18rpx 0; border-radius:14rpx; color:#627896; font-size:27rpx; font-weight:700; text-align:center; }
+.entity-tab.active { background:#FFF; color:#1677FF; box-shadow:0 4rpx 14rpx rgba(30,79,140,.10); }
+.tenant-shell { padding-bottom:44rpx; }

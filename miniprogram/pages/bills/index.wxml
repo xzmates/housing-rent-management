@@ -1,0 +1,85 @@
+<view class="home-page bills-page">
+  <view class="home-hero">
+    <text class="home-hero-title">账单</text>
+    <text class="home-hero-subtitle">已结清账单与收付款明细</text>
+    <button class="home-hero-action" bindtap="exportCSV"><view class="hero-action-icon export-mark"></view><text>导出</text></button>
+  </view>
+
+  <view class="home-shell glass-panel">
+    <view class="payment-filter-block">
+      <view class="filter-main-row">
+        <picker class="filter-house-picker" mode="selector" range="{{houseOptions}}" bindchange="onHouseFilterChange">
+          <view class="house-picker filter-control">{{houseFilterLabel}}<text class="control-caret">⌄</text></view>
+        </picker>
+        <view class="date-range-inline">
+          <picker class="date-picker-control" mode="date" value="{{filters.dateStart}}" bindchange="onDateStartChange"><view class="date-range-picker">{{filters.dateStart || '开始日期'}}</view></picker>
+          <text class="date-range-separator">至</text>
+          <picker class="date-picker-control" mode="date" value="{{filters.dateEnd}}" bindchange="onDateEndChange"><view class="date-range-picker">{{filters.dateEnd || '结束日期'}}</view></picker>
+        </view>
+      </view>
+      <view class="bill-number-search soft-search">
+        <view class="search-mark"></view>
+        <input class="home-search-input" value="{{houseCodeSearch}}" placeholder="搜编号" bindinput="onHouseCodeSearch" />
+      </view>
+      <view wx:if="{{filters.dateStart || filters.dateEnd}}" class="date-range-clear" bindtap="clearDateRange">清除日期范围</view>
+      <text class="date-range-hint">日期范围按实际付款日期统计</text>
+      <view class="filter-chip-group wrap-chips">
+        <view class="soft-chip {{filters.type === '' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="">全部</view>
+        <view class="soft-chip {{filters.type === 'rent' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="rent">租金</view>
+        <view class="soft-chip {{filters.type === 'utility' ? 'active' : ''}}" bindtap="setFilter" data-key="type" data-val="utility">水电</view>
+      </view>
+    </view>
+
+    <view class="bill-stats">
+      <view class="bill-stat settlement-stat"><text class="stat-label-text">本期经营结算</text><text class="stat-number">¥{{stats.operatingSettlementTotal}}</text><text class="stat-desc">租金、水电和房损</text></view>
+      <view class="bill-stat deposit-stat"><text class="stat-label-text">在管押金</text><text class="stat-number">¥{{stats.managedDeposit}}</text><text class="stat-desc">尚未退还或抵扣</text></view>
+    </view>
+
+    <view class="cashflow-detail-toggle tap-card" bindtap="toggleFinancialDetail">
+      <view class="detail-toggle-title"><view class="detail-toggle-icon"></view><text>收付款明细</text></view>
+      <text class="cashflow-detail-toggle-right">{{showFinancialDetail ? '收起' : '展开详情'}}　{{showFinancialDetail ? '⌃' : '›'}}</text>
+    </view>
+    <view wx:if="{{!showFinancialDetail}}" class="cashflow-collapsed-summary">现金流入 ¥{{stats.cashReceived}} · 实际退款 ¥{{stats.cashRefunded}}</view>
+    <view wx:if="{{showFinancialDetail}}" class="cashflow-detail">
+      <text class="cashflow-detail-title">经营结算</text>
+      <view class="cashflow-detail-grid"><text>租金 ¥{{stats.rentSettled}}</text><text>水电 ¥{{stats.utilitySettled}}</text><text>房屋损失费 ¥{{stats.damageSettled}}</text><text class="detail-total">合计 ¥{{stats.operatingSettlementTotal}}</text></view>
+      <text class="cashflow-detail-title detail-space">现金流入</text>
+      <view class="cashflow-detail-grid"><text>租金现金 ¥{{stats.rentReceived}}</text><text>水电现金 ¥{{stats.utilityReceived}}</text><text>收押金 ¥{{stats.depositReceived}}</text><text class="detail-total">合计 ¥{{stats.cashReceived}}</text></view>
+      <text class="cashflow-detail-title detail-space">押金使用</text>
+      <view class="cashflow-detail-grid"><text>房损扣除 ¥{{stats.damageDepositDeducted}}</text><text>抵扣租金 ¥{{stats.depositOffsetRent}}</text><text>抵扣水电 ¥{{stats.depositOffsetUtility}}</text><text>抵扣其他 ¥{{stats.depositOffsetOther}}</text></view>
+      <text class="cashflow-detail-title detail-space">实际退款构成</text>
+      <view class="cashflow-detail-grid"><text>退押金 ¥{{stats.depositRefund}}</text><text>退多收租金 ¥{{stats.rentRefund}}</text><text>其他退款 ¥{{stats.otherRefund}}</text><text class="detail-total refund-total">合计 ¥{{stats.cashRefunded}}</text></view>
+    </view>
+
+    <view class="section-head compact-head">
+      <view class="bill-title-group"><view class="bill-title-icon"></view><text class="section-title">已结清账单</text><text class="section-note">共 {{bills.length}} 条，第 {{currentPage}} / {{totalPages}} 页</text></view>
+      <picker mode="selector" range="{{displayLimitOptions}}" value="{{displayLimitIndex}}" bindchange="onDisplayLimitChange"><view class="bill-limit-picker">{{displayLimit}} 条/页</view></picker>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading"><text class="loading-text">加载中...</text></view>
+    <view wx:elif="{{bills.length === 0}}" class="empty-state"><text class="empty-text">暂无已结清账单</text></view>
+    <view wx:else class="payment-list">
+      <view wx:for="{{visibleBills}}" wx:key="_id" class="payment-card tap-card" bindtap="showDetail" data-bill="{{item}}">
+        <view class="payment-row-main"><view class="payment-title-block"><view class="payment-title-row"><text class="payment-type">{{item.typeText}}</text><text class="status-pill status-green">{{item.statusText}}</text></view><text wx:if="{{item.period}}" class="payment-period">{{item.period}}</text></view><text class="payment-amount">¥{{item.paidAmount}}</text></view>
+        <view class="payment-meta"><text>{{item.houseLabel}}</text><text>{{item.tenantName}}</text></view>
+        <view wx:if="{{item.utilityDetail}}" class="utility-note">{{item.utilityDetail}}</view>
+        <view class="payment-row-bottom"><text>{{item.transactionDateLabel}} {{item.paymentDateStr || '日期未记录'}}</text><text>{{item.paymentMethodText}}</text></view>
+      </view>
+      <view wx:if="{{totalPages > 1}}" class="pagination-bar"><button class="pagination-button" size="mini" disabled="{{currentPage === 1}}" bindtap="changePage" data-direction="-1">上一页</button><text class="pagination-status">第 {{currentPage}} / {{totalPages}} 页</text><button class="pagination-button" size="mini" disabled="{{currentPage === totalPages}}" bindtap="changePage" data-direction="1">下一页</button></view>
+    </view>
+  </view>
+
+  <view wx:if="{{showDetailModal && detailBill}}" class="modal-mask" bindtap="closeDetail">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="flex-row justify-between align-center detail-head"><text class="detail-title">账单详情</text><text bindtap="closeDetail" class="detail-close">×</text></view>
+      <view class="detail-row"><text>类型</text><text>{{detailBill.typeText}}</text></view>
+      <view class="detail-row"><text>期间</text><text>{{detailBill.period || '-'}}</text></view>
+      <view class="detail-row"><text>应收</text><text>¥{{detailBill.amount}}</text></view>
+      <view class="detail-row"><text>实收</text><text>¥{{detailBill.paidAmount}}</text></view>
+      <view class="detail-row"><text>{{detailBill.transactionDateLabel}}日期</text><text>{{detailBill.paymentDateStr || '未记录'}}</text></view>
+      <view class="detail-row"><text>处理方式</text><text>{{detailBill.paymentMethodText}}</text></view>
+      <view class="detail-row"><text>房屋</text><text>{{detailBill.houseLabel}}</text></view>
+      <view class="detail-row"><text>租客</text><text>{{detailBill.tenantName}}</text></view>
+    </view>
+  </view>
+</view>

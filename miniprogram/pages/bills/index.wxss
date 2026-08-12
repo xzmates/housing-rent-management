@@ -1,0 +1,61 @@
+.bills-page .home-hero { min-height:252rpx; }
+.bills-page .home-shell { margin-top:-8rpx; padding:32rpx 28rpx 44rpx; border-radius:34rpx 34rpx 0 0; background:rgba(255,255,255,.96); }
+.payment-filter-block { display:flex; flex-direction:column; gap:14rpx; margin-bottom:26rpx; }
+.filter-main-row,.date-range-inline,.house-picker,.payment-row-main,.payment-row-bottom { display:flex; align-items:center; }
+.filter-main-row { gap:12rpx; }
+.filter-house-picker { flex:1; min-width:0; }
+.bill-number-search { width:100%; min-height:68rpx; box-sizing:border-box; }
+.bill-number-search .home-search-input { min-width:0; }
+.date-range-inline { flex:2; min-width:0; gap:8rpx; }
+.date-picker-control { flex:1; min-width:0; }
+.filter-control,.date-range-picker { min-height:68rpx; box-sizing:border-box; padding:0 14rpx; border:1rpx solid #D9E6F5; border-radius:17rpx; background:#F9FBFE; color:#2A3951; font-size:22rpx; }
+.house-picker { justify-content:space-between; font-weight:700; }
+.date-range-picker { display:flex; align-items:center; white-space:nowrap; }
+.date-range-separator { color:#64748B; font-size:23rpx; }
+.date-range-clear { align-self:flex-end; color:#1677FF; font-size:22rpx; }
+.date-range-hint { color:#627896; font-size:22rpx; }
+.bill-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12rpx; margin-bottom:22rpx; }
+.bill-stat { min-height:154rpx; box-sizing:border-box; padding:20rpx; border-radius:20rpx; }
+.settlement-stat { background:#EFFBF5; border:1rpx solid #D4F0E1; }
+.deposit-stat { background:#F1F7FF; border:1rpx solid #D4E3FC; }
+.stat-label-text,.stat-desc { display:block; color:#6B7280; font-size:22rpx; }
+.stat-number { display:block; margin:12rpx 0 8rpx; color:#13945F; font-size:34rpx; font-weight:800; }
+.deposit-stat .stat-number { color:#1677FF; }
+.cashflow-detail-toggle { display:flex; align-items:center; justify-content:space-between; min-height:88rpx; padding:0 22rpx; border:1rpx solid #DCE8F6; border-radius:20rpx; background:#FAFCFF; font-size:28rpx; font-weight:800; }
+.detail-toggle-title { display:flex; align-items:center; gap:14rpx; }
+.detail-toggle-icon,.bill-title-icon { width:40rpx; height:40rpx; border-radius:10rpx; background:#1677FF; }
+.cashflow-detail-toggle-right { color:#1677FF; font-size:23rpx; }
+.cashflow-collapsed-summary { margin:12rpx 4rpx 24rpx; color:#63738A; font-size:23rpx; }
+.cashflow-detail { margin:14rpx 0 26rpx; padding:22rpx; border-radius:20rpx; background:#F7FAFE; }
+.cashflow-detail-title { display:block; margin-bottom:12rpx; font-size:27rpx; font-weight:800; }
+.detail-space { margin-top:20rpx; }
+.cashflow-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10rpx; }
+.cashflow-detail-grid text { padding:13rpx; border-radius:12rpx; background:#FFF; color:#627086; font-size:22rpx; }
+.cashflow-detail-grid .detail-total { grid-column:1/-1; color:#136E4C; font-weight:800; background:#EAF8F1; }
+.cashflow-detail-grid .refund-total { color:#A13A3A; background:#FFF1F1; }
+.compact-head { margin-top:26rpx; }
+.bill-title-group { display:flex; align-items:center; flex-wrap:wrap; gap:8rpx 12rpx; }
+.bill-title-group .section-note { width:100%; margin-left:52rpx; }
+.bill-limit-picker { padding:13rpx 16rpx; border:1rpx solid #D4E2F5; border-radius:15rpx; color:#1677FF; font-size:22rpx; }
+.payment-list { display:flex; flex-direction:column; gap:16rpx; }
+.payment-card { position:relative; overflow:hidden; padding:24rpx 24rpx 22rpx 30rpx; border:1rpx solid #DDE7F1; border-radius:23rpx; background:#FFF; box-shadow:0 8rpx 20rpx rgba(35,83,137,.06); }
+.payment-card::before { content:''; position:absolute; inset:0 auto 0 0; width:7rpx; background:#13945F; }
+.payment-row-main,.payment-row-bottom { justify-content:space-between; gap:16rpx; }
+.payment-title-block { min-width:0; flex:1; }
+.payment-title-row { display:flex; align-items:center; gap:10rpx; }
+.payment-type { font-size:32rpx; font-weight:800; }
+.payment-period,.payment-meta { color:#6B7280; font-size:23rpx; }
+.payment-period { display:block; margin-top:7rpx; }
+.payment-amount { font-size:37rpx; font-weight:800; color:#13945F; }
+.payment-meta { display:flex; flex-wrap:wrap; gap:10rpx 16rpx; margin-top:15rpx; }
+.payment-row-bottom { margin-top:18rpx; color:#637086; font-size:23rpx; }
+.utility-note { margin-top:14rpx; padding:14rpx; border-radius:12rpx; background:#F3F8FF; color:#506179; font-size:23rpx; }
+.pagination-bar { display:flex; align-items:center; justify-content:space-between; padding-top:22rpx; }
+.pagination-button { margin:0; min-width:132rpx; color:#1677FF; font-size:23rpx; }
+.pagination-status { color:#67768D; font-size:23rpx; }
+.detail-head { margin-bottom:20rpx; }
+.detail-title { font-size:34rpx; font-weight:700; }
+.detail-close { padding:8rpx; color:#94A3B8; font-size:40rpx; }
+.detail-row { display:flex; justify-content:space-between; gap:20rpx; padding:16rpx 0; border-bottom:1rpx solid #E5EAF0; font-size:25rpx; }
+.detail-row text:first-child { color:#6B7280; }
+@media (max-width:360px) { .filter-main-row { align-items:stretch; flex-wrap:wrap; } .filter-house-picker,.date-range-inline { flex-basis:100%; } }

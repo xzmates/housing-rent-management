@@ -1,6 +1,6 @@
 <view class="home-page tenants-page">
-  <view class="home-hero">
-    <text class="home-hero-title">租客管理</text>
+  <view wx:if="{{!embedded}}" class="home-hero">
+    <text class="home-hero-title">房屋与租客</text>
     <text class="home-hero-subtitle">共 {{filteredTenants.length}} 位租客</text>
     <button class="home-hero-action" bindtap="showAddModal">
       <view class="hero-action-icon"></view>
@@ -9,6 +9,10 @@
   </view>
 
   <view class="home-shell glass-panel">
+    <view wx:if="{{!embedded}}" class="entity-tabs">
+      <view class="entity-tab" bindtap="openHouseTab">房屋</view>
+      <view class="entity-tab active">租客</view>
+    </view>
     <view class="home-filter-row">
       <view class="filter-chip-group">
         <view class="soft-chip {{filters.status === '' ? 'active' : ''}}" bindtap="setFilter" data-key="status" data-val="">全部</view>
